@@ -1,0 +1,27 @@
+/* Muster design tokens — the single source of truth for the design system.
+ * Imported from the Claude Design project "Muster — Collection Index".
+ * See SPEC.md → "Design language". */
+
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Archivo:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  /* ---- Palette ---- */
+  --paper: #fafaf8;       /* app background */
+  --panel: #ffffff;       /* inputs, raised cards */
+  --ink: #15140f;         /* primary text, strong borders, primary buttons */
+  --ink-hover: #36332b;   /* primary button hover */
+  --muted: #6f6c63;       /* secondary text, meta lines */
+  --faint: #9c9a91;       /* labels, tertiary text */
+  --fainter: #b6b4ac;     /* numerals, separators */
+  --rule: #c9c7bf;        /* medium borders (inputs, tags) */
+  --rule-light: #e4e2db;  /* light dividers (row separators) */
+  --danger: #b23a2e;      /* auth / validation error text */
+
+  /* ---- Type families ---- */
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* ---- Layout ---- */
+  --content-max: 1180px;
+}
