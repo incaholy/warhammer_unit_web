@@ -1,0 +1,31 @@
+.group {
+  display: inline-flex;
+  border: 1px solid var(--ink);
+}
+
+.segment {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 10px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--ink);
+}
+
+.segment:hover:not(.active) {
+  color: var(--ink);
+}
+
+.active {
+  background: var(--ink);
+  color: var(--paper);
+}
