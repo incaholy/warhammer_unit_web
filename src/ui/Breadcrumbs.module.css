@@ -1,0 +1,27 @@
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+}
+
+.crumb {
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+
+.crumb:hover {
+  color: var(--ink);
+}
+
+.current {
+  color: var(--ink);
+}
+
+.sep {
+  color: var(--fainter);
+}
