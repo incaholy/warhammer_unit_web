@@ -1,0 +1,158 @@
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 40px;
+  line-height: 1.05;
+  color: var(--ink);
+  margin-top: 6px;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* ---- Toolbar ---- */
+.toolbar {
+  margin: 24px 0 8px;
+  max-width: 360px;
+}
+
+.status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 32px 0;
+}
+
+/* ---- Role sections ---- */
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.section {
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 4px;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.chevron {
+  font-size: 12px;
+  color: var(--fainter);
+  transition: transform 0.15s ease;
+  transform: rotate(0deg);
+  line-height: 1;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.sectionName {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.sectionCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+  margin-left: auto;
+}
+
+/* ---- Rows ---- */
+.rows {
+  list-style: none;
+  padding: 0 4px 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule-light);
+}
+
+.unitName {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.roleTag {
+  flex: 0 0 auto;
+}
+
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.qtyLabel {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.qtyInput {
+  width: 72px;
+  text-align: center;
+}
+
+@media (max-width: 620px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .row {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+  }
+
+  .unitName {
+    flex-basis: 100%;
+  }
+}
