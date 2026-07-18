@@ -1,0 +1,23 @@
+.input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: 10px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--faint);
+}
+
+.input:focus {
+  border-color: var(--ink);
+}
+
+.input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
