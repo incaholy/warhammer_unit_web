@@ -52,4 +52,35 @@
   letter-spacing: 0.04em;
   color: var(--danger);
   text-transform: uppercase;
+  margin: 0;
+}
+
+/* Keyboard focus affordance. Scoped to the auth screen so it doesn't reach into
+ * the shared UI kit; every interactive element (toggle, inputs, submit) gets a
+ * visible ink outline when reached by keyboard. */
+.screen :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Responsive: the card is fluid up to its 400px cap, so it already fills narrow
+ * viewports. Below ~420px we trim the screen padding and tighten internal gaps
+ * so the form stays comfortable down to ~360px. */
+@media (max-width: 420px) {
+  .screen {
+    padding: 32px 16px;
+    align-items: flex-start;
+  }
+
+  .card {
+    gap: 22px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .form {
+    gap: 14px;
+  }
 }

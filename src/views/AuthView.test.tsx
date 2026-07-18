@@ -85,4 +85,44 @@ describe('AuthView', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials'),
     )
   })
+
+  it('disables the submit button and shows a pending label while the request is in flight', async () => {
+    // A fetch that never settles keeps the request pending so we can observe the
+    // submitting state.
+    let resolveFetch: (value: Response) => void = () => {}
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderView()
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'kesh@x.io' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret' },
+    })
+
+    const submit = screen
+      .getAllByRole('button', { name: 'Log In' })
+      .find((b) => b.getAttribute('type') === 'submit')!
+    fireEvent.click(submit)
+
+    // While pending: the button flips to its pending label and is disabled,
+    // which also prevents a double-submit.
+    const pending = await screen.findByRole('button', { name: 'Logging in…' })
+    expect(pending).toBeDisabled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // A second click on the disabled/pending button must not fire another request.
+    fireEvent.click(pending)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Let the request finish so the test doesn't leave a dangling promise.
+    resolveFetch(jsonResponse({ access_token: 'tok', token_type: 'bearer' }))
+  })
 })
