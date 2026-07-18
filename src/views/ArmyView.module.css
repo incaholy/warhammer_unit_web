@@ -119,3 +119,154 @@
   color: var(--faint);
   text-align: center;
 }
+
+/* ---- Points limit (header progress) ---- */
+
+.points {
+  margin-top: 22px;
+  max-width: 420px;
+}
+
+.pointsHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pointsCount {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pointsCount[data-over] {
+  color: var(--danger);
+}
+
+.overTag {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.pointsBar {
+  margin-top: 8px;
+  height: 4px;
+  background: var(--rule-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pointsFill {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+
+.pointsBarOver .pointsFill {
+  background: var(--danger);
+}
+
+/* ---- Validation + shortfall panels ---- */
+
+.panels {
+  margin-top: 48px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 40px;
+}
+
+.panel {
+  min-width: 0;
+}
+
+.panelTitle {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.panelStatus {
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.legal {
+  margin-top: 20px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.issueList,
+.shortfallList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.issue {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.issueHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.issueKind {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.issueUnit {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.issueDetail {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.shortfallRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.shortfallUnit {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.shortfallMeta {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.shortfallNeed {
+  color: var(--danger);
+  font-weight: 700;
+}
