@@ -60,7 +60,7 @@ export default function ArmyView() {
   const removeUnit = useRemoveArmyUnit(armyId)
 
   if (armyQuery.isPending) {
-    return <div className={styles.status}>Loading army…</div>
+    return <ArmySkeleton />
   }
   if (armyQuery.isError || !armyQuery.data) {
     return <div className={styles.status}>Army not found</div>
@@ -133,6 +133,7 @@ export default function ArmyView() {
                     size="sm"
                     onClick={() => handleRemove(unit.id)}
                     disabled={removeUnit.isPending}
+                    aria-label={`Remove ${unit.unit_name}`}
                   >
                     Remove
                   </Button>
@@ -155,6 +156,73 @@ export default function ArmyView() {
           isError={shortfallQuery.isError}
         />
       </div>
+    </div>
+  )
+}
+
+/** A single shimmering placeholder block. Purely decorative — hidden from the
+ * accessibility tree; the surrounding region carries the "loading" status. */
+function SkeletonBlock({ className }: { className?: string }) {
+  const cls = [styles.skeleton, className].filter(Boolean).join(' ')
+  return <span className={cls} aria-hidden="true" />
+}
+
+/** Full-page loading placeholder shown while the army query is pending: a
+ * skeleton header, a few order-of-battle rows, and quiet panel placeholders.
+ * The whole tree is a polite `status` region so assistive tech is told the
+ * page is loading rather than reading disjointed placeholder shapes. */
+function ArmySkeleton() {
+  return (
+    <div
+      className={styles.view}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading army"
+      data-testid="army-skeleton"
+    >
+      <header className={styles.header}>
+        <SkeletonBlock className={styles.skelEyebrow} />
+        <SkeletonBlock className={styles.skelName} />
+        <SkeletonBlock className={styles.skelMeta} />
+        <div className={styles.points}>
+          <SkeletonBlock className={styles.skelPointsCount} />
+          <SkeletonBlock className={styles.skelBar} />
+        </div>
+      </header>
+
+      <section className={styles.battle}>
+        <div className={styles.battleHead}>
+          <SkeletonBlock className={styles.skelSectionTitle} />
+        </div>
+        <div className={styles.group}>
+          <SkeletonBlock className={styles.skelGroupLabel} />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={styles.row}>
+              <SkeletonBlock className={styles.skelUnit} />
+              <SkeletonBlock className={styles.skelPoints} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className={styles.panels}>
+        <PanelSkeleton titled />
+        <PanelSkeleton titled />
+      </div>
+    </div>
+  )
+}
+
+/** Quiet pending placeholder for the legality / shortfall panels. `titled`
+ * also draws a placeholder for the panel heading (used inside the full-page
+ * skeleton, where no real heading is rendered). Decorative; the `label` is
+ * exposed to assistive tech so the panel announces what it is checking. */
+function PanelSkeleton({ titled = false, label }: { titled?: boolean; label?: string }) {
+  return (
+    <div className={styles.panelSkeleton} role="status" aria-label={label}>
+      {titled && <SkeletonBlock className={styles.skelPanelTitle} />}
+      <SkeletonBlock className={styles.skelLineWide} />
+      <SkeletonBlock className={styles.skelLine} />
     </div>
   )
 }
@@ -184,9 +252,11 @@ function PointsLimit({ army }: { army: Army_Read }) {
       <div
         className={barCls}
         role="progressbar"
+        aria-label="Points used against limit"
         aria-valuenow={total}
         aria-valuemin={0}
         aria-valuemax={limit}
+        aria-valuetext={`${total} of ${limit} points${over ? ', over limit' : ''}`}
       >
         <span className={styles.pointsFill} style={{ width: `${pct}%` }} />
       </div>
@@ -206,10 +276,12 @@ function ValidationPanel({
   isError: boolean
 }) {
   return (
-    <section className={styles.panel}>
-      <h2 className={styles.panelTitle}>Legality</h2>
+    <section className={styles.panel} aria-labelledby="legality-title">
+      <h2 className={styles.panelTitle} id="legality-title">
+        Legality
+      </h2>
       {isPending ? (
-        <p className={styles.panelStatus}>Checking…</p>
+        <PanelSkeleton label="Checking legality" />
       ) : isError || !data ? (
         <p className={styles.panelStatus}>Validation unavailable</p>
       ) : data.ok ? (
@@ -253,10 +325,12 @@ function ShortfallPanel({
   const needed = (data ?? []).filter((row) => row.need > 0)
 
   return (
-    <section className={styles.panel}>
-      <h2 className={styles.panelTitle}>What to Buy</h2>
+    <section className={styles.panel} aria-labelledby="what-to-buy-title">
+      <h2 className={styles.panelTitle} id="what-to-buy-title">
+        What to Buy
+      </h2>
       {isPending ? (
-        <p className={styles.panelStatus}>Checking…</p>
+        <PanelSkeleton label="Checking your collection" />
       ) : isError || !data ? (
         <p className={styles.panelStatus}>Shortfall unavailable</p>
       ) : needed.length === 0 ? (
