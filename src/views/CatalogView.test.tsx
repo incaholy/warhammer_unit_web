@@ -117,6 +117,19 @@ describe('CatalogView', () => {
     vi.unstubAllGlobals()
   })
 
+  it('shows loading skeletons while the units query is pending', async () => {
+    renderView()
+
+    // On the first render the units query is still pending → the skeleton
+    // placeholder (an accessible loading status) is shown before rows arrive.
+    const status = screen.getByRole('status', { name: /loading units/i })
+    expect(status).toBeInTheDocument()
+
+    // The skeleton must give way to real rows once the query resolves.
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: /loading units/i })).not.toBeInTheDocument()
+  })
+
   it('renders unit rows with faction · role and an owned tag', async () => {
     renderView()
 
