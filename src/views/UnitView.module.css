@@ -1,0 +1,232 @@
+/* UnitView — the full unit datasheet. Composed from the UI kit; only the
+ * datasheet-specific layout (profile grid, weapon tables, section rhythm) lives
+ * here. See SPEC.md → "UnitView". */
+
+.page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+/* ---- Header: eyebrow + serif name, with context actions on the right ---- */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  margin-top: 10px;
+}
+
+.points {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---- Context action area (optional) ---- */
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.actionLabel {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.qtyRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qtyInput {
+  width: 84px;
+  text-align: center;
+}
+
+.ownedLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+/* ---- Section scaffolding ---- */
+
+.section {
+  margin-top: 44px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 11px;
+  color: var(--faint);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+/* ---- Profile grid (M / T / Sv / W / Ld / OC) ---- */
+
+.profile {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border: 1px solid var(--rule);
+}
+
+.stat {
+  padding: 16px 12px;
+  text-align: center;
+  border-right: 1px solid var(--rule-light);
+}
+
+.stat:last-child {
+  border-right: none;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.statValue {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--ink);
+}
+
+/* ---- Weapon tables ---- */
+
+.table {
+  margin-top: 16px;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  color: var(--faint);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule-light);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.wpnName {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--ink);
+  white-space: normal;
+}
+
+/* Numeric weapon stat columns are narrow and right-aligned. */
+.num {
+  text-align: right;
+  color: var(--muted);
+}
+
+th.num {
+  text-align: right;
+}
+
+.wpnKeywords {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 9px;
+  color: var(--faint);
+}
+
+.emptyRow {
+  padding: 14px 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* ---- Abilities ---- */
+
+.ability {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.ability:last-child {
+  border-bottom: none;
+}
+
+.abilityName {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.abilityDesc {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 68ch;
+}
+
+/* ---- Keywords ---- */
+
+.keywords {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- Loading / empty ---- */
+
+.placeholder {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--muted);
+}
