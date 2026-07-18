@@ -76,8 +76,10 @@ Rules (the frontend analogues of the backend's layering rules):
 | Styling | **CSS variables + CSS Modules** (extracted theme) | Design tokens live once in `theme.css`; component styles are co-located and DRY (the chosen alternative to the design's verbatim inline styles) |
 | API types | **`openapi-typescript`** from `/openapi.json` | Keeps `Unit_Read`/`Army_Read` in lockstep with `models.py` |
 
-These are the intended stack; only Vite/React/TS are installed today (see MVP.md
-"Feature checklist" for build status).
+This stack is fully in place and building (see MVP.md "Feature checklist"). One
+deviation from the table: `types.ts` is **hand-written** and verified against the
+live `/openapi.json` rather than generated — the `openapi-typescript` migration is
+deferred (see Roadmap step 12).
 
 ## Design language
 
@@ -426,30 +428,48 @@ where it and the real API must be reconciled, and how:
 ## Roadmap
 
 Ordered easiest-first, mirroring the backend SPEC's style. Steps 1–8 are the MVP
-port; 9+ surface backend capabilities the base design omitted.
+port; 9+ surface backend capabilities the base design omitted. **Steps 1–12 are
+complete** (144 tests, lint + build clean, contract verified against the live
+backend); the remaining polish items are called out per step.
 
-1. **Scaffold** — install `react-router-dom`, TanStack Query; add `theme.css` /
-   `global.css`; remove the Vite demo (`App.css`, demo `App.tsx`, assets).
-2. **HTTP client + types** — `client.ts` (base, JWT, `ApiError`, form-login,
-   `X-Total-Count`) and `types.ts` (generated from OpenAPI).
-3. **Auth** — `AuthContext`, `RequireAuth`, `AuthView` (login/signup), Vite proxy.
-4. **UI kit** — Button, Input/Field, Tag, SegmentedToggle, Modal, Toast, Header,
-   Breadcrumbs, Eyebrow, EmptyState from the design tokens.
-5. **Collection + New Army modal** — armies list/grid, create army.
-6. **Catalog + Unit datasheet** — faction filter, search, add-to-target; the
+1. ✅ **Scaffold** — `react-router-dom`, TanStack Query; `theme.css` /
+   `global.css`; Vite demo removed.
+2. ✅ **HTTP client + types** — `client.ts` (base, JWT, `ApiError`, form-login,
+   `X-Total-Count`) and `types.ts` (hand-written, verified vs `/openapi.json`;
+   generation deferred — step 12).
+3. ✅ **Auth** — `AuthContext`, `RequireAuth`, `AuthView` (login/signup), Vite proxy.
+4. ✅ **UI kit** — Button, Input/Field, Tag, SegmentedToggle, Modal (focus-trap),
+   Toast, Header, Breadcrumbs, Eyebrow, EmptyState from the design tokens.
+5. ✅ **Collection + New Army modal** — armies list/grid, create army.
+6. ✅ **Catalog + Unit datasheet** — faction filter, search, add-to-target; the
    profile/weapons/abilities/keywords datasheet.
-7. **Inventory** — grouped owned units, editable amounts, add-to-inventory.
-8. **Army detail** — order of battle, add/remove units, points total.
-9. **Points limit + validation panel** — surface `points_limit` (progress vs
-   limit) and `GET …/validate` issues (over-points, wrong-faction/subfaction) on
-   the army view.
-10. **Shortfall** — a "what to buy" panel diffing an army against inventory
-    (`GET …/validate`-sibling `shortfall`).
-11. **Richer New Army** — subfaction (from `GET /factions/taxonomy`), description,
+7. ✅ **Inventory** — grouped owned units, editable amounts, add-to-inventory.
+8. ✅ **Army detail** — order of battle, add/remove units, points total.
+9. ✅ **Points limit + validation panel** — `points_limit` progress + `/validate`
+   issues (over-points, wrong-faction/subfaction) on the army view.
+10. ✅ **Shortfall** — a "what to buy" panel diffing an army against inventory.
+11. ✅ **Richer New Army** — subfaction (dependent select), description,
     points-limit fields.
-12. **Polish** — optimistic mutations, skeleton loaders, keyboard/focus handling
-    on modal, responsive breakpoints, `npm run gen:api` script, tests (Vitest +
-    MSW).
+12. ◑ **Polish** — done: skeleton loaders, responsive breakpoints, modal
+    focus-trap/keyboard a11y, tests (Vitest + RTL). **Deferred:** optimistic
+    mutations (currently invalidate-and-refetch) and the `npm run gen:api` script
+    (MSW not adopted — tests mock `fetch`/hooks directly).
+
+### Post-roadmap additions (beyond the original plan)
+
+- ✅ **Routing + breadcrumbs shell** — the central route table (`App.tsx`) mounting
+  every view behind `RequireAuth` in a `Header` shell, with route-structural
+  breadcrumbs.
+- ✅ **Toasts wired to mutations** — `src/toast/` bus + provider; the QueryClient's
+  `MutationCache` surfaces failures (the `ApiError` message) and successes
+  (`meta.successMessage`) centrally.
+- ✅ **Error boundary** — a render-error fallback instead of a blank screen.
+- ✅ **Route-level code splitting** — `React.lazy` + `Suspense` per view.
+- ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`) running lint + build +
+  test on push/PR to `main`.
+- **Deferred:** deploy config (`VITE_API_BASE_URL`, backend `SECRET_KEY` /
+  `ALLOWED_ORIGINS`) and a Playwright e2e smoke; `Army_Read.created_at` awaits a
+  backend field.
 
 ## Out of scope (not MVP)
 

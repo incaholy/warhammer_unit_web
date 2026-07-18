@@ -28,87 +28,104 @@ uppercase labels.
 
 `register → log in → browse the catalog → record what you own → build army lists
 → read points / shortfall / validity`. Building army lists is **independent of
-what the user owns** — a list may include units not yet bought. The **backend loop
-works today**; this app makes it usable in a browser. **Status: not yet built**
-(planning phase — see the checklist).
+what the user owns** — a list may include units not yet bought. **This loop is
+built and works** — every screen is wired to the real API, and the full contract
+has been verified end-to-end against the live backend.
 
 ## Status at a glance
 
-**Planning.** The repo is a fresh Vite + React + TS scaffold. This SPEC/MVP pair
-defines the build; no application code exists yet. The backend it targets is
-feature-complete and **frontend-ready** (CORS, seed, typed errors, catalog reads
-with `X-Total-Count`, OpenAPI schema).
+**Built.** The full SPEC roadmap (steps 1–12) is complete plus post-roadmap
+hardening (toasts, error boundary, code-splitting, CI). **144 tests pass**, lint
++ build clean, and the frontend↔backend contract is verified against a running,
+seeded backend (1,332 units). Remaining work is deploy-time config and a few
+deferred niceties (see below).
 
 ## Parts of the system
 
 | Part | Where | Status |
 |---|---|---|
-| App shell — providers, routing, auth gate, header/breadcrumbs | `src/App.tsx`, `src/main.tsx` | ☐ |
-| Design system — tokens + global CSS | `src/styles/` | ☐ |
-| HTTP client — base URL, JWT, `ApiError`, form-login, `X-Total-Count` | `src/api/client.ts` | ☐ |
-| API types — generated from `/openapi.json` | `src/api/types.ts` | ☐ |
-| Data layer — per-resource functions + Query hooks | `src/api/*`, `queries.ts` | ☐ |
-| Auth/session — context, guard, login/signup | `src/auth/` | ☐ |
-| UI kit — buttons, inputs, tags, modal, toast, header, breadcrumbs | `src/ui/` | ☐ |
-| Views — collection, army, catalog, inventory, unit, auth | `src/views/` | ☐ |
-| Dev proxy — Vite → `:8000` | `vite.config.ts` | ☐ |
+| App shell — providers, routing, auth gate, header/breadcrumbs | `src/App.tsx`, `src/main.tsx` | ✅ |
+| Design system — tokens + global CSS | `src/styles/` | ✅ |
+| HTTP client — base URL, JWT, `ApiError`, form-login, `X-Total-Count` | `src/api/client.ts` | ✅ |
+| API types — hand-written, verified vs `/openapi.json` (gen:api deferred) | `src/api/types.ts` | ✅ |
+| Data layer — per-resource functions + Query hooks | `src/api/*`, `queries.ts` | ✅ |
+| Auth/session — context, guard, login/signup | `src/auth/` | ✅ |
+| Toasts — bus + provider, wired to mutation outcomes | `src/toast/` | ✅ |
+| UI kit — buttons, inputs, tags, modal, toast, header, breadcrumbs, error boundary | `src/ui/` | ✅ |
+| Views — collection, army, catalog, inventory, unit, auth | `src/views/` | ✅ |
+| Dev proxy — Vite → `:8000` | `vite.config.ts` | ✅ |
+| CI — GitHub Actions (lint + build + test) | `.github/workflows/ci.yml` | ✅ |
 
 ## Views
 
 | View | Route | Backing endpoints | Status |
 |---|---|---|---|
-| Auth (login / signup) | `/login` | `POST /auth/register`, `POST /auth/login` | ☐ |
-| Collection (armies list/grid) | `/` | `GET /me/armies` | ☐ |
-| Army detail (order of battle) | `/armies/:id` | `GET /me/armies/{id}`, add/remove units | ☐ |
-| Catalog (browse + add) | `/catalog`, `/armies/:id/catalog` | `GET /factions`, `GET /units`, `POST …/units` / `POST /me/inventory` | ☐ |
-| Inventory (owned units) | `/inventory` | `GET/POST/PATCH/DELETE /me/inventory` | ☐ |
-| Unit datasheet | `/units/:id` | `GET /units/{id}` | ☐ |
-| New Army modal | (overlay) | `POST /me/armies` | ☐ |
+| Auth (login / signup) | `/login` | `POST /auth/register`, `POST /auth/login` | ✅ |
+| Collection (armies list/grid) | `/` | `GET /me/armies` | ✅ |
+| Army detail (order of battle + validation + shortfall) | `/armies/:id` | `GET /me/armies/{id}`, add/remove units, `/validate`, `/shortfall` | ✅ |
+| Catalog (browse + add) | `/catalog`, `/armies/:id/catalog` | `GET /factions`, `GET /units`, `POST …/units` / `POST /me/inventory` | ✅ |
+| Inventory (owned units) | `/inventory` | `GET/POST/PATCH/DELETE /me/inventory` | ✅ |
+| Unit datasheet | `/units/:id` | `GET /units/{id}` | ✅ |
+| New Army modal (name, faction, subfaction, description, points-limit) | (overlay) | `POST /me/armies` | ✅ |
 
 ## Feature checklist
 
-### To build 🔨 (MVP, ordered easiest-first — see SPEC.md "Roadmap")
-- [ ] **Scaffold** — add `react-router-dom` + TanStack Query; `theme.css` /
-  `global.css` from the design tokens; remove the Vite demo (`App.css`, demo
-  `App.tsx`, `src/assets/*`).
-- [ ] **HTTP client + types** — `client.ts` (base URL, `Authorization: Bearer`,
+### Built ✅ (MVP)
+- [x] **Scaffold** — `react-router-dom` + TanStack Query; `theme.css` /
+  `global.css` from the design tokens; Vite demo removed.
+- [x] **HTTP client + types** — `client.ts` (base URL, `Authorization: Bearer`,
   JSON, `ApiError` from `{detail, field}`, OAuth2 **form** login, `204` handling,
-  `X-Total-Count`); `types.ts` generated from OpenAPI.
-- [ ] **Auth** — `AuthContext` (token in `localStorage`, `GET /me` hydrate),
-  `RequireAuth` guard, `AuthView` (login = email+password, signup =
-  name+email+password+confirm), 401 → `/login`. Vite dev proxy to `:8000`.
-- [ ] **UI kit** — Button, Input, Field, Tag, SegmentedToggle, Modal, Toast,
-  Header, Breadcrumbs, Eyebrow, EmptyState (extracted CSS, not inline styles).
-- [ ] **Collection** — armies list/grid toggle (persisted), aggregate meta line,
-  empty state; **New Army modal** (name + faction from `GET /factions`) →
-  `POST /me/armies`.
-- [ ] **Catalog** — faction filter rail (with counts), search (`q`), owned-only
-  toggle, unit rows with **+ Add** to the active target (army or inventory),
-  "N of M" from `X-Total-Count`, paging.
-- [ ] **Unit datasheet** — 6-stat profile grid, ranged/melee weapon tables (split
-  by `category`), abilities, keyword chips; context action (add-to-army or edit
-  owned qty).
-- [ ] **Inventory** — role-grouped collapsible sections, editable owned qty
-  (`PATCH`), remove, add-to-inventory, models/datasheets meta, empty state.
-- [ ] **Army detail** — order of battle grouped by derived role, ×qty, remove
-  unit, add-from-catalog, `points_total`, empty state.
-- [ ] **Role derivation** — `src/lib/roles.ts` maps `keywords[]` → a display role
-  + grouping (backend has no role field).
+  `X-Total-Count`); hand-written `types.ts` (verified against live `/openapi.json`).
+- [x] **Auth** — `AuthContext` (token in `localStorage`, `GET /me` hydrate),
+  `RequireAuth` guard, `AuthView`, 401 → `/login`, Vite dev proxy to `:8000`.
+- [x] **UI kit** — Button, Input, Field, Tag, SegmentedToggle, Modal (focus-trap),
+  Toast, Header, Breadcrumbs, Eyebrow, EmptyState (extracted CSS Modules).
+- [x] **Collection** — armies list/grid toggle (persisted), aggregate meta, empty
+  state; **New Army modal** → `POST /me/armies`.
+- [x] **Catalog** — faction filter rail (with counts), search (`q`), owned-only
+  toggle, target-aware **+ Add**, "N of M" from `X-Total-Count`, paging.
+- [x] **Unit datasheet** — 6-stat profile grid, ranged/melee weapon tables,
+  abilities, keyword chips; optional context action.
+- [x] **Inventory** — role-grouped collapsible sections, debounced editable qty,
+  remove, add-to-inventory, meta, empty state.
+- [x] **Army detail** — order of battle grouped by derived role, ×qty, remove,
+  add-from-catalog, `points_total`, empty state.
+- [x] **Role derivation** — `src/lib/roles.ts` maps `keywords[]` → display role +
+  grouping.
+- [x] **Routing + breadcrumbs** — route table behind `RequireAuth` in a Header
+  shell; route-structural breadcrumbs.
 
-### To add / harden ⚙️ (post-MVP — backend already supports)
-- [ ] **Points limit + validation** — show `points_limit` progress and
-  `GET /me/armies/{id}/validate` issues (over-points, wrong faction/subfaction).
-- [ ] **Shortfall** — "what to buy" panel from `GET /me/armies/{id}/shortfall`.
-- [ ] **Richer New Army** — subfaction (`GET /factions/taxonomy`), description,
-  points-limit.
-- [ ] **`npm run gen:api`** — script to regenerate types from `/openapi.json`.
-- [ ] **Optimistic mutations + skeleton loaders**; modal focus-trap; responsive
-  breakpoints.
-- [ ] **Tests** — Vitest + React Testing Library + MSW (client behavior, role
-  derivation, add-to-army/edit-amount flows).
+### Built ✅ (post-MVP — backend already supported)
+- [x] **Points limit + validation** — `points_limit` progress + `/validate`
+  issues panel (over-points, wrong faction/subfaction), with `progressbar` a11y.
+- [x] **Shortfall** — "what to buy" panel from `/shortfall`.
+- [x] **Richer New Army** — subfaction (dependent select), description, points-limit.
+- [x] **Polish** — loading skeletons, responsive breakpoints (~360px+),
+  reduced-motion, keyboard a11y, modal focus-trap.
+- [x] **Toasts** — mutation outcomes surfaced centrally (success + error).
+- [x] **Error boundary** — render-error fallback instead of a blank screen.
+- [x] **Route-level code splitting** — `React.lazy` per view.
+- [x] **Tests** — Vitest + React Testing Library (client, roles, all views, auth,
+  routing, toasts, error boundary) — 144 tests.
+- [x] **CI** — GitHub Actions: lint + build + test on push/PR to `main`.
+
+### To add / harden ⚙️ (deferred)
+- [ ] **Set a real deploy config** — `VITE_API_BASE_URL` for cross-origin, plus
+  the backend's `SECRET_KEY` / `ALLOWED_ORIGINS` (deploy-time, not code).
+- [ ] **`npm run gen:api`** — migrate `types.ts` to `openapi-typescript` output
+  (hand-written types are verified correct, so this is drift-protection, not a fix).
+- [ ] **Optimistic mutations** — currently invalidate-and-refetch; optimistic UI
+  would make add/remove feel instant.
+- [ ] **Entity-name breadcrumbs** — crumbs are route-structural ("Army"/"Datasheet")
+  rather than the actual army/unit names.
+- [ ] **Full browser e2e** — a Playwright smoke walk of the core loop (unit tests
+  use mocked APIs; the HTTP contract is curl-verified against the live backend).
 
 ## To fix 🐞
-- (none yet — no code)
+- [ ] **`Army_Read` has no `created_at`** — the Army view omits the "Created" date
+  until the backend exposes it. (Backend change.)
+- [ ] **Inventory search is client-side only** — `listInventory()` takes no `q`
+  param, so filtering happens in the browser.
 
 ## Decisions locked
 - **Full app wired to the backend** (not a mock-data visual port) — every view
