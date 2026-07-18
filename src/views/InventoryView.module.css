@@ -65,6 +65,13 @@
   background: transparent;
   border: none;
   text-align: left;
+  cursor: pointer;
+}
+
+.sectionHeader:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .chevron {
@@ -141,10 +148,77 @@
   text-align: center;
 }
 
-@media (max-width: 620px) {
+.qtyInput:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* ---- Loading skeletons ---- */
+.skeleton {
+  display: block;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--rule-light) 0%,
+    var(--fainter) 50%,
+    var(--rule-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeletonLabel {
+  width: 140px;
+  height: 12px;
+}
+
+.skeletonName {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 260px;
+  height: 18px;
+}
+
+.skeletonTag {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 22px;
+}
+
+.skeletonQty {
+  flex: 0 0 auto;
+  width: 108px;
+  height: 34px;
+}
+
+.skeletonRemove {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 30px;
+}
+
+/* ---- Responsive ---- */
+
+/* Below ~640px the row controls stack under the unit name and the header
+ * meta wraps rather than overflowing. */
+@media (max-width: 640px) {
   .header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .meta {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .row {
@@ -152,7 +226,30 @@
     gap: 10px 12px;
   }
 
-  .unitName {
+  .unitName,
+  .skeletonName {
     flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+/* Tighten gutters on very narrow (~360px) screens. */
+@media (max-width: 400px) {
+  .view {
+    padding: 32px 16px 72px;
+  }
+
+  .toolbar {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+
+  .chevron {
+    transition: none;
   }
 }
