@@ -1,9 +1,9 @@
 /* The app route table (SPEC.md → "Routing & views"). Public /login; every other
- * route sits behind RequireAuth inside a Header shell. This is the central glue
- * that mounts the independently-built views. */
+ * route sits behind RequireAuth inside a Header + Breadcrumbs shell. This is the
+ * central glue that mounts the independently-built views. */
 
-import { Routes, Route, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
-import { Header } from './ui'
+import { Routes, Route, Navigate, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom'
+import { Header, Breadcrumbs, type Crumb } from './ui'
 import { useAuth } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
 import { AuthView } from './views/AuthView'
@@ -13,10 +13,29 @@ import { InventoryView } from './views/InventoryView'
 import ArmyView from './views/ArmyView'
 import UnitView from './views/UnitView'
 
-/** Authenticated shell: sticky Header + the matched route's view. */
+/** Route-structural breadcrumbs. Entity-name crumbs (army/unit names) are a later
+ * refinement — they'd need the view's loaded data. */
+function crumbsForPath(pathname: string): Crumb[] {
+  const parts = pathname.split('/').filter(Boolean)
+  const home: Crumb = { label: 'Collection', to: '/' }
+  if (parts.length === 0) return []
+  if (parts[0] === 'inventory') return [home, { label: 'Inventory' }]
+  if (parts[0] === 'catalog') return [home, { label: 'Catalog' }]
+  if (parts[0] === 'units') return [home, { label: 'Datasheet' }]
+  if (parts[0] === 'armies') {
+    if (parts[2] === 'catalog') {
+      return [home, { label: 'Army', to: `/armies/${parts[1]}` }, { label: 'Add Units' }]
+    }
+    return [home, { label: 'Army' }]
+  }
+  return [home]
+}
+
+/** Authenticated shell: sticky Header + breadcrumbs + the matched route's view. */
 function AppLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const crumbs = crumbsForPath(useLocation().pathname)
   return (
     <>
       <Header
@@ -25,6 +44,11 @@ function AppLayout() {
           navigate('/login', { replace: true })
         }}
       />
+      {crumbs.length > 0 && (
+        <div style={{ maxWidth: 'var(--content-max)', margin: '0 auto', padding: '22px 48px 0' }}>
+          <Breadcrumbs items={crumbs} />
+        </div>
+      )}
       <Outlet />
     </>
   )
