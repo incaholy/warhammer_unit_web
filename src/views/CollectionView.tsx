@@ -39,6 +39,38 @@ function armyUnitCount(army: Army_Read): number {
   return army.units.reduce((sum, entry) => sum + entry.amount, 0)
 }
 
+/** A shimmering placeholder row, matching the list layout while armies load. */
+function SkeletonRow() {
+  return (
+    <div className={styles.skelRow} data-testid="army-skeleton" aria-hidden="true">
+      <div className={styles.rowMain}>
+        <span className={`${styles.skel} ${styles.skelFaction}`} />
+        <span className={`${styles.skel} ${styles.skelName}`} />
+        <span className={`${styles.skel} ${styles.skelDesc}`} />
+      </div>
+      <div className={styles.stats}>
+        <span className={`${styles.skel} ${styles.skelPoints}`} />
+        <span className={`${styles.skel} ${styles.skelUnits}`} />
+      </div>
+    </div>
+  )
+}
+
+/** A shimmering placeholder card, matching the grid layout while armies load. */
+function SkeletonCard() {
+  return (
+    <div className={styles.skelCard} data-testid="army-skeleton" aria-hidden="true">
+      <span className={`${styles.skel} ${styles.skelFaction}`} />
+      <span className={`${styles.skel} ${styles.skelName}`} />
+      <span className={`${styles.skel} ${styles.skelDesc}`} />
+      <div className={styles.cardFoot}>
+        <span className={`${styles.skel} ${styles.skelPoints}`} />
+        <span className={`${styles.skel} ${styles.skelUnits}`} />
+      </div>
+    </div>
+  )
+}
+
 /** The armies index (SPEC.md → "CollectionView"). */
 export function CollectionView() {
   const navigate = useNavigate()
@@ -98,7 +130,19 @@ export function CollectionView() {
       </header>
 
       {armiesQuery.isLoading ? (
-        <p className={styles.meta}>Loading armies…</p>
+        layout === 'list' ? (
+          <div className={styles.list} aria-busy="true" aria-label="Loading armies">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonRow key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className={styles.grid} aria-busy="true" aria-label="Loading armies">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )
       ) : armiesQuery.isError ? (
         <EmptyState
           message="Could not load your armies."
@@ -118,6 +162,7 @@ export function CollectionView() {
               key={army.id}
               type="button"
               className={styles.row}
+              aria-label={`Open ${army.name}`}
               onClick={() => openArmy(army.id)}
             >
               <div className={styles.rowMain}>
@@ -141,6 +186,7 @@ export function CollectionView() {
               key={army.id}
               type="button"
               className={styles.card}
+              aria-label={`Open ${army.name}`}
               onClick={() => openArmy(army.id)}
             >
               <p className={styles.faction}>{factionName(army.faction_id)}</p>

@@ -118,19 +118,27 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
           <label htmlFor={factionSelectId} className={styles.label}>
             Faction
           </label>
-          <select
-            id={factionSelectId}
-            className={styles.select}
-            value={factionId}
-            onChange={(e) => handleFactionChange(e.target.value)}
-          >
-            <option value="">Select a faction…</option>
-            {factions.map((faction) => (
-              <option key={faction.id} value={faction.id}>
-                {faction.name}
-              </option>
-            ))}
-          </select>
+          {factionsQuery.isLoading ? (
+            <span
+              className={styles.skelSelect}
+              data-testid="faction-skeleton"
+              aria-hidden="true"
+            />
+          ) : (
+            <select
+              id={factionSelectId}
+              className={styles.select}
+              value={factionId}
+              onChange={(e) => handleFactionChange(e.target.value)}
+            >
+              <option value="">Select a faction…</option>
+              {factions.map((faction) => (
+                <option key={faction.id} value={faction.id}>
+                  {faction.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className={styles.field}>

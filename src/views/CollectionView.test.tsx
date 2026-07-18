@@ -1,10 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 import { CollectionView } from './CollectionView'
 import type { Army_Read, Faction_Read, Unit_Read } from '../api/types'
+import { listArmies } from '../api/armies'
+
+// The read hooks call the api module directly; mock it so we can drive a pending
+// query (a promise that never settles) for the skeleton-state test. Existing
+// tests seed data via setQueryData and never hit this mock.
+vi.mock('../api/armies', () => ({
+  listArmies: vi.fn(() => new Promise<never>(() => {})),
+}))
 
 const unit = (id: string) => ({ id }) as unknown as Unit_Read
 
@@ -70,6 +78,26 @@ describe('CollectionView', () => {
     // Aggregated meta: 2 armies · 6 units · 2980 pts
     expect(screen.getByText('2 armies · 6 units · 2980 pts')).toBeInTheDocument()
     expect(screen.getByText('1980 pts')).toBeInTheDocument()
+  })
+
+  it('shows skeleton rows while the armies query is pending', () => {
+    vi.mocked(listArmies).mockImplementation(() => new Promise<never>(() => {}))
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    // Seed factions only; leave ['armies'] unseeded so its query stays pending.
+    client.setQueryData(['factions'], factions)
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <CollectionView />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getAllByTestId('army-skeleton').length).toBeGreaterThan(0)
+    // No real army rows or empty state while loading.
+    expect(screen.queryByText('No armies mustered yet.')).not.toBeInTheDocument()
   })
 
   it('shows the empty state when there are no armies', () => {

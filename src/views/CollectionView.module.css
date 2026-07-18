@@ -62,6 +62,12 @@
   background: var(--panel);
 }
 
+.row:focus-visible,
+.card:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .rowMain {
   min-width: 0;
 }
@@ -148,4 +154,149 @@
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--rule-light);
+}
+
+/* ---- loading skeletons ---- */
+
+.skelRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 24px;
+  align-items: flex-start;
+  padding: 20px 4px;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.skelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+}
+
+.skelRow .stats {
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* A single neutral placeholder block with a subtle left-to-right shimmer. */
+.skel {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--rule-light) 0%,
+    var(--panel) 50%,
+    var(--rule-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s ease-in-out infinite;
+}
+
+.skelFaction {
+  width: 90px;
+  height: 10px;
+}
+
+.skelName {
+  width: 60%;
+  height: 22px;
+  margin: 6px 0;
+}
+
+.skelDesc {
+  width: 80%;
+  height: 14px;
+}
+
+.skelPoints {
+  width: 70px;
+  height: 20px;
+}
+
+.skelUnits {
+  width: 46px;
+  height: 10px;
+}
+
+@keyframes skelShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
+}
+
+/* ---- responsive ---- */
+
+/* Below the fixed content column, go fluid with tighter side padding. */
+@media (max-width: 1180px) {
+  .page {
+    padding: 40px 24px 80px;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 28px 18px 64px;
+  }
+
+  .head {
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .title {
+    font-size: 34px;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Collapse the multi-column grid to a single column on narrow screens. */
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 22px 14px 56px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  /* Stack the row's stats under its title instead of a second column. */
+  .row,
+  .skelRow {
+    grid-template-columns: 1fr;
+  }
+
+  .stats,
+  .skelRow .stats {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .name {
+    font-size: 21px;
+  }
+
+  .card .name {
+    font-size: 22px;
+  }
 }
