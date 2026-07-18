@@ -1,0 +1,166 @@
+/* CatalogView layout & row styling. Tokens from styles/theme.css. */
+
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+}
+
+.head {
+  margin-bottom: 40px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 44px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin-top: 6px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+/* ---- Faction rail ---- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.railLabel {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 10px;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+
+.factionBtn {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  text-align: left;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.factionBtn:hover {
+  color: var(--ink);
+}
+
+.factionActive {
+  color: var(--ink);
+  border-left-color: var(--ink);
+  font-weight: 600;
+}
+
+.factionCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fainter);
+}
+
+/* ---- Main column ---- */
+.main {
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.search {
+  flex: 1;
+}
+
+.count {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  color: var(--faint);
+  margin-bottom: 12px;
+}
+
+.loading {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 24px 0;
+}
+
+.rows {
+  list-style: none;
+  padding: 0;
+  border-top: 1px solid var(--rule-light);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.unitName {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.meta {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
