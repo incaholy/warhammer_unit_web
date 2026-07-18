@@ -176,7 +176,20 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
           </p>
 
           {unitsQuery.isPending ? (
-            <p className={styles.loading}>Loading catalog…</p>
+            <div role="status" aria-label="Loading units" className={styles.skeleton}>
+              <span className={styles.srOnly}>Loading units…</span>
+              <ul className={styles.rows} aria-hidden="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <li key={i} className={styles.skeletonRow}>
+                    <div className={styles.rowMain}>
+                      <span className={`${styles.skeletonBlock} ${styles.skeletonName}`} />
+                      <span className={`${styles.skeletonBlock} ${styles.skeletonMeta}`} />
+                    </div>
+                    <span className={`${styles.skeletonBlock} ${styles.skeletonAction}`} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : visibleUnits.length === 0 ? (
             <EmptyState
               message="No units match."
@@ -248,8 +261,15 @@ interface FactionButtonProps {
 
 function FactionButton({ label, count, active, onClick }: FactionButtonProps) {
   const cls = [styles.factionBtn, active ? styles.factionActive : ''].filter(Boolean).join(' ')
+  const unitWord = count === 1 ? 'unit' : 'units'
   return (
-    <button type="button" className={cls} aria-pressed={active} onClick={onClick}>
+    <button
+      type="button"
+      className={cls}
+      aria-pressed={active}
+      aria-label={`${label}, ${count} ${unitWord}`}
+      onClick={onClick}
+    >
       <span>{label}</span>
       <span className={styles.factionCount}>{count}</span>
     </button>
