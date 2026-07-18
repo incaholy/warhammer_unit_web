@@ -80,6 +80,21 @@ describe('InventoryView', () => {
     vi.unstubAllGlobals()
   })
 
+  it('shows skeleton placeholders while the inventory query is pending', () => {
+    // Keep the inventory fetch pending so the query never leaves isLoading.
+    fetchMock.mockImplementation(() => new Promise<Response>(() => {}))
+    renderView(null)
+
+    const skeleton = screen.getByTestId('inventory-skeleton')
+    expect(skeleton).toBeInTheDocument()
+    // The pending region is announced to assistive tech…
+    expect(skeleton).toHaveAttribute('role', 'status')
+    expect(skeleton).toHaveAccessibleName('Loading inventory')
+    // …and no real rows / error / empty copy render yet.
+    expect(screen.queryByText('Couldn’t load your inventory.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nothing in your collection yet')).not.toBeInTheDocument()
+  })
+
   it('renders the header meta from owned datasheets and total models', () => {
     renderView(OWNED)
     expect(screen.getByRole('heading', { name: 'Inventory' })).toBeInTheDocument()

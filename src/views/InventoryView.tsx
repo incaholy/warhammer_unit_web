@@ -67,7 +67,7 @@ export function InventoryView() {
       </div>
 
       {isLoading ? (
-        <p className={styles.status}>Loading inventory…</p>
+        <InventorySkeleton />
       ) : isError ? (
         <p className={styles.status}>Couldn’t load your inventory.</p>
       ) : owned.length === 0 ? (
@@ -88,6 +88,37 @@ export function InventoryView() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Placeholder group/rows shown while the inventory query is pending, mirroring
+ * the real section → row layout so the switch-in doesn't shift the page. */
+function InventorySkeleton() {
+  return (
+    <div
+      className={styles.groups}
+      role="status"
+      aria-label="Loading inventory"
+      data-testid="inventory-skeleton"
+    >
+      {[0, 1].map((section) => (
+        <section key={section} className={styles.section} aria-hidden="true">
+          <div className={styles.sectionHeader}>
+            <span className={`${styles.skeleton} ${styles.skeletonLabel}`} />
+          </div>
+          <ul className={styles.rows}>
+            {[0, 1, 2].map((row) => (
+              <li key={row} className={styles.row}>
+                <span className={`${styles.skeleton} ${styles.skeletonName}`} />
+                <span className={`${styles.skeleton} ${styles.skeletonTag}`} />
+                <span className={`${styles.skeleton} ${styles.skeletonQty}`} />
+                <span className={`${styles.skeleton} ${styles.skeletonRemove}`} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   )
 }
