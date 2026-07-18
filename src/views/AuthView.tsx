@@ -30,12 +30,21 @@ export function AuthView() {
   const [submitting, setSubmitting] = useState(false)
 
   function switchMode(next: Mode) {
+    // Ignore mode changes while a request is pending so the form can't be
+    // re-shaped out from under an in-flight submit.
+    if (submitting) return
     setMode(next)
     setError(null)
   }
 
+  const submitLabel = mode === 'login' ? 'Log In' : 'Sign Up'
+  const pendingLabel = mode === 'login' ? 'Logging in…' : 'Signing up…'
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // Guard against double-submit (Enter + click, or repeated Enter) while a
+    // request is already in flight.
+    if (submitting) return
     setError(null)
 
     if (mode === 'signup' && password !== confirm) {
@@ -120,7 +129,7 @@ export function AuthView() {
           )}
 
           {error && (
-            <p className={styles.error} role="alert">
+            <p className={styles.error} role="alert" aria-live="assertive">
               {error}
             </p>
           )}
@@ -130,8 +139,9 @@ export function AuthView() {
             type="submit"
             variant="primary"
             disabled={submitting}
+            aria-busy={submitting}
           >
-            {mode === 'login' ? 'Log In' : 'Sign Up'}
+            {submitting ? pendingLabel : submitLabel}
           </Button>
         </form>
       </div>
