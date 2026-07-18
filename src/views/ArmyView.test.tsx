@@ -5,7 +5,12 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import ArmyView from './ArmyView'
-import type { Army_Read, Unit_Read } from '../api/types'
+import type {
+  Army_Read,
+  Shortfall_Read,
+  Unit_Read,
+  Validation_Read,
+} from '../api/types'
 
 // ---- Fixtures ----
 
@@ -57,6 +62,11 @@ const EMPTY_ARMY: Army_Read = { ...ARMY, units: [], points_total: 0 }
 
 const FACTIONS = [{ id: 'f1', name: 'Space Marines', subfactions: [] }]
 
+// A legal, no-shortfall army over the wire — the default so the base-view tests
+// exercise the clean state.
+const LEGAL: Validation_Read = { ok: true, points_total: 1080, points_limit: 2000, issues: [] }
+const NO_SHORTFALL: Shortfall_Read[] = []
+
 // ---- Harness ----
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
@@ -67,8 +77,17 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   })
 }
 
-/** Route fetch by path: single army, factions, and a DELETE for remove-unit. */
-function stubFetch(army: Army_Read, onDelete?: (url: string) => void) {
+interface StubOptions {
+  onDelete?: (url: string) => void
+  validation?: Validation_Read
+  shortfall?: Shortfall_Read[]
+}
+
+/** Route fetch by path: single army, factions, validate, shortfall, and a DELETE
+ * for remove-unit. `/validate` and `/shortfall` are matched before the generic
+ * army route (all three share the `/me/armies/{id}` prefix). */
+function stubFetch(army: Army_Read, options: StubOptions = {}) {
+  const { onDelete, validation = LEGAL, shortfall = NO_SHORTFALL } = options
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString()
     if (init?.method === 'DELETE') {
@@ -76,6 +95,8 @@ function stubFetch(army: Army_Read, onDelete?: (url: string) => void) {
       return Promise.resolve(new Response(null, { status: 204 }))
     }
     if (url.includes('/factions')) return Promise.resolve(jsonResponse(FACTIONS))
+    if (url.includes('/validate')) return Promise.resolve(jsonResponse(validation))
+    if (url.includes('/shortfall')) return Promise.resolve(jsonResponse(shortfall))
     if (url.includes('/me/armies/')) return Promise.resolve(jsonResponse(army))
     return Promise.resolve(jsonResponse({}))
   })
@@ -145,7 +166,7 @@ describe('ArmyView', () => {
 
   it('calls the remove-unit mutation (DELETE) when Remove is clicked', async () => {
     const onDelete = vi.fn()
-    stubFetch(ARMY, onDelete)
+    stubFetch(ARMY, { onDelete })
     renderView()
 
     await screen.findByRole('heading', { name: 'Vigil Host' })
@@ -167,5 +188,90 @@ describe('ArmyView', () => {
 
     expect(await screen.findByText('No units mustered yet')).toBeInTheDocument()
     expect(screen.queryByText('Characters')).not.toBeInTheDocument()
+  })
+
+  it('flags an over-limit army and lists the over-points issue', async () => {
+    const validation: Validation_Read = {
+      ok: false,
+      points_total: 1080,
+      points_limit: 1000,
+      issues: [
+        {
+          kind: 'over_points',
+          detail: 'List is 80 points over the 1000 limit.',
+          unit: null,
+        },
+      ],
+    }
+    stubFetch({ ...ARMY, points_limit: 1000 }, { validation })
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    // Header progress is flagged over the limit.
+    expect(await screen.findByText('Over Limit')).toBeInTheDocument()
+    expect(screen.getByText('1080 / 1000 pts')).toBeInTheDocument()
+
+    // The legality panel surfaces the over-points issue (kind label + detail).
+    expect(screen.getByText('Over Points')).toBeInTheDocument()
+    expect(screen.getByText(/80 points over the 1000 limit/)).toBeInTheDocument()
+  })
+
+  it('renders a wrong-faction issue with its offending unit', async () => {
+    const orks = unit({ id: 'u-ork', unit_name: 'Ork Boyz', faction_id: 'f9' })
+    const validation: Validation_Read = {
+      ok: false,
+      points_total: 1080,
+      points_limit: 2000,
+      issues: [
+        {
+          kind: 'wrong_faction',
+          detail: 'Ork Boyz is not a Space Marines unit.',
+          unit: orks,
+        },
+      ],
+    }
+    stubFetch(ARMY, { validation })
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    expect(await screen.findByText('Wrong Faction')).toBeInTheDocument()
+    // The offending unit name and detail both render in the issue row.
+    expect(screen.getByText('Ork Boyz')).toBeInTheDocument()
+    expect(screen.getByText(/not a Space Marines unit/)).toBeInTheDocument()
+  })
+
+  it('lists the units to buy in the shortfall panel', async () => {
+    const shortfall: Shortfall_Read[] = [
+      { unit: tank, in_list: 1, owned: 0, need: 1 },
+      // Fully owned — must be filtered out of the "to buy" list.
+      { unit: intercessors, in_list: 3, owned: 3, need: 0 },
+    ]
+    stubFetch(ARMY, { shortfall })
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    const panel = (await screen.findByRole('heading', { name: 'What to Buy' })).closest(
+      'section',
+    )!
+    // The needed unit (Repulsor also appears in Order of Battle, so scope to the panel).
+    expect(within(panel).getByText('Repulsor')).toBeInTheDocument()
+    expect(within(panel).getByText('+1 to buy')).toBeInTheDocument()
+    // The covered unit adds no buy row.
+    expect(within(panel).queryByText('Intercessors')).not.toBeInTheDocument()
+  })
+
+  it('shows the clean legal + no-shortfall state for a valid army', async () => {
+    stubFetch(ARMY) // defaults: legal validation, empty shortfall
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    expect(await screen.findByText('Legal — no issues found')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing needed/)).toBeInTheDocument()
+    // No over-limit flag for an in-budget list.
+    expect(screen.queryByText('Over Limit')).not.toBeInTheDocument()
   })
 })
