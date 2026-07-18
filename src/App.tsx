@@ -2,16 +2,25 @@
  * route sits behind RequireAuth inside a Header + Breadcrumbs shell. This is the
  * central glue that mounts the independently-built views. */
 
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Header, Breadcrumbs, type Crumb } from './ui'
 import { useAuth } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
-import { AuthView } from './views/AuthView'
-import CollectionView from './views/CollectionView'
-import CatalogView from './views/CatalogView'
-import { InventoryView } from './views/InventoryView'
-import ArmyView from './views/ArmyView'
-import UnitView from './views/UnitView'
+
+// Route-level code splitting: each view ships in its own chunk, so the login
+// screen doesn't pull in the whole app. (Named-export views need the .then map.)
+const AuthView = lazy(() => import('./views/AuthView').then((m) => ({ default: m.AuthView })))
+const CollectionView = lazy(() => import('./views/CollectionView'))
+const CatalogView = lazy(() => import('./views/CatalogView'))
+const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
+const ArmyView = lazy(() => import('./views/ArmyView'))
+const UnitView = lazy(() => import('./views/UnitView'))
+
+/** Quiet fallback while a lazy view chunk loads. */
+function ViewFallback() {
+  return <div style={{ minHeight: '40vh' }} aria-hidden="true" />
+}
 
 /** Route-structural breadcrumbs. Entity-name crumbs (army/unit names) are a later
  * refinement — they'd need the view's loaded data. */
@@ -49,7 +58,9 @@ function AppLayout() {
           <Breadcrumbs items={crumbs} />
         </div>
       )}
-      <Outlet />
+      <Suspense fallback={<ViewFallback />}>
+        <Outlet />
+      </Suspense>
     </>
   )
 }
@@ -63,7 +74,14 @@ function ArmyCatalog() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<AuthView />} />
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<ViewFallback />}>
+            <AuthView />
+          </Suspense>
+        }
+      />
 
       <Route
         element={

@@ -25,17 +25,16 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User_Read | null>(null)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  // Loading only when we actually hold a token to hydrate — otherwise there's
+  // nothing to wait for (avoids a setState directly inside the effect).
+  const [isLoading, setIsLoading] = useState<boolean>(() => tokenStore.get() != null)
 
   // On mount: if we hold a token, hydrate the user from /me. A stale token
   // (getMe rejects, e.g. 401) is cleared so the app falls back to /login.
   useEffect(() => {
     let active = true
     const token = tokenStore.get()
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
+    if (!token) return
     getMe()
       .then((me) => {
         if (active) setUser(me)
@@ -82,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 /** Access the session. Throws if used outside an `<AuthProvider>`. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within an AuthProvider')

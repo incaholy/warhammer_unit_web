@@ -113,6 +113,7 @@ export function useCreateArmy(): UseMutationResult<Army_Read, Error, Army_Create
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.armies })
     },
+    meta: { successMessage: 'Army created' },
   })
 }
 
@@ -137,6 +138,7 @@ export function useDeleteArmy(): UseMutationResult<void, Error, UUID> {
       qc.removeQueries({ queryKey: queryKeys.army(id) })
       qc.invalidateQueries({ queryKey: queryKeys.armies })
     },
+    meta: { successMessage: 'Army deleted' },
   })
 }
 
@@ -158,6 +160,7 @@ export function useAddArmyUnit(
   return useMutation({
     mutationFn: (body: UnitAdd) => armiesApi.addUnit(armyId, body),
     onSuccess: () => invalidateArmyMembership(qc, armyId),
+    meta: { successMessage: 'Unit added to army' },
   })
 }
 
@@ -179,6 +182,7 @@ export function useRemoveArmyUnit(
   return useMutation({
     mutationFn: (unitId: UUID) => armiesApi.removeUnit(armyId, unitId),
     onSuccess: () => invalidateArmyMembership(qc, armyId),
+    meta: { successMessage: 'Unit removed from army' },
   })
 }
 
@@ -196,6 +200,7 @@ export function useAddInventoryUnit(): UseMutationResult<UserUnit_Read, Error, U
   return useMutation({
     mutationFn: (body: UnitAdd) => inventoryApi.addUnit(body),
     onSuccess: () => invalidateInventory(qc),
+    meta: { successMessage: 'Added to inventory' },
   })
 }
 
@@ -217,5 +222,6 @@ export function useRemoveInventoryUnit(): UseMutationResult<void, Error, UUID> {
   return useMutation({
     mutationFn: (unitId: UUID) => inventoryApi.removeUnit(unitId),
     onSuccess: () => invalidateInventory(qc),
+    meta: { successMessage: 'Removed from inventory' },
   })
 }

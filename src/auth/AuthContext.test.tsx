@@ -27,6 +27,7 @@ function routedFetch() {
 /** Test harness exposing the auth context to the DOM + imperative handles. */
 let handle: ReturnType<typeof useAuth>
 function Probe() {
+  // eslint-disable-next-line react-hooks/globals -- test harness capturing the hook value
   handle = useAuth()
   return (
     <div>
