@@ -72,7 +72,56 @@
   color: var(--ink);
 }
 
+.navLink:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+  color: var(--ink);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
 .navActive {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* ---- Responsive: condense on narrow screens ---- */
+@media (max-width: 640px) {
+  .inner {
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    gap: 10px 14px;
+  }
+
+  .nav {
+    margin-left: 0;
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  .navLink {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .brand {
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .wordmark {
+    font-size: 14px;
+    letter-spacing: 0.24em;
+  }
+}
+
+@media (max-width: 400px) {
+  .divider,
+  .subtitle {
+    display: none;
+  }
 }

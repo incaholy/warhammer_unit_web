@@ -17,6 +17,11 @@
   border-color: var(--ink);
 }
 
+.input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .input:disabled {
   opacity: 0.55;
   cursor: not-allowed;

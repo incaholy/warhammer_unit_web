@@ -25,6 +25,15 @@
   color: var(--ink);
 }
 
+.segment:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.segment:focus-visible:not(.active) {
+  color: var(--ink);
+}
+
 .active {
   background: var(--ink);
   color: var(--paper);
