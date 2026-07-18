@@ -33,6 +33,11 @@
   border-color: var(--ink);
 }
 
+.select:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
 .select:disabled {
   color: var(--faint);
   cursor: not-allowed;
@@ -51,4 +56,49 @@
   justify-content: flex-end;
   gap: 12px;
   margin-top: 4px;
+}
+
+/* Loading placeholder standing in for the faction select while factions load. */
+.skelSelect {
+  display: block;
+  height: 38px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--rule-light) 0%,
+    var(--panel) 50%,
+    var(--rule-light) 100%
+  );
+  background-size: 200% 100%;
+  animation: skelShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skelShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skelSelect {
+    animation: none;
+  }
+}
+
+/* On narrow screens, tighten gaps and let the action buttons fill the row. */
+@media (max-width: 420px) {
+  .form {
+    gap: 16px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
 }

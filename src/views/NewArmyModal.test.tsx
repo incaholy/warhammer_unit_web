@@ -13,6 +13,12 @@ vi.mock('../api/armies', () => ({
   createArmy: vi.fn(),
 }))
 
+// Mock the factions module so the skeleton test can drive a pending query. The
+// other tests seed factions via setQueryData, so listFactions is never called.
+vi.mock('../api/factions', () => ({
+  listFactions: vi.fn(() => new Promise<never>(() => {})),
+}))
+
 const navigateMock = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
@@ -70,6 +76,24 @@ describe('NewArmyModal', () => {
     expect(within(select).getByRole('option', { name: 'Hollow Vigil' })).toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
+  })
+
+  it('shows a faction skeleton while the factions query is pending', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    // Do NOT seed ['factions'] — its query stays pending on the never-resolving mock.
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <NewArmyModal open onClose={() => {}} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByTestId('faction-skeleton')).toBeInTheDocument()
+    // The real faction select is not rendered while loading.
+    expect(screen.queryByLabelText('Faction')).not.toBeInTheDocument()
   })
 
   it('renders nothing when closed', () => {
