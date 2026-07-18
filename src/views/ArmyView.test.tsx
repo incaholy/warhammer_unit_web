@@ -174,12 +174,47 @@ describe('ArmyView', () => {
     // The Captain row's Remove button.
     const captainRow = screen.getByRole('link', { name: 'Captain' }).closest('div')!
       .parentElement!
-    const removeBtn = within(captainRow).getByRole('button', { name: 'Remove' })
+    const removeBtn = within(captainRow).getByRole('button', { name: 'Remove Captain' })
     fireEvent.click(removeBtn)
 
     await waitFor(() =>
       expect(onDelete).toHaveBeenCalledWith(expect.stringContaining('/me/armies/a1/units/u-cap')),
     )
+  })
+
+  it('shows a loading skeleton while the army query is pending', async () => {
+    stubFetch(ARMY)
+    renderView()
+
+    // The query starts pending, so the very first render is the skeleton — a
+    // polite status region flagged aria-busy, with no real heading yet.
+    const skeleton = screen.getByRole('status', { name: 'Loading army' })
+    expect(skeleton).toBeInTheDocument()
+    expect(skeleton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByRole('heading', { name: 'Vigil Host' })).not.toBeInTheDocument()
+
+    // Once data resolves the skeleton is replaced by the real header.
+    expect(await screen.findByRole('heading', { name: 'Vigil Host' })).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: 'Loading army' })).not.toBeInTheDocument()
+  })
+
+  it('exposes an accessible progressbar and named remove buttons', async () => {
+    stubFetch(ARMY)
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    // Points-limit bar is a labelled progressbar reporting now/max.
+    const bar = screen.getByRole('progressbar', { name: 'Points used against limit' })
+    expect(bar).toHaveAttribute('aria-valuenow', '1080')
+    expect(bar).toHaveAttribute('aria-valuemax', '2000')
+
+    // Each remove button names the unit it removes.
+    expect(screen.getByRole('button', { name: 'Remove Captain' })).toBeInTheDocument()
+
+    // The panels are named regions.
+    expect(screen.getByRole('region', { name: 'Legality' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'What to Buy' })).toBeInTheDocument()
   })
 
   it('shows the empty state for an army with no units', async () => {
