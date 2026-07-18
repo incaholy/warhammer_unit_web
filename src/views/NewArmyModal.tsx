@@ -10,29 +10,50 @@ export interface NewArmyModalProps {
   onClose: () => void
 }
 
-/** Create-army overlay (SPEC.md → "New Army modal"): an Army Name field and a
- *  Faction select. On success, navigates to the new army's page. */
+/** Create-army overlay (SPEC.md → "New Army modal"): Army Name and Faction, plus
+ *  the optional Subfaction / Description / Points-limit fields (roadmap step 11).
+ *  On success, navigates to the new army's page. */
 export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
   const navigate = useNavigate()
   const factionsQuery = useFactions()
   const createArmy = useCreateArmy()
 
   const factionSelectId = useId()
+  const subfactionSelectId = useId()
   const [name, setName] = useState('')
   const [factionId, setFactionId] = useState('')
+  const [subfactionId, setSubfactionId] = useState('')
+  const [description, setDescription] = useState('')
+  const [pointsLimit, setPointsLimit] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const factions = factionsQuery.data ?? []
 
+  // Subfaction options come from the selected faction's own `subfactions` array
+  // ({id, name}). We deliberately do NOT use GET /factions/taxonomy here: that
+  // endpoint returns subfaction *names* only (no ids) for admin dropdowns, but
+  // creating an army needs a real subfaction_id (UUID).
+  const selectedFaction = factions.find((f) => f.id === factionId)
+  const subfactions = selectedFaction?.subfactions ?? []
+
   const reset = () => {
     setName('')
     setFactionId('')
+    setSubfactionId('')
+    setDescription('')
+    setPointsLimit('')
     setError(null)
   }
 
   const handleClose = () => {
     reset()
     onClose()
+  }
+
+  const handleFactionChange = (id: string) => {
+    setFactionId(id)
+    // The chosen subfaction belongs to the previous faction; drop it.
+    setSubfactionId('')
   }
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -49,8 +70,26 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
       return
     }
 
+    let pointsLimitValue: number | undefined
+    if (pointsLimit.trim()) {
+      const parsed = Number(pointsLimit)
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setError('Points limit must be zero or more.')
+        return
+      }
+      pointsLimitValue = parsed
+    }
+
+    const trimmedDescription = description.trim()
+
     createArmy.mutate(
-      { name: trimmed, faction_id: factionId },
+      {
+        name: trimmed,
+        faction_id: factionId,
+        ...(subfactionId ? { subfaction_id: subfactionId } : {}),
+        ...(trimmedDescription ? { description: trimmedDescription } : {}),
+        ...(pointsLimitValue !== undefined ? { points_limit: pointsLimitValue } : {}),
+      },
       {
         onSuccess: (army) => {
           reset()
@@ -83,7 +122,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
             id={factionSelectId}
             className={styles.select}
             value={factionId}
-            onChange={(e) => setFactionId(e.target.value)}
+            onChange={(e) => handleFactionChange(e.target.value)}
           >
             <option value="">Select a faction…</option>
             {factions.map((faction) => (
@@ -93,6 +132,42 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
             ))}
           </select>
         </div>
+
+        <div className={styles.field}>
+          <label htmlFor={subfactionSelectId} className={styles.label}>
+            Subfaction
+          </label>
+          <select
+            id={subfactionSelectId}
+            className={styles.select}
+            value={subfactionId}
+            onChange={(e) => setSubfactionId(e.target.value)}
+            disabled={subfactions.length === 0}
+          >
+            <option value="">Any / none</option>
+            {subfactions.map((subfaction) => (
+              <option key={subfaction.id} value={subfaction.id}>
+                {subfaction.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Field
+          label="Description"
+          placeholder="A grim host sworn to the long vigil."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <Field
+          label="Points Limit"
+          type="number"
+          min={0}
+          placeholder="2000"
+          value={pointsLimit}
+          onChange={(e) => setPointsLimit(e.target.value)}
+        />
 
         {error && (
           <span role="alert" className={styles.error}>

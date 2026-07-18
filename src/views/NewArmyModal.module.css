@@ -33,6 +33,12 @@
   border-color: var(--ink);
 }
 
+.select:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .error {
   font-family: var(--font-mono);
   font-size: 11px;
