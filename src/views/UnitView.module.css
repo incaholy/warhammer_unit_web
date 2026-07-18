@@ -99,6 +99,12 @@
   border: 1px solid var(--rule);
 }
 
+/* The row is an ARIA grouping only; `display: contents` lets its cells
+ * participate directly in the profile grid so the visual layout is unchanged. */
+.profileRow {
+  display: contents;
+}
+
 .stat {
   padding: 16px 12px;
   text-align: center;
@@ -127,8 +133,17 @@
 
 /* ---- Weapon tables ---- */
 
-.table {
+/* Keeps a wide weapon table from pushing the page body sideways: the table
+ * scrolls horizontally inside this container instead. Focusable so keyboard
+ * users can scroll it. */
+.tableScroll {
   margin-top: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
@@ -229,4 +244,195 @@ th.num {
   font-style: italic;
   font-size: 18px;
   color: var(--muted);
+}
+
+/* ---- Accessibility helpers ---- */
+
+/* Visually hidden but available to assistive tech (loading status). */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A single, clearly visible focus ring for every interactive element on the
+ * datasheet (context buttons, quantity input, the scrollable table region). */
+.page :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Loading skeleton ---- */
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skel {
+  display: block;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--rule-light) 25%,
+    var(--rule) 50%,
+    var(--rule-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
+}
+
+.skelHead {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skelEyebrow {
+  width: 140px;
+  height: 10px;
+}
+
+.skelName {
+  width: min(340px, 70vw);
+  height: 40px;
+  margin-top: 4px;
+}
+
+.skelPoints {
+  width: 60px;
+  height: 11px;
+}
+
+.skelStatLabel {
+  width: 24px;
+  height: 10px;
+  margin: 0 auto;
+}
+
+.skelStatValue {
+  width: 40px;
+  height: 24px;
+  margin: 10px auto 0;
+}
+
+.skelSectionTitle {
+  width: 120px;
+  height: 11px;
+  margin-bottom: 12px;
+}
+
+.skelTable {
+  margin-top: 16px;
+}
+
+.skelRow {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px;
+  border-bottom: 1px solid var(--rule-light);
+}
+
+.skelCellWide {
+  flex: 1;
+  height: 16px;
+}
+
+.skelCell {
+  width: 36px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* ---- Responsive breakpoints ---- */
+
+/* Tablet / small laptop: stack the header, ease the padding, shrink the name. */
+@media (max-width: 720px) {
+  .page {
+    padding: 36px 24px 80px;
+  }
+
+  .head {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .actions {
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .name {
+    font-size: 34px;
+  }
+
+  /* The 6-column profile wraps to a readable 3 × 2 grid. Restore the cell
+   * borders that the 6-across layout had along the new edges. */
+  .profile {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stat:nth-child(3n) {
+    border-right: none;
+  }
+
+  .stat:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--rule-light);
+  }
+}
+
+/* Phone: tighter rhythm and smaller display type. */
+@media (max-width: 480px) {
+  .page {
+    padding: 28px 18px 72px;
+  }
+
+  .name {
+    font-size: 28px;
+  }
+
+  .section {
+    margin-top: 32px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  .stat {
+    padding: 12px 8px;
+  }
+}
+
+/* Very narrow (~360px): the smallest supported width stays uncramped. */
+@media (max-width: 360px) {
+  .page {
+    padding: 24px 14px 64px;
+  }
+
+  .name {
+    font-size: 25px;
+  }
+
+  .statValue {
+    font-size: 20px;
+  }
 }

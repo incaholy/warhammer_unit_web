@@ -136,4 +136,31 @@ describe('UnitView', () => {
     const input = screen.getByLabelText('In collection') as HTMLInputElement
     expect(input.value).toBe('3')
   })
+
+  it('renders a skeleton datasheet while the unit query is pending', () => {
+    // Seed only the factions; leaving the unit unseeded keeps `useUnit` pending
+    // so the loading branch renders.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(queryKeys.factions, [FACTION])
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[`/units/${UNIT.id}`]}>
+          <Routes>
+            <Route path="/units/:unitId" element={<UnitView />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    // Skeleton placeholder is shown with a polite loading status…
+    expect(screen.getByTestId('datasheet-skeleton')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/loading datasheet/i)
+    // …and the real datasheet has not rendered yet.
+    expect(
+      screen.queryByRole('heading', { name: UNIT.unit_name }),
+    ).not.toBeInTheDocument()
+  })
 })

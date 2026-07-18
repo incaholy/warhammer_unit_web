@@ -67,12 +67,23 @@ const PROFILE: ReadonlyArray<{ label: string; get: (u: Unit_Read) => string }> =
 function ProfileGrid({ unit }: { unit: Unit_Read }) {
   return (
     <div className={styles.profile} role="table" aria-label="Profile">
-      {PROFILE.map(({ label, get }) => (
-        <div key={label} className={styles.stat}>
-          <div className={styles.statLabel}>{label}</div>
-          <div className={styles.statValue}>{get(unit)}</div>
-        </div>
-      ))}
+      <div className={styles.profileRow} role="row">
+        {PROFILE.map(({ label, get }) => (
+          <div
+            key={label}
+            className={styles.stat}
+            role="cell"
+            aria-label={`${label} ${get(unit)}`}
+          >
+            <div className={styles.statLabel} aria-hidden="true">
+              {label}
+            </div>
+            <div className={styles.statValue} aria-hidden="true">
+              {get(unit)}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -90,19 +101,40 @@ function WeaponTable({
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>{title}</h2>
-      <table className={styles.table} aria-label={title}>
-        <thead>
-          <tr>
-            <th>Weapon</th>
-            <th className={styles.num}>Range</th>
-            <th className={styles.num}>A</th>
-            <th className={styles.num}>{skillLabel}</th>
-            <th className={styles.num}>S</th>
-            <th className={styles.num}>AP</th>
-            <th className={styles.num}>D</th>
-          </tr>
-        </thead>
-        <tbody>
+      {/* The table can overflow its container on narrow screens; this wrapper
+       * scrolls horizontally on its own so the page body never does. It is
+       * focusable so keyboard users can reach and scroll it. */}
+      <div
+        className={styles.tableScroll}
+        tabIndex={0}
+        role="group"
+        aria-label={`${title} weapons`}
+      >
+        <table className={styles.table} aria-label={title}>
+          <thead>
+            <tr>
+              <th scope="col">Weapon</th>
+              <th scope="col" className={styles.num}>
+                Range
+              </th>
+              <th scope="col" className={styles.num}>
+                A
+              </th>
+              <th scope="col" className={styles.num}>
+                {skillLabel}
+              </th>
+              <th scope="col" className={styles.num}>
+                S
+              </th>
+              <th scope="col" className={styles.num}>
+                AP
+              </th>
+              <th scope="col" className={styles.num}>
+                D
+              </th>
+            </tr>
+          </thead>
+          <tbody>
           {weapons.length === 0 ? (
             <tr>
               <td className={styles.emptyRow} colSpan={7}>
@@ -126,9 +158,10 @@ function WeaponTable({
                 <td className={styles.num}>{w.damage}</td>
               </tr>
             ))
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }
@@ -189,17 +222,73 @@ function ContextActions({ addToArmy, collection, ownedLabel }: UnitViewProps) {
   return null
 }
 
+/** A single shimmering placeholder block. Presentational only. */
+function Skel({ className }: { className?: string }) {
+  return (
+    <span
+      className={className ? `${styles.skel} ${className}` : styles.skel}
+      aria-hidden="true"
+    />
+  )
+}
+
+/** Placeholder datasheet shown while `useUnit` is pending. Mirrors the real
+ * layout (header, 6-stat profile, two weapon tables) so the page does not jump
+ * when data arrives. The shimmer is decorative; a single polite status message
+ * carries the loading state to assistive tech. */
+function DatasheetSkeleton() {
+  return (
+    <main className={styles.page} aria-busy="true" data-testid="datasheet-skeleton">
+      <p role="status" className={styles.srOnly}>
+        Loading datasheet…
+      </p>
+
+      <header className={styles.head}>
+        <div className={styles.skelHead}>
+          <Skel className={styles.skelEyebrow} />
+          <Skel className={styles.skelName} />
+          <Skel className={styles.skelPoints} />
+        </div>
+      </header>
+
+      <div className={styles.profile} aria-hidden="true">
+        <div className={styles.profileRow}>
+          {PROFILE.map(({ label }) => (
+            <div key={label} className={styles.stat}>
+              <Skel className={styles.skelStatLabel} />
+              <Skel className={styles.skelStatValue} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {['Ranged', 'Melee'].map((title) => (
+        <section key={title} className={styles.section} aria-hidden="true">
+          <Skel className={styles.skelSectionTitle} />
+          <div className={styles.skelTable}>
+            {[0, 1, 2].map((row) => (
+              <div key={row} className={styles.skelRow}>
+                <Skel className={styles.skelCellWide} />
+                <Skel className={styles.skelCell} />
+                <Skel className={styles.skelCell} />
+                <Skel className={styles.skelCell} />
+                <Skel className={styles.skelCell} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </main>
+  )
+}
+
 export default function UnitView(props: UnitViewProps) {
   const { unitId = '' } = useParams<{ unitId: string }>()
   const { data: unit, isPending, isError } = useUnit(unitId)
   const { data: factions } = useFactions()
 
   if (isPending) {
-    return (
-      <main className={styles.page}>
-        <p className={styles.placeholder}>Loading datasheet…</p>
-      </main>
-    )
+    return <DatasheetSkeleton />
   }
 
   if (isError || !unit) {
