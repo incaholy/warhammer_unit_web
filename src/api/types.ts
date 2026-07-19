@@ -65,6 +65,7 @@ export interface User_Read {
   id: UUID
   username: string
   email: string
+  is_admin: boolean
 }
 
 export interface Token {
@@ -88,6 +89,7 @@ export interface Army_Read {
   subfaction_id: UUID | null
   description: string | null
   points_limit: number | null
+  created_at: string
   points_total: number
   units: ArmyUnit_Read[]
 }

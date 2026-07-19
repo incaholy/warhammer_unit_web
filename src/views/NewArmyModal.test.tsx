@@ -139,6 +139,7 @@ describe('NewArmyModal', () => {
   it('passes description, points_limit, and subfaction_id through to the create-army mutation', async () => {
     const created: Army_Read = {
       id: 'a-1',
+      created_at: '2026-01-01T00:00:00Z',
       name: 'The Long Watch',
       faction_id: 'f-dominion',
       subfaction_id: 'sf-iron',
@@ -178,6 +179,7 @@ describe('NewArmyModal', () => {
   it('omits the optional fields when left blank', async () => {
     vi.mocked(createArmy).mockResolvedValue({
       id: 'a-2',
+      created_at: '2026-01-01T00:00:00Z',
       name: 'Bare Bones',
       faction_id: 'f-bare',
       subfaction_id: null,

@@ -24,6 +24,7 @@ const factions: Faction_Read[] = [
 const armies: Army_Read[] = [
   {
     id: 'a1',
+    created_at: '2026-01-01T00:00:00Z',
     name: 'The Hollow Vigil',
     faction_id: 'f-hollow',
     subfaction_id: null,
@@ -37,6 +38,7 @@ const armies: Army_Read[] = [
   },
   {
     id: 'a2',
+    created_at: '2026-01-01T00:00:00Z',
     name: 'Dawnbreak Column',
     faction_id: 'f-dominion',
     subfaction_id: null,

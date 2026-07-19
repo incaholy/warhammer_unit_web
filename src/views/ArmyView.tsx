@@ -42,11 +42,9 @@ function totalUnits(units: ArmyUnit_Read[]): number {
   return units.reduce((sum, entry) => sum + entry.amount, 0)
 }
 
-/** The API's Army_Read schema doesn't type a timestamp, but the record carries
- * one; read it defensively so the "Created …" label appears when present. */
+/** The "Created …" label from the army's timestamp (now typed on Army_Read). */
 function createdLabel(army: Army_Read): string {
-  const created = (army as { created_at?: string | number | Date }).created_at
-  return created != null ? formatCreatedLabel(created) : ''
+  return army.created_at ? formatCreatedLabel(army.created_at) : ''
 }
 
 export default function ArmyView() {

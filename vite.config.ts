@@ -9,7 +9,7 @@ export default defineConfig({
   // sees one origin (SPEC.md → "Vite dev proxy").
   server: {
     proxy: Object.fromEntries(
-      ['/auth', '/me', '/units', '/factions', '/weapons', '/abilities', '/health'].map((p) => [
+      ['/auth', '/me', '/users', '/units', '/factions', '/weapons', '/abilities', '/health'].map((p) => [
         p,
         { target: 'http://localhost:8000', changeOrigin: true },
       ]),
