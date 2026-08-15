@@ -3,6 +3,8 @@
  * into a typed ApiError. Nothing else reads the token or hard-codes a path.
  * See SPEC.md → "HTTP client". */
 
+import { z } from 'zod'
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 const TOKEN_KEY = 'muster.token'
@@ -24,20 +26,39 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
   return () => unauthorizedListeners.delete(listener)
 }
 
-/** The shape of the backend's error body: `{ "detail": message, "field"? }`. */
-interface ApiErrorBody {
-  detail?: string
-  field?: string
-}
+/** The backend's stable, machine-readable error codes (mirrors
+ * app/core/errors.py `ErrorCode`). Views branch on these, not on status/message. */
+export const ERROR_CODES = [
+  'NOT_FOUND',
+  'CONFLICT',
+  'VALIDATION',
+  'REQUEST_VALIDATION',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'INTERNAL',
+] as const
+export type ErrorCode = (typeof ERROR_CODES)[number]
+
+/** The one error shape the backend returns: `{ detail, code, field? }`. Parsed at
+ * the boundary (not cast) so a wrong shape is caught, not assumed. `code` uses
+ * `.catch` so an unknown/future code degrades to `undefined` instead of failing
+ * the whole parse. */
+const apiErrorBodySchema = z.object({
+  detail: z.string(),
+  code: z.enum(ERROR_CODES).optional().catch(undefined),
+  field: z.string().optional(),
+})
 
 export class ApiError extends Error {
   readonly status: number
+  readonly code?: ErrorCode
   readonly field?: string
 
-  constructor(status: number, message: string, field?: string) {
+  constructor(status: number, message: string, code?: ErrorCode, field?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
     this.field = field
   }
 }
@@ -84,15 +105,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
 
   if (!res.ok) {
     let message = res.statusText || `HTTP ${res.status}`
+    let code: ErrorCode | undefined
     let field: string | undefined
     try {
-      const errorBody = (await res.json()) as ApiErrorBody
-      if (errorBody.detail) message = errorBody.detail
-      field = errorBody.field
+      const parsed = apiErrorBodySchema.safeParse(await res.json())
+      if (parsed.success) {
+        message = parsed.data.detail
+        code = parsed.data.code
+        field = parsed.data.field
+      }
+      // A body that doesn't match the shape keeps the status-derived message.
     } catch {
       // Non-JSON error body — keep the status-derived message.
     }
-    throw new ApiError(res.status, message, field)
+    throw new ApiError(res.status, message, code, field)
   }
 
   const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
