@@ -1,12 +1,12 @@
 /* The `/login` screen: a Log In / Sign Up segmented toggle over a single form.
- * Login collects email + password; Sign Up adds name + confirm. Errors are the
- * thrown `ApiError.message`, shown inline. See SPEC.md → "AuthView". */
+ * Login collects email + password; Sign Up adds name + confirm. Errors run
+ * through `messageForError`, shown inline. See SPEC.md → "AuthView". */
 
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Eyebrow, Field, SegmentedToggle } from '../ui'
-import { ApiError } from '../api/client'
+import { messageForError } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import styles from './AuthView.module.css'
 
@@ -61,9 +61,7 @@ export function AuthView() {
       }
       navigate('/')
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Something went wrong. Please try again.'
-      setError(message)
+      setError(messageForError(err))
     } finally {
       setSubmitting(false)
     }

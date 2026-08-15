@@ -6,7 +6,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './toast/ToastProvider'
 import { emitToast } from './toast/toastBus'
 import { ErrorBoundary } from './ui/ErrorBoundary'
-import { ApiError } from './api/client'
+import { messageForError } from './lib/errors'
 import './styles/theme.css'
 import './styles/global.css'
 import App from './App.tsx'
@@ -16,7 +16,7 @@ import App from './App.tsx'
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error) => {
-      emitToast(error instanceof ApiError ? error.message : 'Something went wrong', 'error')
+      emitToast(messageForError(error), 'error')
     },
     onSuccess: (_data, _vars, _ctx, mutation) => {
       const message = mutation.meta?.successMessage
