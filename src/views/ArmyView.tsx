@@ -6,6 +6,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 
 import { Button, Eyebrow, EmptyState, Tag } from '../ui'
+import { ApiError } from '../api/client'
 import {
   useArmy,
   useFactions,
@@ -61,7 +62,12 @@ export default function ArmyView() {
     return <ArmySkeleton />
   }
   if (armyQuery.isError || !armyQuery.data) {
-    return <div className={styles.status}>Army not found</div>
+    // Only a genuine 404 is "not found"; anything else (500, network, …) is a
+    // load failure. A 401 has already bounced to /login via the client.
+    const notFound = armyQuery.error instanceof ApiError && armyQuery.error.code === 'NOT_FOUND'
+    return (
+      <div className={styles.status}>{notFound ? 'Army not found' : "Couldn't load this army."}</div>
+    )
   }
 
   const army = armyQuery.data
