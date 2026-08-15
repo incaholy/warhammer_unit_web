@@ -20,11 +20,12 @@ export const CODE_MESSAGES: Record<ErrorCode, string> = {
 const GENERIC = 'Something went wrong. Please try again.'
 
 /** A user-facing message for any thrown value. Prefers the backend's specific
- * `detail` (a clean string since R2), then a per-code fallback, then a generic.
- * Non-`ApiError` values get the generic message — never a raw internal message. */
-export function messageForError(err: unknown): string {
+ * `detail` (a clean string since R2), then a per-code message, then `fallback`
+ * (default generic). Non-`ApiError` values get `fallback` — never a raw internal
+ * message — so a caller can supply context (e.g. "Could not create the army."). */
+export function messageForError(err: unknown, fallback: string = GENERIC): string {
   if (err instanceof ApiError) {
-    return err.message || (err.code ? CODE_MESSAGES[err.code] : GENERIC)
+    return err.message || (err.code ? CODE_MESSAGES[err.code] : fallback)
   }
-  return GENERIC
+  return fallback
 }

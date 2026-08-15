@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button, Field, Modal } from '../ui'
+import { messageForError } from '../lib/errors'
 import { useCreateArmy, useFactions } from '../api/queries'
 import styles from './NewArmyModal.module.css'
 
@@ -97,7 +98,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
           navigate(`/armies/${army.id}`)
         },
         onError: (err) => {
-          setError(err.message || 'Could not create the army.')
+          setError(messageForError(err, 'Could not create the army.'))
         },
       },
     )

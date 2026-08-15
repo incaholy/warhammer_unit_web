@@ -18,4 +18,8 @@ describe('messageForError', () => {
     expect(messageForError(new Error('boom'))).toBe('Something went wrong. Please try again.')
     expect(messageForError('nope')).toBe('Something went wrong. Please try again.')
   })
+
+  it('uses the provided fallback for non-ApiError values', () => {
+    expect(messageForError(new Error('boom'), 'Could not save.')).toBe('Could not save.')
+  })
 })
