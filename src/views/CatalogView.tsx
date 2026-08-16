@@ -85,6 +85,16 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
     return set
   }, [inventoryQuery.data])
 
+  // Units already in the add target. POST is create-only (409 on a repeat), so an
+  // already-added unit shows a disabled "Added" instead of a "+ Add" that would
+  // conflict; quantity changes happen via PATCH in the target's own view.
+  const targetMemberIds = useMemo(() => {
+    if (target.kind === 'inventory') return ownedIds
+    const set = new Set<UUID>()
+    for (const entry of armyQuery.data?.units ?? []) set.add(entry.unit.id)
+    return set
+  }, [target.kind, ownedIds, armyQuery.data])
+
   // Per-faction counts (and the "All" total) from the search-filtered index.
   const factionCounts = useMemo(() => {
     const map = new Map<UUID, number>()
@@ -199,6 +209,7 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
             <ul className={styles.rows}>
               {visibleUnits.map((unit) => {
                 const owned = ownedIds.has(unit.id)
+                const alreadyInTarget = targetMemberIds.has(unit.id)
                 const faction = factionNames.get(unit.faction_id) ?? 'Unknown'
                 const role = deriveRole(unit.keywords)
                 return (
@@ -214,10 +225,10 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={isAdding}
+                        disabled={isAdding || alreadyInTarget}
                         onClick={() => handleAdd(unit.id)}
                       >
-                        + Add
+                        {alreadyInTarget ? 'Added' : '+ Add'}
                       </Button>
                     </div>
                   </li>

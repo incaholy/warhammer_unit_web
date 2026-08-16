@@ -191,7 +191,9 @@ describe('CatalogView', () => {
     await screen.findByText('Sword Captain')
 
     const rows = screen.getAllByRole('listitem')
-    fireEvent.click(within(rows[0]).getByRole('button', { name: /\+ add/i }))
+    // rows[0] (u1) is already owned → its button is a disabled "Added"; add a
+    // not-yet-owned unit instead. (Re-adding an owned unit would 409 now — R12.)
+    fireEvent.click(within(rows[1]).getByRole('button', { name: /\+ add/i }))
 
     await waitFor(() => {
       const posted = fetchMock.mock.calls.some(([input, init]) => {
@@ -209,6 +211,17 @@ describe('CatalogView', () => {
       return method === 'POST' && url.pathname.endsWith('/units')
     })
     expect(armyPost).toBe(false)
+  })
+
+  it('shows a disabled "Added" for a unit already in the target (no re-add — R12)', async () => {
+    renderView({ kind: 'inventory' })
+    await screen.findByText('Sword Captain')
+
+    // u1 is in the inventory, so its add control is a disabled "Added": re-adding
+    // would 409 now that POST is create-only.
+    const rows = screen.getAllByRole('listitem')
+    expect(within(rows[0]).getByRole('button', { name: /added/i })).toBeDisabled()
+    expect(within(rows[0]).queryByRole('button', { name: /\+ add/i })).toBeNull()
   })
 
   it('adds to the ARMY when target is an army', async () => {
