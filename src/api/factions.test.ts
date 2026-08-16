@@ -21,10 +21,10 @@ describe('factions resource', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/factions')
   })
 
-  it('factionTaxonomy GETs /factions/taxonomy', async () => {
+  it('factionTaxonomy GETs /taxonomy', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
     vi.stubGlobal('fetch', fetchMock)
     await factionTaxonomy()
-    expect(fetchMock.mock.calls[0][0]).toBe('/factions/taxonomy')
+    expect(fetchMock.mock.calls[0][0]).toBe('/taxonomy')
   })
 })

@@ -31,7 +31,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
   const factions = factionsQuery.data ?? []
 
   // Subfaction options come from the selected faction's own `subfactions` array
-  // ({id, name}). We deliberately do NOT use GET /factions/taxonomy here: that
+  // ({id, name}). We deliberately do NOT use GET /taxonomy here: that
   // endpoint returns subfaction *names* only (no ids) for admin dropdowns, but
   // creating an army needs a real subfaction_id (UUID).
   const selectedFaction = factions.find((f) => f.id === factionId)

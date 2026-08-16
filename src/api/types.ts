@@ -56,7 +56,7 @@ export interface Faction_Read {
   subfactions: Subfaction_Read[]
 }
 
-/** `GET /factions/taxonomy` — allowed subfactions per faction name. */
+/** `GET /taxonomy` — allowed subfactions per faction name. */
 export type FactionTaxonomy = Record<string, string[]>
 
 // ---- User data ----
