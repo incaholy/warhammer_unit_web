@@ -2,11 +2,11 @@
  * `/me/inventory/…`. See SPEC.md → "Routing & views" (InventoryView). */
 
 import { apiDelete, apiGet, apiPatch, apiPost } from './client'
-import type { AmountSet, UnitAdd, UserUnit_Read, UUID } from './types'
+import type { AmountSet, Page, UnitAdd, UserUnit_Read, UUID } from './types'
 
-/** `GET /me/inventory` — owned units with amounts. */
-export function listInventory(): Promise<UserUnit_Read[]> {
-  return apiGet<UserUnit_Read[]>('/me/inventory')
+/** `GET /me/inventory` — owned units with amounts (paged). */
+export function listInventory(): Promise<Page<UserUnit_Read>> {
+  return apiGet<Page<UserUnit_Read>>('/me/inventory')
 }
 
 /** `POST /me/inventory` — record ownership of a unit (upsert; `amount` defaults

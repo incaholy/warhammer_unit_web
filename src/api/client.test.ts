@@ -128,17 +128,18 @@ describe('api client', () => {
     off()
   })
 
-  it('exposes response headers (X-Total-Count) via apiGetWithHeaders', async () => {
+  it('exposes the parsed body alongside the response headers via apiGetWithHeaders', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([], {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': '137' },
-      }),
+      jsonResponse(
+        { items: [], total: 0, limit: 25, offset: 0 },
+        { headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-42' } },
+      ),
     )
     vi.stubGlobal('fetch', fetchMock)
 
     const { data, headers } = await apiGetWithHeaders('/units')
 
-    expect(data).toEqual([])
-    expect(headers.get('X-Total-Count')).toBe('137')
+    expect(data).toEqual({ items: [], total: 0, limit: 25, offset: 0 })
+    expect(headers.get('X-Request-Id')).toBe('req-42')
   })
 })

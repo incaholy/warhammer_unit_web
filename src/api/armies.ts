@@ -9,15 +9,16 @@ import type {
   Army_Read,
   Army_Update,
   ArmyUnit_Read,
+  Page,
   Shortfall_Read,
   UnitAdd,
   UUID,
   Validation_Read,
 } from './types'
 
-/** `GET /me/armies` — the user's armies. */
-export function listArmies(): Promise<Army_Read[]> {
-  return apiGet<Army_Read[]>('/me/armies')
+/** `GET /me/armies` — the user's armies (paged). */
+export function listArmies(): Promise<Page<Army_Read>> {
+  return apiGet<Page<Army_Read>>('/me/armies')
 }
 
 /** `GET /me/armies/{id}`. */

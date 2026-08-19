@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { listUnits, getUnit } from './units'
+import { listUnits, unitFacets, getUnit } from './units'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -14,27 +14,29 @@ afterEach(() => {
 })
 
 describe('units resource', () => {
-  it('listUnits reads X-Total-Count into total', async () => {
+  it('listUnits returns the paged envelope with items and total from the body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([{ id: 'u1' }], {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': '137' },
-      }),
+      jsonResponse({ items: [{ id: 'u1' }], total: 137, limit: 25, offset: 0 }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await listUnits()
 
     expect(result.total).toBe(137)
-    expect(result.units).toHaveLength(1)
+    expect(result.items).toHaveLength(1)
   })
 
-  it('falls back to the row count when X-Total-Count is absent', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([{ id: 'u1' }, { id: 'u2' }]))
+  it('reads total from the body even when it exceeds the returned page', async () => {
+    // total counts the whole filter, not just this page's rows.
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ items: [{ id: 'u1' }, { id: 'u2' }], total: 58, limit: 2, offset: 0 }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await listUnits()
 
-    expect(result.total).toBe(2)
+    expect(result.total).toBe(58)
+    expect(result.items).toHaveLength(2)
   })
 
   it('builds the query string from filter params', async () => {
@@ -60,6 +62,33 @@ describe('units resource', () => {
 
     const [url] = fetchMock.mock.calls[0]
     expect(url).toBe('/units')
+  })
+
+  it('unitFacets GETs /units/facets and returns per-faction counts', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ total: 5, by_faction: { f1: 3, f2: 2 } }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await unitFacets()
+
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toBe('/units/facets')
+    expect(result.total).toBe(5)
+    expect(result.by_faction).toEqual({ f1: 3, f2: 2 })
+  })
+
+  it('unitFacets carries the q search term in the query string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ total: 1, by_faction: { f2: 1 } }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await unitFacets({ q: 'hive' })
+
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toContain('/units/facets?')
+    expect(url).toContain('q=hive')
   })
 
   it('getUnit GETs /units/{id}', async () => {

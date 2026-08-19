@@ -6,6 +6,16 @@
 
 export type UUID = string
 
+/** The pagination envelope every list endpoint returns (backend `Page[T]`).
+ * `total` is the count across the filter, ignoring paging — it lives in the
+ * body, not a header (see ARCHITECTURE.md §2.3 / ROADMAP R4). */
+export interface Page<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
 // ---- Catalog ----
 
 export interface Weapon_Read {
@@ -58,6 +68,13 @@ export interface Faction_Read {
 
 /** `GET /taxonomy` — allowed subfactions per faction name. */
 export type FactionTaxonomy = Record<string, string[]>
+
+/** `GET /units/facets` — per-faction unit counts for the current filter,
+ * computed server-side (replaces the client download-and-count). */
+export interface UnitFacets {
+  total: number
+  by_faction: Record<UUID, number>
+}
 
 // ---- User data ----
 

@@ -2,11 +2,11 @@
  * See SPEC.md → "Routing & views" (faction filter, New Army modal). */
 
 import { apiGet } from './client'
-import type { Faction_Read, FactionTaxonomy } from './types'
+import type { Faction_Read, FactionTaxonomy, Page } from './types'
 
-/** `GET /factions` — every faction with its subfactions. */
-export function listFactions(): Promise<Faction_Read[]> {
-  return apiGet<Faction_Read[]>('/factions')
+/** `GET /factions` — every faction with its subfactions (paged). */
+export function listFactions(): Promise<Page<Faction_Read>> {
+  return apiGet<Page<Faction_Read>>('/factions')
 }
 
 /** `GET /taxonomy` — allowed subfaction names keyed by faction name. (Static

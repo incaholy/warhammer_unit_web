@@ -39,11 +39,9 @@ describe('query keys', () => {
 })
 
 describe('useUnits', () => {
-  it('resolves with the paged result including total from X-Total-Count', async () => {
+  it('resolves with the paged result including total from the body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([{ id: 'u1' }], {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': '42' },
-      }),
+      jsonResponse({ items: [{ id: 'u1' }], total: 42, limit: 25, offset: 0 }),
     )
     vi.stubGlobal('fetch', fetchMock)
     const { wrapper } = makeWrapper()
@@ -52,6 +50,7 @@ describe('useUnits', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.total).toBe(42)
+    expect(result.current.data?.items).toHaveLength(1)
   })
 })
 

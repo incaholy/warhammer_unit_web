@@ -15,16 +15,18 @@ import * as factionsApi from './factions'
 import * as inventoryApi from './inventory'
 import * as unitsApi from './units'
 import { getMe } from './auth'
-import type { ListUnitsParams, ListUnitsResult } from './units'
+import type { ListUnitsParams } from './units'
 import type {
   Army_Create,
   Army_Read,
   Army_Update,
   ArmyUnit_Read,
   Faction_Read,
+  Page,
   Shortfall_Read,
   Unit_Read,
   UnitAdd,
+  UnitFacets,
   User_Read,
   UserUnit_Read,
   UUID,
@@ -41,6 +43,8 @@ export const queryKeys = {
   armyShortfall: (id: UUID) => ['army', id, 'shortfall'] as const,
   armyValidation: (id: UUID) => ['army', id, 'validate'] as const,
   units: (filters: ListUnitsParams = {}) => ['units', filters] as const,
+  unitFacets: (filters: { q?: string; subfaction_id?: UUID } = {}) =>
+    ['units', 'facets', filters] as const,
   unit: (id: UUID) => ['unit', id] as const,
   factions: ['factions'] as const,
   factionTaxonomy: ['factions', 'taxonomy'] as const,
@@ -53,7 +57,7 @@ export function useMe(enabled = true): UseQueryResult<User_Read> {
   return useQuery({ queryKey: queryKeys.me, queryFn: getMe, enabled })
 }
 
-export function useArmies(): UseQueryResult<Army_Read[]> {
+export function useArmies(): UseQueryResult<Page<Army_Read>> {
   return useQuery({ queryKey: queryKeys.armies, queryFn: armiesApi.listArmies })
 }
 
@@ -81,10 +85,19 @@ export function useArmyValidation(id: UUID): UseQueryResult<Validation_Read> {
   })
 }
 
-export function useUnits(filters: ListUnitsParams = {}): UseQueryResult<ListUnitsResult> {
+export function useUnits(filters: ListUnitsParams = {}): UseQueryResult<Page<Unit_Read>> {
   return useQuery({
     queryKey: queryKeys.units(filters),
     queryFn: () => unitsApi.listUnits(filters),
+  })
+}
+
+export function useUnitFacets(
+  filters: { q?: string; subfaction_id?: UUID } = {},
+): UseQueryResult<UnitFacets> {
+  return useQuery({
+    queryKey: queryKeys.unitFacets(filters),
+    queryFn: () => unitsApi.unitFacets(filters),
   })
 }
 
@@ -96,11 +109,11 @@ export function useUnit(id: UUID): UseQueryResult<Unit_Read> {
   })
 }
 
-export function useFactions(): UseQueryResult<Faction_Read[]> {
+export function useFactions(): UseQueryResult<Page<Faction_Read>> {
   return useQuery({ queryKey: queryKeys.factions, queryFn: factionsApi.listFactions })
 }
 
-export function useInventory(): UseQueryResult<UserUnit_Read[]> {
+export function useInventory(): UseQueryResult<Page<UserUnit_Read>> {
   return useQuery({ queryKey: queryKeys.inventory, queryFn: inventoryApi.listInventory })
 }
 

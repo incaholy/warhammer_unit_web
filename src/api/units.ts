@@ -1,8 +1,9 @@
-/* Catalog unit resource functions — `GET /units` (paged, filterable) and
- * `GET /units/{id}`. See SPEC.md → "Routing & views" (CatalogView / UnitView). */
+/* Catalog unit resource functions — `GET /units` (paged, filterable),
+ * `GET /units/facets` (per-faction counts), and `GET /units/{id}`.
+ * See SPEC.md → "Routing & views" (CatalogView / UnitView). */
 
-import { apiGet, apiGetWithHeaders } from './client'
-import type { Unit_Read, UUID } from './types'
+import { apiGet } from './client'
+import type { Page, Unit_Read, UnitFacets, UUID } from './types'
 
 export interface ListUnitsParams {
   faction_id?: UUID
@@ -11,12 +12,6 @@ export interface ListUnitsParams {
   q?: string
   limit?: number
   offset?: number
-}
-
-export interface ListUnitsResult {
-  units: Unit_Read[]
-  /** Total matching rows, from the `X-Total-Count` header (for "N of M" paging). */
-  total: number
 }
 
 function toQueryString(params: ListUnitsParams): string {
@@ -30,12 +25,19 @@ function toQueryString(params: ListUnitsParams): string {
   return qs ? `?${qs}` : ''
 }
 
-/** `GET /units` — the paged catalog. Reads the paged total from `X-Total-Count`. */
-export async function listUnits(params: ListUnitsParams = {}): Promise<ListUnitsResult> {
-  const { data, headers } = await apiGetWithHeaders<Unit_Read[]>(`/units${toQueryString(params)}`)
-  const totalHeader = headers.get('X-Total-Count')
-  const total = totalHeader !== null ? Number(totalHeader) : data.length
-  return { units: data, total }
+/** `GET /units` — the paged catalog. `total` (for "N of M") is in the body. */
+export function listUnits(params: ListUnitsParams = {}): Promise<Page<Unit_Read>> {
+  return apiGet<Page<Unit_Read>>(`/units${toQueryString(params)}`)
+}
+
+/** `GET /units/facets` — per-faction unit counts for the current filter,
+ * respecting the search term. Powers the catalog rail without downloading rows. */
+export function unitFacets(params: { q?: string; subfaction_id?: UUID } = {}): Promise<UnitFacets> {
+  const search = new URLSearchParams()
+  if (params.q) search.set('q', params.q)
+  if (params.subfaction_id) search.set('subfaction_id', params.subfaction_id)
+  const qs = search.toString()
+  return apiGet<UnitFacets>(`/units/facets${qs ? `?${qs}` : ''}`)
 }
 
 /** `GET /units/{id}` — a single datasheet. */
