@@ -7,6 +7,9 @@ import { CollectionView } from './CollectionView'
 import type { Army_Read, Faction_Read, Unit_Read } from '../api/types'
 import { listArmies } from '../api/armies'
 
+/** Wrap rows in the pagination envelope the list hooks now expose. */
+const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
+
 // The read hooks call the api module directly; mock it so we can drive a pending
 // query (a promise that never settles) for the skeleton-state test. Existing
 // tests seed data via setQueryData and never hit this mock.
@@ -53,8 +56,8 @@ function renderView(seedArmies: Army_Read[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   })
-  client.setQueryData(['armies'], seedArmies)
-  client.setQueryData(['factions'], factions)
+  client.setQueryData(['armies'], page(seedArmies))
+  client.setQueryData(['factions'], page(factions))
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -88,7 +91,7 @@ describe('CollectionView', () => {
       defaultOptions: { queries: { retry: false } },
     })
     // Seed factions only; leave ['armies'] unseeded so its query stays pending.
-    client.setQueryData(['factions'], factions)
+    client.setQueryData(['factions'], page(factions))
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter>

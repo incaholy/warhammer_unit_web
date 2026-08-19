@@ -94,7 +94,10 @@ function stubFetch(army: Army_Read, options: StubOptions = {}) {
       onDelete?.(url)
       return Promise.resolve(new Response(null, { status: 204 }))
     }
-    if (url.includes('/factions')) return Promise.resolve(jsonResponse(FACTIONS))
+    if (url.includes('/factions'))
+      return Promise.resolve(
+        jsonResponse({ items: FACTIONS, total: FACTIONS.length, limit: 50, offset: 0 }),
+      )
     if (url.includes('/validate')) return Promise.resolve(jsonResponse(validation))
     if (url.includes('/shortfall')) return Promise.resolve(jsonResponse(shortfall))
     if (url.includes('/me/armies/')) return Promise.resolve(jsonResponse(army))

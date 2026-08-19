@@ -46,7 +46,12 @@ function renderModal(open: boolean) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   })
-  client.setQueryData(['factions'], factions)
+  client.setQueryData(['factions'], {
+    items: factions,
+    total: factions.length,
+    limit: 50,
+    offset: 0,
+  })
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>

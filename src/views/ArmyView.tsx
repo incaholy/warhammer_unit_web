@@ -72,7 +72,7 @@ export default function ArmyView() {
 
   const army = armyQuery.data
   const factionName =
-    factionsQuery.data?.find((f) => f.id === army.faction_id)?.name ?? ''
+    factionsQuery.data?.items.find((f) => f.id === army.faction_id)?.name ?? ''
 
   const meta = [
     formatPoints(army.points_total),

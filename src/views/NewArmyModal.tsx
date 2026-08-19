@@ -28,7 +28,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
   const [pointsLimit, setPointsLimit] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const factions = factionsQuery.data ?? []
+  const factions = factionsQuery.data?.items ?? []
 
   // Subfaction options come from the selected faction's own `subfactions` array
   // ({id, name}). We deliberately do NOT use GET /taxonomy here: that

@@ -90,11 +90,11 @@ export function CollectionView() {
   }
 
   const factionName = useMemo(() => {
-    const byId = new Map((factionsQuery.data ?? []).map((f) => [f.id, f.name]))
+    const byId = new Map((factionsQuery.data?.items ?? []).map((f) => [f.id, f.name]))
     return (id: string) => byId.get(id) ?? ''
   }, [factionsQuery.data])
 
-  const armies = useMemo(() => armiesQuery.data ?? [], [armiesQuery.data])
+  const armies = useMemo(() => armiesQuery.data?.items ?? [], [armiesQuery.data])
 
   const totals = useMemo(() => {
     let units = 0

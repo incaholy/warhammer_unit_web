@@ -300,7 +300,7 @@ export default function UnitView(props: UnitViewProps) {
   }
 
   const role = deriveRole(unit.keywords)
-  const factionName = factions?.find((f) => f.id === unit.faction_id)?.name
+  const factionName = factions?.items.find((f) => f.id === unit.faction_id)?.name
   const eyebrow = factionName ? `${factionName} — ${role}` : role
 
   const ranged = unit.weapons.filter((w) => w.category === 'range')

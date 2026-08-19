@@ -24,7 +24,7 @@ export function InventoryView() {
   const { data: inventory, isLoading, isError } = useInventory()
   const [query, setQuery] = useState('')
 
-  const owned = useMemo(() => inventory ?? [], [inventory])
+  const owned = useMemo(() => inventory?.items ?? [], [inventory])
 
   // Header meta: owned datasheets (distinct entries) · total models (sum of amounts).
   const datasheetCount = owned.length

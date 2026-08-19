@@ -62,6 +62,9 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   })
 }
 
+/** Wrap a list of rows in the pagination envelope every list endpoint returns. */
+const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
+
 /** Route by method + path, filtering /units by `faction_id` and `q`. */
 function makeFetchMock() {
   return vi.fn(async (input: string, init?: RequestInit) => {
@@ -69,9 +72,20 @@ function makeFetchMock() {
     const url = new URL(input, 'http://localhost')
     const path = url.pathname
 
-    if (method === 'GET' && path === '/factions') return jsonResponse(factions)
-    if (method === 'GET' && path === '/me/inventory') return jsonResponse(inventory)
+    if (method === 'GET' && path === '/factions') return jsonResponse(page(factions))
+    if (method === 'GET' && path === '/me/inventory') return jsonResponse(page(inventory))
     if (method === 'GET' && path === '/me/armies/army-1') return jsonResponse(army)
+
+    // Per-faction rail counts — grouped over the same `q` the request carries
+    // (no faction filter: the rail shows every faction's count at once).
+    if (method === 'GET' && path === '/units/facets') {
+      const q = url.searchParams.get('q')?.toLowerCase()
+      let matched = units
+      if (q) matched = matched.filter((u) => u.unit_name.toLowerCase().includes(q))
+      const by_faction: Record<string, number> = {}
+      for (const u of matched) by_faction[u.faction_id] = (by_faction[u.faction_id] ?? 0) + 1
+      return jsonResponse({ total: matched.length, by_faction })
+    }
 
     if (method === 'GET' && path === '/units') {
       const factionId = url.searchParams.get('faction_id')
@@ -79,9 +93,7 @@ function makeFetchMock() {
       let matched = units
       if (factionId) matched = matched.filter((u) => u.faction_id === factionId)
       if (q) matched = matched.filter((u) => u.unit_name.toLowerCase().includes(q))
-      return jsonResponse(matched, {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': String(matched.length) },
-      })
+      return jsonResponse(page(matched))
     }
 
     if (method === 'POST' && (path === '/me/inventory' || path === '/me/armies/army-1/units')) {
@@ -143,7 +155,7 @@ describe('CatalogView', () => {
     expect(screen.getByText('Owned')).toBeInTheDocument()
   })
 
-  it('shows the "N of M" count backed by X-Total-Count', async () => {
+  it('shows the "N of M" count backed by the body total', async () => {
     renderView()
     // 3 units total, all on the first page.
     expect(await screen.findByText('3 of 3')).toBeInTheDocument()

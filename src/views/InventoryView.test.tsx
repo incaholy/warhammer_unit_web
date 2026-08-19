@@ -41,6 +41,9 @@ function makeEntry(unit: Unit_Read, amount: number): UserUnit_Read {
   return { unit, amount }
 }
 
+/** Wrap rows in the pagination envelope the inventory list hook now exposes. */
+const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
+
 // Owned units spanning three derived roles (Characters, Battleline, Vehicles).
 const OWNED: UserUnit_Read[] = [
   makeEntry(makeUnit('u-captain', 'Blade Captain', ['Character', 'Infantry']), 1),
@@ -52,7 +55,7 @@ function renderView(owned: UserUnit_Read[] | null) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  if (owned !== null) client.setQueryData(queryKeys.inventory, owned)
+  if (owned !== null) client.setQueryData(queryKeys.inventory, page(owned))
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -71,7 +74,7 @@ describe('InventoryView', () => {
       if (init?.method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }))
       if (init?.method === 'PATCH') return Promise.resolve(jsonResponse({ unit: {}, amount: 1 }))
       // any GET (e.g. an invalidation-triggered refetch)
-      return Promise.resolve(jsonResponse(OWNED))
+      return Promise.resolve(jsonResponse(page(OWNED)))
     })
     vi.stubGlobal('fetch', fetchMock)
   })
