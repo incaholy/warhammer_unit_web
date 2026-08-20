@@ -1,14 +1,45 @@
-/* TypeScript mirrors of the backend response/request schemas
- * (../warhammer_unit/app/api/*). Hand-written for now; SPEC.md's roadmap step 12
- * replaces this with `openapi-typescript` output generated from /openapi.json.
- * Names match the backend (`Unit_Read`, `Army_Read`, …) so a rename there surfaces
- * as a diff here. */
+/* Frontend view of the backend API schema.
+ *
+ * The concrete resource types are RE-EXPORTED from `./schema`, which is GENERATED
+ * from the backend's openapi.json by `npm run gen:api` (ROADMAP R8) — so they
+ * cannot drift from the API. A few client-side conveniences that don't map 1:1 to
+ * a single backend schema (the generic `Page<T>`, the `UUID` alias, the dict-shaped
+ * taxonomy, and the consolidated unit-entry / add bodies) stay hand-defined below.
+ *
+ * Do not edit `schema.d.ts` by hand — run `npm run gen:api` (or `make gen-api`). */
+
+import type { components } from './schema'
+
+type Schemas = components['schemas']
+
+// ---- Generated from openapi.json (1:1 with a backend schema) ----
+
+export type Weapon_Read = Schemas['Weapon_Read']
+export type Ability_Read = Schemas['Ability_Read']
+export type Unit_Read = Schemas['Unit_Read']
+export type Subfaction_Read = Schemas['Subfaction_Read']
+export type Faction_Read = Schemas['Faction_Read']
+export type User_Read = Schemas['User_Read']
+export type Token = Schemas['Token']
+export type UserUnit_Read = Schemas['UserUnit_Read']
+export type ArmyUnit_Read = Schemas['ArmyUnit_Read']
+export type Army_Read = Schemas['Army_Read']
+export type Shortfall_Read = Schemas['Shortfall_Read']
+export type ValidationIssue_Read = Schemas['ValidationIssue_Read']
+export type Validation_Read = Schemas['Validation_Read']
+export type UnitFacets = Schemas['UnitFacets']
+export type Register_Create = Schemas['Register_Create']
+export type Army_Create = Schemas['Army_Create']
+export type Army_Update = Schemas['Army_Update']
+export type AmountSet = Schemas['AmountSet']
+
+// ---- Client-side conveniences (no single backend schema to re-export) ----
 
 export type UUID = string
 
-/** The pagination envelope every list endpoint returns (backend `Page[T]`).
- * `total` is the count across the filter, ignoring paging — it lives in the
- * body, not a header (see ARCHITECTURE.md §2.3 / ROADMAP R4). */
+/** The pagination envelope every list endpoint returns. The backend emits
+ * concrete `Page_Unit_Read_` etc.; kept generic here for ergonomics (structurally
+ * identical). See ARCHITECTURE.md §2.3 / ROADMAP R4. */
 export interface Page<T> {
   items: T[]
   total: number
@@ -16,146 +47,17 @@ export interface Page<T> {
   offset: number
 }
 
-// ---- Catalog ----
-
-export interface Weapon_Read {
-  id: UUID
-  name: string
-  category: 'range' | 'melee'
-  keywords: string[]
-  range_inches: number | null
-  attacks: string
-  weapon_skill: number
-  strength: number
-  armor_piercing: number
-  damage: string
-}
-
-export interface Ability_Read {
-  id: UUID
-  name: string
-  description: string
-}
-
-export interface Unit_Read {
-  id: UUID
-  unit_name: string
-  faction_id: UUID
-  subfaction_id: UUID | null
-  movement: number
-  toughness: number
-  armor_save: number
-  wounds: number
-  invulnerable_save: number | null
-  leadership: number
-  objective_control: number
-  points: number
-  keywords: string[]
-  weapons: Weapon_Read[]
-  abilities: Ability_Read[]
-}
-
-export interface Subfaction_Read {
-  id: UUID
-  name: string
-}
-
-export interface Faction_Read {
-  id: UUID
-  name: string
-  subfactions: Subfaction_Read[]
-}
-
-/** `GET /taxonomy` — allowed subfactions per faction name. */
+/** `GET /taxonomy` — allowed subfactions per faction name (a dict response, not a
+ * named schema). */
 export type FactionTaxonomy = Record<string, string[]>
 
-/** `GET /units/facets` — per-faction unit counts for the current filter,
- * computed server-side (replaces the client download-and-count). */
-export interface UnitFacets {
-  total: number
-  by_faction: Record<UUID, number>
-}
+/** Inventory and army rows are both a catalog unit plus an amount — the same
+ * shape from either list. */
+export type UnitEntry_Read = UserUnit_Read
 
-// ---- User data ----
-
-export interface User_Read {
-  id: UUID
-  username: string
-  email: string
-  is_admin: boolean
-}
-
-export interface Token {
-  access_token: string
-  token_type: string
-}
-
-/** Both inventory (`UserUnit_Read`) and army (`ArmyUnit_Read`) rows are a catalog
- * unit plus an amount. */
-export interface UnitEntry_Read {
-  unit: Unit_Read
-  amount: number
-}
-export type UserUnit_Read = UnitEntry_Read
-export type ArmyUnit_Read = UnitEntry_Read
-
-export interface Army_Read {
-  id: UUID
-  name: string
-  faction_id: UUID
-  subfaction_id: UUID | null
-  description: string | null
-  points_limit: number | null
-  created_at: string
-  points_total: number
-  units: ArmyUnit_Read[]
-}
-
-export interface Shortfall_Read {
-  unit: Unit_Read
-  in_list: number
-  owned: number
-  need: number
-}
-
-export interface ValidationIssue_Read {
-  kind: string
-  detail: string
-  unit: Unit_Read | null
-}
-
-export interface Validation_Read {
-  ok: boolean
-  points_total: number
-  points_limit: number | null
-  issues: ValidationIssue_Read[]
-}
-
-// ---- Request bodies ----
-
-export interface Register_Create {
-  username: string
-  email: string
-  password: string
-}
-
-export interface Army_Create {
-  name: string
-  faction_id: UUID
-  subfaction_id?: UUID | null
-  description?: string | null
-  points_limit?: number | null
-}
-
-export type Army_Update = Partial<Omit<Army_Create, never>>
-
-/** `POST …/units` and `POST /me/inventory` bodies (amount defaults to 1). */
+/** `POST …/units` and `POST /me/inventory` bodies. The backend has one schema per
+ * endpoint (ArmyUnitAdd / InventoryAdd), identical in shape. */
 export interface UnitAdd {
   unit_id: UUID
   amount?: number
-}
-
-/** The `PATCH` set-amount body for inventory/army units. */
-export interface AmountSet {
-  amount: number
 }
