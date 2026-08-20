@@ -29,3 +29,15 @@ export function messageForError(err: unknown, fallback: string = GENERIC): strin
   }
   return fallback
 }
+
+/** Map of backend field name → message, from an error's `errors[]` array — so a
+ * form can show all its bad fields at once (ROADMAP R9/C). Empty for non-`ApiError`
+ * values or errors without field info. First message per field wins. */
+export function fieldErrors(err: unknown): Record<string, string> {
+  if (!(err instanceof ApiError) || !err.errors) return {}
+  const map: Record<string, string> = {}
+  for (const e of err.errors) {
+    if (e.field && !(e.field in map)) map[e.field] = e.detail
+  }
+  return map
+}

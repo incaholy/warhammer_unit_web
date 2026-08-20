@@ -98,6 +98,33 @@ describe('api client', () => {
     })
   })
 
+  it('carries the full errors[] array for a multi-field validation (R9/C)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: 'value is not a valid email address',
+          code: 'REQUEST_VALIDATION',
+          field: 'email',
+          errors: [
+            { code: 'REQUEST_VALIDATION', field: 'email', detail: 'value is not a valid email address' },
+            { code: 'REQUEST_VALIDATION', field: 'password', detail: 'string too short' },
+          ],
+        },
+        { status: 422 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
+      status: 422,
+      field: 'email', // top-level mirrors the first
+      errors: [
+        { field: 'email', detail: 'value is not a valid email address' },
+        { field: 'password', detail: 'string too short' },
+      ],
+    })
+  })
+
   it('falls back to a string message when the error body is the wrong shape', async () => {
     // e.g. FastAPI's old 422 *array* — the zod parse fails, so we keep a
     // status-derived string message (never "[object Object]") and no code.

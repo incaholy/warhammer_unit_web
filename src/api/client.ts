@@ -45,27 +45,41 @@ export const ERROR_CODES = [
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
 
-/** The one error shape the backend returns: `{ detail, code, field? }`. Parsed at
- * the boundary (not cast) so a wrong shape is caught, not assumed. `code` uses
- * `.catch` so an unknown/future code degrades to `undefined` instead of failing
- * the whole parse. */
+/** One entry in an error's `errors[]` array — same `{code, field, detail}` shape
+ * as the top level. `field` is null for non-field (whole-body) errors. */
+const apiFieldErrorSchema = z.object({
+  code: z.enum(ERROR_CODES).optional().catch(undefined),
+  field: z.string().nullable().optional(),
+  detail: z.string(),
+})
+export type FieldError = z.infer<typeof apiFieldErrorSchema>
+
+/** The one error shape the backend returns: `{ detail, code, field?, errors[] }`.
+ * `errors` is a uniform array — one element for most failures, all of them for a
+ * multi-field validation (ROADMAP R9/C); the top level mirrors `errors[0]`.
+ * Parsed at the boundary (not cast) so a wrong shape is caught, not assumed;
+ * `code` uses `.catch` so an unknown/future code degrades to `undefined` instead
+ * of failing the whole parse. */
 const apiErrorBodySchema = z.object({
   detail: z.string(),
   code: z.enum(ERROR_CODES).optional().catch(undefined),
   field: z.string().optional(),
+  errors: z.array(apiFieldErrorSchema).optional(),
 })
 
 export class ApiError extends Error {
   readonly status: number
   readonly code?: ErrorCode
   readonly field?: string
+  readonly errors?: FieldError[]
 
-  constructor(status: number, message: string, code?: ErrorCode, field?: string) {
+  constructor(status: number, message: string, code?: ErrorCode, field?: string, errors?: FieldError[]) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.field = field
+    this.errors = errors
   }
 }
 
@@ -113,18 +127,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     let message = res.statusText || `HTTP ${res.status}`
     let code: ErrorCode | undefined
     let field: string | undefined
+    let errors: FieldError[] | undefined
     try {
       const parsed = apiErrorBodySchema.safeParse(await res.json())
       if (parsed.success) {
         message = parsed.data.detail
         code = parsed.data.code
         field = parsed.data.field
+        errors = parsed.data.errors
       }
       // A body that doesn't match the shape keeps the status-derived message.
     } catch {
       // Non-JSON error body — keep the status-derived message.
     }
-    throw new ApiError(res.status, message, code, field)
+    throw new ApiError(res.status, message, code, field, errors)
   }
 
   const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
