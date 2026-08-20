@@ -23,7 +23,7 @@ describe('auth resource', () => {
     const user = await register({ username: 'me', email: 'me@x.io', password: 'pw' })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/auth/register')
+    expect(url).toBe('/api/v1/auth/register')
     expect(init.method).toBe('POST')
     expect(init.headers['Content-Type']).toBe('application/json')
     expect(JSON.parse(init.body)).toEqual({ username: 'me', email: 'me@x.io', password: 'pw' })
@@ -39,7 +39,7 @@ describe('auth resource', () => {
     const token = await login('me@x.io', 'secret')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/auth/login')
+    expect(url).toBe('/api/v1/auth/login')
     expect(init.method).toBe('POST')
     expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
     expect(init.body).toContain('username=me%40x.io')
@@ -56,7 +56,7 @@ describe('auth resource', () => {
     await getMe()
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me')
+    expect(url).toBe('/api/v1/me')
     expect(init.method ?? 'GET').toBe('GET')
   })
 })

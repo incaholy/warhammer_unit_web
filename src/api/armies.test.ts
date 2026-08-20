@@ -29,14 +29,14 @@ describe('armies resource', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
     vi.stubGlobal('fetch', fetchMock)
     await listArmies()
-    expect(fetchMock.mock.calls[0][0]).toBe('/me/armies')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies')
   })
 
   it('getArmy GETs /me/armies/{id}', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'a1' }))
     vi.stubGlobal('fetch', fetchMock)
     await getArmy('a1')
-    expect(fetchMock.mock.calls[0][0]).toBe('/me/armies/a1')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1')
   })
 
   it('createArmy POSTs JSON to /me/armies', async () => {
@@ -48,7 +48,7 @@ describe('armies resource', () => {
     await createArmy({ name: 'Vigil', faction_id: 'f1' })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies')
+    expect(url).toBe('/api/v1/me/armies')
     expect(init.method).toBe('POST')
     expect(init.headers['Content-Type']).toBe('application/json')
     expect(JSON.parse(init.body)).toEqual({ name: 'Vigil', faction_id: 'f1' })
@@ -61,7 +61,7 @@ describe('armies resource', () => {
     await updateArmy('a1', { name: 'Renamed' })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies/a1')
+    expect(url).toBe('/api/v1/me/armies/a1')
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body)).toEqual({ name: 'Renamed' })
   })
@@ -73,7 +73,7 @@ describe('armies resource', () => {
     await deleteArmy('a1')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies/a1')
+    expect(url).toBe('/api/v1/me/armies/a1')
     expect(init.method).toBe('DELETE')
   })
 
@@ -86,7 +86,7 @@ describe('armies resource', () => {
     await addUnit('a1', { unit_id: 'u1', amount: 2 })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies/a1/units')
+    expect(url).toBe('/api/v1/me/armies/a1/units')
     expect(init.method).toBe('POST')
     expect(JSON.parse(init.body)).toEqual({ unit_id: 'u1', amount: 2 })
   })
@@ -98,7 +98,7 @@ describe('armies resource', () => {
     await setAmount('a1', 'u1', 5)
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies/a1/units/u1')
+    expect(url).toBe('/api/v1/me/armies/a1/units/u1')
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body)).toEqual({ amount: 5 })
   })
@@ -110,7 +110,7 @@ describe('armies resource', () => {
     await removeUnit('a1', 'u1')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/armies/a1/units/u1')
+    expect(url).toBe('/api/v1/me/armies/a1/units/u1')
     expect(init.method).toBe('DELETE')
   })
 
@@ -118,7 +118,7 @@ describe('armies resource', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
     vi.stubGlobal('fetch', fetchMock)
     await shortfall('a1')
-    expect(fetchMock.mock.calls[0][0]).toBe('/me/armies/a1/shortfall')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1/shortfall')
   })
 
   it('validate GETs /me/armies/{id}/validate', async () => {
@@ -127,6 +127,6 @@ describe('armies resource', () => {
       .mockResolvedValue(jsonResponse({ ok: true, points_total: 0, points_limit: null, issues: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await validate('a1')
-    expect(fetchMock.mock.calls[0][0]).toBe('/me/armies/a1/validate')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1/validate')
   })
 })

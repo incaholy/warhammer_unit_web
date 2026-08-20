@@ -46,7 +46,7 @@ describe('units resource', () => {
     await listUnits({ faction_id: 'f1', subfaction_id: 's2', q: 'termi', limit: 20, offset: 40 })
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toContain('/units?')
+    expect(url).toContain('/api/v1/units?')
     expect(url).toContain('faction_id=f1')
     expect(url).toContain('subfaction_id=s2')
     expect(url).toContain('q=termi')
@@ -61,7 +61,7 @@ describe('units resource', () => {
     await listUnits()
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe('/units')
+    expect(url).toBe('/api/v1/units')
   })
 
   it('unitFacets GETs /units/facets and returns per-faction counts', async () => {
@@ -73,7 +73,7 @@ describe('units resource', () => {
     const result = await unitFacets()
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe('/units/facets')
+    expect(url).toBe('/api/v1/units/facets')
     expect(result.total).toBe(5)
     expect(result.by_faction).toEqual({ f1: 3, f2: 2 })
   })
@@ -87,7 +87,7 @@ describe('units resource', () => {
     await unitFacets({ q: 'hive' })
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toContain('/units/facets?')
+    expect(url).toContain('/api/v1/units/facets?')
     expect(url).toContain('q=hive')
   })
 
@@ -98,6 +98,6 @@ describe('units resource', () => {
     await getUnit('u9')
 
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe('/units/u9')
+    expect(url).toBe('/api/v1/units/u9')
   })
 })

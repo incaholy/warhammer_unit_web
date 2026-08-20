@@ -13,7 +13,8 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 
 /** Route the fetch mock by request path so login (form) → token, /me → user. */
 function routedFetch() {
-  return vi.fn((url: string) => {
+  return vi.fn((rawUrl: string) => {
+    const url = rawUrl.replace(/^\/api\/v1/, '')
     if (url === '/auth/login') {
       return Promise.resolve(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
     }

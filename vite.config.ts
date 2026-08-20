@@ -5,15 +5,13 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Dev proxy: forward the backend's route prefixes to :8000 so the browser
-  // sees one origin (SPEC.md → "Vite dev proxy").
+  // Dev proxy: forward the versioned API prefix to :8000 so the browser sees one
+  // origin (SPEC.md → "Vite dev proxy"). All resource routes live under /api/v1
+  // (ROADMAP R5); /health is unversioned but the frontend never calls it.
   server: {
-    proxy: Object.fromEntries(
-      ['/auth', '/me', '/users', '/units', '/factions', '/weapons', '/abilities', '/health'].map((p) => [
-        p,
-        { target: 'http://localhost:8000', changeOrigin: true },
-      ]),
-    ),
+    proxy: {
+      '/api': { target: 'http://localhost:8000', changeOrigin: true },
+    },
   },
   test: {
     globals: true,

@@ -18,7 +18,7 @@ describe('inventory resource', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
     vi.stubGlobal('fetch', fetchMock)
     await listInventory()
-    expect(fetchMock.mock.calls[0][0]).toBe('/me/inventory')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/inventory')
   })
 
   it('addUnit POSTs to /me/inventory', async () => {
@@ -30,7 +30,7 @@ describe('inventory resource', () => {
     await addUnit({ unit_id: 'u1' })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/inventory')
+    expect(url).toBe('/api/v1/me/inventory')
     expect(init.method).toBe('POST')
     expect(JSON.parse(init.body)).toEqual({ unit_id: 'u1' })
   })
@@ -42,7 +42,7 @@ describe('inventory resource', () => {
     await setAmount('u1', 3)
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/inventory/u1')
+    expect(url).toBe('/api/v1/me/inventory/u1')
     expect(init.method).toBe('PATCH')
     expect(JSON.parse(init.body)).toEqual({ amount: 3 })
   })
@@ -54,7 +54,7 @@ describe('inventory resource', () => {
     await removeUnit('u1')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me/inventory/u1')
+    expect(url).toBe('/api/v1/me/inventory/u1')
     expect(init.method).toBe('DELETE')
   })
 })

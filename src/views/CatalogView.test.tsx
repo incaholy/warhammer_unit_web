@@ -70,7 +70,7 @@ function makeFetchMock() {
   return vi.fn(async (input: string, init?: RequestInit) => {
     const method = (init?.method ?? 'GET').toUpperCase()
     const url = new URL(input, 'http://localhost')
-    const path = url.pathname
+    const path = url.pathname.replace(/^\/api\/v1/, '')
 
     if (method === 'GET' && path === '/factions') return jsonResponse(page(factions))
     if (method === 'GET' && path === '/me/inventory') return jsonResponse(page(inventory))
@@ -175,7 +175,8 @@ describe('CatalogView', () => {
     const filtered = fetchMock.mock.calls.some(([input, init]) => {
       const method = (init?.method ?? 'GET').toUpperCase()
       const url = new URL(input as string, 'http://localhost')
-      return method === 'GET' && url.pathname === '/units' && url.searchParams.get('faction_id') === 'f2'
+      const path = url.pathname.replace(/^\/api\/v1/, '')
+      return method === 'GET' && path === '/units' && url.searchParams.get('faction_id') === 'f2'
     })
     expect(filtered).toBe(true)
   })
@@ -193,7 +194,8 @@ describe('CatalogView', () => {
     const searched = fetchMock.mock.calls.some(([input, init]) => {
       const method = (init?.method ?? 'GET').toUpperCase()
       const url = new URL(input as string, 'http://localhost')
-      return method === 'GET' && url.pathname === '/units' && url.searchParams.get('q') === 'hive'
+      const path = url.pathname.replace(/^\/api\/v1/, '')
+      return method === 'GET' && path === '/units' && url.searchParams.get('q') === 'hive'
     })
     expect(searched).toBe(true)
   })
@@ -211,7 +213,8 @@ describe('CatalogView', () => {
       const posted = fetchMock.mock.calls.some(([input, init]) => {
         const method = (init?.method ?? 'GET').toUpperCase()
         const url = new URL(input as string, 'http://localhost')
-        return method === 'POST' && url.pathname === '/me/inventory'
+        const path = url.pathname.replace(/^\/api\/v1/, '')
+        return method === 'POST' && path === '/me/inventory'
       })
       expect(posted).toBe(true)
     })
@@ -220,7 +223,8 @@ describe('CatalogView', () => {
     const armyPost = fetchMock.mock.calls.some(([input, init]) => {
       const method = (init?.method ?? 'GET').toUpperCase()
       const url = new URL(input as string, 'http://localhost')
-      return method === 'POST' && url.pathname.endsWith('/units')
+      const path = url.pathname.replace(/^\/api\/v1/, '')
+      return method === 'POST' && path.endsWith('/units')
     })
     expect(armyPost).toBe(false)
   })
@@ -250,7 +254,8 @@ describe('CatalogView', () => {
       const posted = fetchMock.mock.calls.some(([input, init]) => {
         const method = (init?.method ?? 'GET').toUpperCase()
         const url = new URL(input as string, 'http://localhost')
-        return method === 'POST' && url.pathname === '/me/armies/army-1/units'
+        const path = url.pathname.replace(/^\/api\/v1/, '')
+        return method === 'POST' && path === '/me/armies/army-1/units'
       })
       expect(posted).toBe(true)
     })

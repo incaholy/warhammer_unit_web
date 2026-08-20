@@ -7,6 +7,12 @@ import { z } from 'zod'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
+/** The API version prefix every resource route mounts under (backend ROADMAP R5).
+ * Resource functions pass bare paths ('/units'); this is prepended here so the
+ * version lives in exactly one place. `/health` is unversioned but the app never
+ * calls it. A future breaking change ships as '/api/v2' by bumping this. */
+const API_PREFIX = '/api/v1'
+
 const TOKEN_KEY = 'muster.token'
 
 /** The single place the JWT is read from / written to (localStorage). */
@@ -91,7 +97,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     body = JSON.stringify(options.json)
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}${API_PREFIX}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body,
