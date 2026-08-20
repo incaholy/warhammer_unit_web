@@ -51,6 +51,7 @@ See `.env.example`.
 | `npm test` | Run the Vitest suite once. |
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run lint` | Lint with ESLint. |
+| `npm run gen:api` | Regenerate `src/api/schema.d.ts` from the backend's `openapi.json` (`../warhammer_unit`). Run after a backend schema change. |
 
 ## Layout
 
