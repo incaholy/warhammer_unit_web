@@ -86,6 +86,44 @@ describe('AuthView', () => {
     )
   })
 
+  it('shows per-field errors on a multi-field sign-up validation failure (R9/C)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: 'value is not a valid email address',
+          code: 'REQUEST_VALIDATION',
+          field: 'email',
+          errors: [
+            { code: 'REQUEST_VALIDATION', field: 'email', detail: 'value is not a valid email address' },
+            { code: 'REQUEST_VALIDATION', field: 'password', detail: 'string too short' },
+          ],
+        },
+        { status: 422 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderView()
+    fireEvent.click(toggle().getByRole('button', { name: 'Sign Up' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Kesh' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bad' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'x' } })
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'x' } })
+    const submit = screen
+      .getAllByRole('button', { name: 'Sign Up' })
+      .find((b) => b.getAttribute('type') === 'submit')!
+    fireEvent.click(submit)
+
+    // both field messages appear at once — no round-trip per field
+    await waitFor(() => {
+      expect(screen.getByText('value is not a valid email address')).toBeInTheDocument()
+      expect(screen.getByText('string too short')).toBeInTheDocument()
+    })
+    // the offending inputs are flagged invalid
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true')
+  })
+
   it('disables the submit button and shows a pending label while the request is in flight', async () => {
     // A fetch that never settles keeps the request pending so we can observe the
     // submitting state.
