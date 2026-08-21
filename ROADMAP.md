@@ -4,8 +4,9 @@ The delta between the code today and [`ARCHITECTURE.md`](ARCHITECTURE.md). Each 
 principle it satisfies, the evidence that it is missing, and the concepts to read up on. No
 implementations: the shape and the reasoning are here, the code is yours.
 
-**Item IDs are stable labels, not an ordering.** The table is ordered by value per unit of effort; the
-sections that follow are in ID order so links stay put as priorities change.
+**Item IDs are stable labels, not an ordering.** The table is ordered by value per unit of effort,
+with value weighted more heavily than effort, so a `Small` item can outrank a `Trivial` one when it
+protects more. The sections that follow are in ID order so links stay put as priorities change.
 
 **Baseline.** Measured against the `roadmap` branch, not `main`. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for why.
@@ -35,8 +36,15 @@ explicitly rather than silently duplicated:
 | "`Army_Read.created_at` awaits a backend field" | **Stale, delete it.** The backend ships `created_at` and it is present in the generated schema. See [F9](#f9-clear-the-doc-and-dead-code-drift). |
 
 [`CODE-REVIEW.md`](CODE-REVIEW.md) tracks correctness bugs. Its findings are referenced where a
-structural cause sits underneath one, not restated. Note that its claim about `Army_Read.created_at`
-being missing is also wrong, for the same reason.
+structural cause sits underneath one rather than restated in full.
+
+One nuance worth getting right, because it is a lesson about reading dated reviews.
+`CODE-REVIEW.md`'s note on `Army_Read.created_at` is **not** the same claim as `SPEC.md`'s and was
+**not** wrong. It said the field was absent from the hand-written `types.ts` while the backend sent
+it, which was true on `main` and was fixed by this branch's move to generated types. `SPEC.md`'s
+deferred note is the wrong one: it says the field "awaits a backend field", and the backend has
+shipped it. A finding that was correct when written and has since been fixed is not an error, and it
+should be closed rather than contradicted.
 
 | Order | # | Item | Satisfies | Effort |
 |---|---|---|---|---|
@@ -136,7 +144,8 @@ build hermeticity; pick deliberately.
 The freshness check is the same shape the backend already uses for its own `openapi.json`: regenerate
 in CI and fail if the working tree changes. That turns drift from a silent runtime bug into a red build.
 
-While in there: the `ErrorCode` union (`src/api/client.ts:37`) is still hand-mirrored from the
+While in there: the `ErrorCode` union (`src/api/client.ts:46`, derived from the `ERROR_CODES` array at
+`:37`) is still hand-mirrored from the
 backend's enum. If the backend surfaces those codes in its OpenAPI document, this can be derived
 rather than duplicated, which removes the last hand-maintained copy of backend knowledge.
 
@@ -156,12 +165,20 @@ Verified as currently true: exactly one `fetch` call site in non-test source
 module. That is a genuinely clean result.
 
 But `eslint.config.js` extends the recommended presets and adds no import restrictions, so a view
-could import `apiGet`, or call `fetch`, or read `localStorage` directly, and lint, build, and all 156
-tests would stay green. `SPEC.md` states these rules in prose. Prose does not fail a build.
+could import `apiGet` or call `fetch` and lint, build, and all 156 tests would stay green. `SPEC.md`
+states these rules in prose. Prose does not fail a build.
 
-**Why now.** The rule is currently unbroken, which is exactly when this is cheap. Adding enforcement to
-a codebase that already complies takes one config change and zero refactoring. Adding it after three
-violations have accumulated means fixing them first, and by then the rule has already stopped being
+**One part of the rule is already broken**, which changes how you should scope it.
+`src/views/CollectionView.tsx:29` and `:86` read and write `localStorage` directly for a layout
+preference. That is benign, and arguably a fine use, but it means a blanket "only the client touches
+storage" rule would fail on existing code. Decide which you want: confine the **token** (narrow, true
+today, enforceable now) or confine `localStorage` entirely (broader, and it needs that preference
+moved behind a small module first).
+
+**Why now.** The `fetch` and import halves are currently unbroken, which is exactly when they are
+cheap: adding enforcement to code that already complies is one config change and no refactoring. The
+storage half already has one violation, so it costs a small refactor on top. Both get more expensive
+with every additional violation, and by the time there are several the rule has quietly stopped being
 true.
 
 **Shape of the work.** ESLint can express "files in this directory may not import from that one".
@@ -169,7 +186,7 @@ Two mechanisms worth comparing: the built-in `no-restricted-imports` with path p
 zero extra dependencies and adequate for a handful of rules, or `eslint-plugin-boundaries`, which
 models layers as first-class elements and scales better once there are more than a few. Start with the
 rules that matter: `src/views/` and `src/ui/` may not import `src/api/client`, and nothing outside
-`src/api/client.ts` may reference `fetch` or `localStorage`.
+`src/api/client.ts` may reference `fetch`. Add the storage rule once you have decided its scope.
 
 The backend solved the identical problem with a layered import contract that runs in CI, and it is
 worth reading how that is configured, because the concept transfers exactly even though the tool
@@ -241,13 +258,24 @@ distinction between mocking a module, stubbing a transport, and testing a contra
 - `unitFacets` is `['units', 'facets', filters]` (`:46`), genuinely nested under the units namespace.
 
 The consequence of the first: invalidating the prefix `['army']` does not match `['armies']`. I
-checked the prefix-matching semantics directly rather than assuming. That is why every army mutation
-invalidates two keys by hand, and why one inventory mutation reaches for the broad `['army']` prefix
-(`:208`) while separately naming the inventory key.
+checked the prefix-matching semantics directly rather than assuming. So each army mutation names its
+keys by hand, and they do not agree with each other: `useUpdateArmy` (`:140-141`) invalidates both,
+`useDeleteArmy` (`:151-152`) removes one and invalidates the other, and `useCreateArmy` (`:122-131`)
+invalidates only `['armies']`. One inventory mutation reaches for the broad `['army']` prefix (`:208`)
+while separately naming the inventory key.
+
+Two things worth knowing before you start. `CODE-REVIEW.md` describes this layer as having
+"hierarchical keys and precise invalidation", which was a fair reading of the invalidation discipline
+but overstates the hierarchy: the keys are precise because each call site enumerates them, not
+because the tree does the work. And `src/api/queries.test.tsx:30` is a test named
+`'are stable and hierarchical'` that asserts the current inconsistent shape, so it will need updating
+with the rename. A test asserting the thing you are trying to change is worth reading carefully rather
+than deleting.
 
 It works today. The cost is that correctness depends on remembering to list every affected key at
-every mutation, so the failure mode is a stale view after some future mutation, which is the kind of
-bug that gets reported as "sometimes it doesn't update".
+every mutation, and the three army mutations already disagree about which keys those are. The failure
+mode is a stale view after some future mutation, which is the kind of bug that gets reported as
+"sometimes it doesn't update".
 
 **Shape of the work.** Pick one convention and apply it. A hierarchy where the list and the detail
 share a root (so a detail key is a strict extension of the list key) lets a single prefix invalidation
@@ -291,7 +319,8 @@ open redirect vulnerabilities.
 **Satisfies:** §5 (presentation and accessibility).
 
 **What is missing.** The accessibility work in this codebase is real and better than most projects at
-this stage: 33 `aria-label` attributes, `aria-pressed` on toggles, `aria-busy` on async regions,
+this stage: 29 `aria-label` attributes across non-test components plus 3 `aria-labelledby`,
+`aria-pressed` on toggles, `aria-busy` on async regions,
 `aria-invalid` on fields, `aria-modal` plus a focus trap and focus restoration on the modal, and
 `role="status"` and `role="alert"` live regions. That is deliberate work.
 
@@ -323,10 +352,15 @@ Both reference repos have no CI at all.
 
 Four gaps:
 
-- **No bundle budget**, and it has already cost something measurable. Adding zod moved the main chunk
-  from **270.38 kB to 330.38 kB** (86.00 kB to 102.01 kB gzipped). I built both branches to measure
-  rather than estimating. That may be a fine trade (see F11), but it should be a decision someone
-  made, not a number nobody watched.
+- **No bundle budget**, and the main chunk already grew measurably: **270.38 kB to 330.38 kB** (86.00 kB
+  to 102.01 kB gzipped) between `main` and this branch. I built both rather than estimating. Be precise
+  about what that measures: the whole branch, which also rewrote the client and added `src/lib/errors.ts`
+  and the generated schema. It is an upper bound on zod's share, not zod's share. Isolating it is a
+  one-line experiment worth running before F11's decision.
+- **It only runs against `main`.** The triggers are `push: branches: [main]` and
+  `pull_request: branches: [main]`, so a feature branch gets no CI until a PR targeting `main` exists.
+  Note `SPEC.md` already describes this accurately ("push/PR to `main`"), so this is a gap to decide
+  on rather than drift to fix.
 - **No `concurrency` group**, so pushing three times to an open PR runs three full pipelines and the
   first two are worthless.
 - **No coverage reporting**, so nothing signals when a module ships untested.
@@ -362,10 +396,14 @@ is actively misled.
 - `SPEC.md:158` and `:164` list `ToastContext.tsx` and `factionFlavor.ts` in the project structure.
   Neither exists. The same listing omits `src/lib/errors.ts`, `src/api/schema.d.ts`,
   `src/toast/toastBus.ts`, and `src/ui/ErrorBoundary.tsx`, all of which do.
+- `MVP.md:49`, `:78`, and `:86` still describe the `X-Total-Count` header and hand-written `types.ts`,
+  both removed on this branch. `README.md` links onward to `MVP.md`, so the front door routes readers
+  straight into the stale description.
 - `SPEC.md`'s deferred list says `Army_Read.created_at` "awaits a backend field". The backend ships it
-  and it is present in the generated schema. `CODE-REVIEW.md` makes the same wrong claim.
-  Both should be struck rather than carried forward, since a stale open item costs someone a
-  re-investigation.
+  and it is present in the generated schema, so that item should be struck. `CODE-REVIEW.md`'s related
+  note is a different and correct claim about the old hand-written `types.ts`, already fixed by this
+  branch; close it rather than contradicting it. One leftover: `ArmyView.test.tsx:45` still writes
+  `Army_Read & { created_at: string }`, an intersection the generated type makes redundant.
 
 **Code that no longer has a purpose:**
 
@@ -373,14 +411,16 @@ is actively misled.
   existed to read the `X-Total-Count` header, which the backend removed when the total moved into the
   response body. Its doc comment still advertises that header, as does the header comment on
   `src/views/CatalogView.tsx:8`, whose code now correctly reads the body total.
-- Four exported query hooks have no call sites: `useMe` (`src/api/queries.ts:56`), `useUpdateArmy`
-  (`:133`), `useDeleteArmy` (`:146`), `useSetArmyUnitAmount` (`:180`). They have tests, which makes
-  them look load-bearing to anyone reading quickly.
+- Four exported query hooks have no call sites **and no tests**: `useMe` (`src/api/queries.ts:56`),
+  `useUpdateArmy` (`:133`), `useDeleteArmy` (`:146`), `useSetArmyUnitAmount` (`:180`).
+  `src/api/queries.test.tsx` imports only `queryKeys`, `useUnits`, and `useCreateArmy`, so nothing
+  references these four anywhere in `src/`.
 
-**The general point**, which is the reason this is a roadmap item and not a chore: unused code that is
-tested reads as intentional, and a doc that describes a previous version of the system is worse than
-no doc, because it is trusted. Deleting is a feature. If a hook is genuinely planned rather than
-abandoned, a comment saying so costs one line and answers the question.
+**The general point**, which is the reason this is a roadmap item and not a chore: an exported
+function reads as part of the module's contract whether or not anything uses it, and a doc that
+describes a previous version of the system is worse than no doc because it is trusted. Both cost the
+next reader time working out whether something matters. Deleting is a feature. If a hook is genuinely
+planned rather than abandoned, a comment saying so costs one line and answers the question.
 
 ---
 
@@ -395,8 +435,9 @@ The counting half of this was fixed properly on this branch: per-faction counts 
 server-side aggregate rather than being derived by downloading the catalog, which is what
 `CODE-REVIEW.md` finding 1 asked for. Credit where due, that was the harder half and it was done right.
 
-The filtering half is unchanged. `src/views/CatalogView.tsx:109` narrows the already-paginated page
-against the inventory. Three consequences follow:
+The filtering half is unchanged, and it is `CODE-REVIEW.md` finding 2 still open rather than a new
+observation: `src/views/CatalogView.tsx:109` narrows the already-paginated page against the inventory.
+Three consequences follow:
 
 - The counter at `:183` reads "`visibleUnits.length` of `total`", comparing a filtered page against an
   unfiltered grand total. Those are not the same kind of number.
@@ -432,16 +473,18 @@ That asymmetry is the question. Three coherent positions, and the point is to ho
 
 1. **Errors only, as now.** Defensible: error bodies are the least predictable thing the API returns,
    they are the shape most likely to arrive from an intermediary rather than the app, and a wrong
-   guess there produces user-visible nonsense. But it is a runtime dependency earning its keep at one
-   call site, and it moved the main chunk from 270.38 kB to 330.38 kB (86.00 kB to 102.01 kB
-   gzipped), measured across both branches.
+   guess there produces user-visible nonsense. The cost is a runtime dependency earning its keep at
+   one call site. The main chunk grew from 270.38 kB to 330.38 kB (86.00 kB to 102.01 kB gzipped)
+   across this branch, though that figure covers everything the branch added, so measure zod's share
+   on its own before treating it as the deciding number.
 2. **Validate success payloads too.** Consistent, and it closes §2.2 properly. The cost is a second
    schema to maintain beside the generated types, and the risk is real: two sources of truth for the
    same shape drift, and then validation rejects data the API legitimately sent. If you go this way,
    generate the schemas from OpenAPI rather than hand-writing them, so there is still one source.
-3. **Drop zod, hand-roll a type guard for the error body.** A narrow guard is a few lines, has no
-   bundle cost, and gives the same safety at this one boundary. It gives up the ergonomics if
-   validation later spreads.
+3. **Drop zod, hand-roll a type guard for the error body.** A narrow guard is a few lines, adds no
+   dependency, and gives the same safety at this one boundary. It gives up the ergonomics if
+   validation later spreads, and it is only clearly the right call if zod turns out to be most of
+   that bundle delta.
 
 There is no single right answer, and this is genuinely a judgement call rather than a gap. What is
 not fine is the current situation being **undecided**: a dependency in the bundle whose scope nobody

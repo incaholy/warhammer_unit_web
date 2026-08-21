@@ -57,8 +57,11 @@ convention. That ratio is the finding.
 - `src/ui/` is presentational only, and never fetches.
 
 The payoff is the same one the backend gets from `API → service → DB`: when the transport changes,
-one layer changes. The `roadmap` branch is the proof. Moving every route under `/api/v1` touched a
-single line (`src/api/client.ts:14`) because nothing else in the app knows a path prefix exists.
+few places change. The `roadmap` branch is the evidence. Moving every route under `/api/v1` touched
+**one line of application code** (`src/api/client.ts:14`), because no view, hook, or resource module
+knows a path prefix exists. It also touched `vite.config.ts`, where an eight-entry proxy list
+collapsed to one, and the resource tests that assert outgoing URLs. That the app layer was a
+one-line change is the win; that the proxy had to change separately is the subject of §2.5.
 
 **Status: Partial.**
 
@@ -88,8 +91,12 @@ A single module owns the base URL, the `/api/v1` prefix, the `Authorization` hea
 encoding, 204 handling, and turning a non-2xx response into a typed `ApiError`. Nothing else reads
 the token or hard-codes a path prefix.
 
-The `tokenStore` object (`src/api/client.ts:19`) is the only code touching `localStorage`, so the
-storage decision has exactly one place to change if it ever becomes an httpOnly cookie.
+The `tokenStore` object (`src/api/client.ts:19`) is the only code that touches `localStorage` **for
+the token**, so the session-storage decision has one place to change if it ever becomes an httpOnly
+cookie. Note that `localStorage` itself is not confined to this module: `src/views/CollectionView.tsx:29`
+and `:86` read and write a layout preference directly. That is benign data and a defensible use, but
+it means the confinement rule as usually stated ("only the client touches storage") is already not
+true, and any enforcement has to be written for the token specifically.
 
 **Status: Partial.** True today, unenforced. Same mechanism and same fix as §1: an import rule that
 confines `fetch` and `localStorage` to this module. Rolled into
@@ -152,12 +159,14 @@ message is copy, and copy changes.
 
 `src/lib/errors.ts:10` declares `CODE_MESSAGES` as `Record<ErrorCode, string>`. Because `ErrorCode` is
 a union of the known codes, **adding a code to the union without adding a message fails the
-typecheck**, and the typecheck runs in CI via `npm run build`. That is a real structural guarantee,
+typecheck**, and the typecheck gates `npm run build`. Verified rather than assumed: adding a code
+without a message makes the build exit 2 with `TS2741`. That is a real structural guarantee,
 not a convention, and it is the pattern worth copying into the rest of the codebase. It is the reason
 this is the only `Holds` in the document.
 
 Two honest caveats that do not change the marker but are worth knowing. The `ErrorCode` union
-(`src/api/client.ts:37`) is hand-mirrored from the backend's enum rather than derived from the
+(`src/api/client.ts:46`, over the `ERROR_CODES` array at `:37`) is hand-mirrored from the backend's
+enum rather than derived from the
 generated schema, so it is a second place backend knowledge lives (see F2). And nothing forces a view
 to branch on `code` rather than `message`; that half remains convention.
 
@@ -167,8 +176,11 @@ right shape.
 ### 2.5 The dev proxy and the deployed origin agree
 
 In dev, Vite proxies the API prefix so the browser sees one origin. In production the app is served
-by Firebase Hosting with a rewrite to the API. The prefix the proxy forwards and the prefix the
-client sends must be the same string, or dev works and production 404s.
+by Firebase Hosting and calls the API **cross-origin** at `VITE_API_BASE_URL`: `firebase.json`
+rewrites only `**` to `/index.html`, which is the SPA fallback, not an API rewrite. So the two
+environments reach the API by different routes, and the prefix the dev proxy forwards has to match
+the prefix the client sends or **dev** breaks while production is unaffected. That asymmetry is
+worth naming, because it means the dev proxy is the fragile half and the half no test covers.
 
 **Status: Partial.** The two agree today: `vite.config.ts` forwards `/api` and `src/api/client.ts:14`
 sends `/api/v1`. Half of that is genuinely enforced, since the resource tests assert the exact
@@ -209,12 +221,14 @@ plus `useState`, no cache, no deduplication, no invalidation, and failed loads t
   [ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out).
 - **The key factory mixes two hierarchy conventions.** `armies` is `['armies']` while `army(id)` is
   `['army', id]` (`src/api/queries.ts:41-42`), so they are siblings, not parent and child. Invalidating
-  the prefix `['army']` does not touch `['armies']`, which is why every army mutation invalidates both
-  keys by hand. Meanwhile `unitFacets` *is* nested under `['units']` (`:46`), so the other convention
-  is also present. See [ROADMAP F5](ROADMAP.md#f5-make-query-keys-consistently-hierarchical).
-- **Four exported hooks have no call sites**: `useMe` (`:56`), `useUpdateArmy` (`:133`),
-  `useDeleteArmy` (`:146`), and `useSetArmyUnitAmount` (`:180`). They are tested, which makes them
-  look load-bearing. Covered in [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
+  the prefix `['army']` does not touch `['armies']`, so each army mutation has to name its keys by
+  hand and they do not agree: `useUpdateArmy` invalidates both, `useDeleteArmy` removes one and
+  invalidates the other, and `useCreateArmy` (`:122-131`) invalidates only `['armies']`. Meanwhile
+  `unitFacets` *is* nested under `['units']` (`:46`), so the other convention is also present. See [ROADMAP F5](ROADMAP.md#f5-make-query-keys-consistently-hierarchical).
+- **Four exported hooks have no call sites and no tests**: `useMe` (`:56`), `useUpdateArmy` (`:133`),
+  `useDeleteArmy` (`:146`), and `useSetArmyUnitAmount` (`:180`). `src/api/queries.test.tsx` imports
+  only `queryKeys`, `useUnits`, and `useCreateArmy`, so these four are simply dead. Covered in
+  [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
 
 ---
 
@@ -251,8 +265,9 @@ correct roles and ARIA state; modals trap focus and restore it; async regions an
 
 **Status: Partial.**
 
-The accessibility work is real and better than most projects at this stage: 33 `aria-label`
-attributes, `aria-pressed` on toggles, `aria-busy` on loading regions, `aria-invalid` on fields,
+The accessibility work is real and better than most projects at this stage: 29 `aria-label`
+attributes across non-test components plus 3 `aria-labelledby`, `aria-pressed` on toggles,
+`aria-busy` on loading regions, `aria-invalid` on fields,
 `aria-modal` with a focus trap on the modal, and `role="status"` / `role="alert"` live regions. None
 of that is accidental.
 
@@ -283,6 +298,8 @@ docs with them:
 - `SPEC.md:158` and `:164` list `ToastContext.tsx` and `factionFlavor.ts`, neither of which exists, and
   the structure listing omits `src/lib/errors.ts`, `src/api/schema.d.ts`, `src/toast/toastBus.ts`, and
   `src/ui/ErrorBoundary.tsx`, all of which do.
+- `MVP.md:49`, `:78`, and `:86` still describe the `X-Total-Count` header and hand-written
+  `types.ts`, both of which this branch removed.
 
 See [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
 
@@ -295,9 +312,11 @@ than on a mock's return value. Stubbing at the transport boundary (`fetch`) rath
 modules under test is deliberate and correct: it means a test proves the app sends the request it
 claims to send.
 
-**Status: Partial.** 29 test files and 156 tests pass, covering the client, each resource module, the
-query layer, auth, routing, the UI kit, and every view. The distribution is even, which is unusual and
-good.
+**Status: Partial.** 29 test files and 156 tests pass, spanning the client, every resource module,
+auth, routing, the UI kit, and every view. Two thin spots are worth naming rather than glossing:
+`src/api/queries.test.tsx` holds 3 tests covering `queryKeys`, `useUnits`, and `useCreateArmy`, so the
+query layer's 20-plus exported hooks are mostly exercised indirectly through view tests, and four UI
+primitives (`Eyebrow`, `Field`, `Input`, `Toast`) have no test file.
 
 The structural gap is what transport stubbing cannot see. **A stub answers whatever the test author
 expected, so a test suite mocking `fetch` can be fully green against a contract the real backend does
@@ -316,8 +335,8 @@ smoke test as deferred, so that is a known gap rather than an oversight.
 
 ## 8. Build, CI, and budgets
 
-CI runs lint, type check, build, and tests on every push and pull request. The production bundle has a
-size budget, because a dependency added for one call site is easy to add and invisible afterwards.
+CI runs lint, type check, build, and tests on every push and pull request, on every branch. The
+production bundle has a size budget, because a dependency added for one call site is easy to add and invisible afterwards.
 
 **Status: Partial.**
 
@@ -326,11 +345,19 @@ The pipeline exists and is the right shape: `.github/workflows/ci.yml` runs `npm
 reference repos have **no CI at all**, so this is ahead of the codebase this project is measured
 against, and it is the reason §2.4's type-level guarantee is worth anything.
 
-Four gaps:
+Five gaps:
 
-- **No bundle budget**, and it already cost something. Adding zod for the error schema moved the main
-  chunk from 270.38 kB to 330.38 kB (86.00 kB to 102.01 kB gzipped). I measured both branches rather
-  than estimating. That may well be worth it, but it should be a decision, not a discovery.
+- **It only runs against `main`.** The triggers are `push: branches: [main]` and
+  `pull_request: branches: [main]`, so pushing a feature branch runs nothing until a PR targeting
+  `main` exists. That is a defensible default, but it means the guarantee in §2.4 arrives later than
+  "on every push" would imply.
+
+- **No bundle budget**, and the main chunk already grew. It went from 270.38 kB to 330.38 kB (86.00 kB
+  to 102.01 kB gzipped) between `main` and this branch. I built both rather than estimating. Be
+  precise about what that number is: it is the **whole branch**, which also rewrote the client, added
+  `src/lib/errors.ts` and the generated schema, so it is an upper bound on zod's share rather than a
+  measurement of it. Either way it should have been a decision, not a discovery, which is what a
+  budget makes it.
 - **No `concurrency` group**, so superseded runs keep consuming runner time on every push to an open PR.
 - **No coverage reporting**, so there is no signal when a new module ships untested.
 - **No deploy step**, despite `firebase.json` being committed, so deploys are manual and unversioned.
