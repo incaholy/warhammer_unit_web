@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthView } from './AuthView'
 import { AuthProvider } from '../auth/AuthContext'
 import { tokenStore } from '../api/client'
@@ -13,13 +14,18 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   })
 }
 
+// Mirrors main.tsx's nesting: AuthProvider reads the query client so sign-out can
+// clear cached server state (ROADMAP F1). Same harness shape as App.test.tsx.
 function renderView() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={['/login']}>
-      <AuthProvider>
-        <AuthView />
-      </AuthProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <AuthView />
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
