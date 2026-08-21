@@ -37,10 +37,10 @@ strictly below, and it is why several sections that describe genuinely good, con
 code are still marked `Partial`. That is not a criticism of the code. It is a statement about what
 would still be true after the next contributor, or the next you, forgets the rule.
 
-Two principles currently reach **Holds**, and both are worth studying because they show the two ways
-a rule becomes a guarantee. §2.4 is enforced by a **type**: an incomplete mapping fails the build.
-§2.5 is enforced by **construction**: there is only one place the value can come from, so the mistake
-is not possible rather than merely detectable. Everything else in this document is convention.
+**Exactly one principle currently reaches `Holds`** (§2.4), and it is worth studying because it shows
+what turning a convention into a guarantee actually costs: one type annotation. Everything else in
+this document, including several rules the code follows without a single exception today, is
+convention. That ratio is the finding.
 
 ---
 
@@ -157,7 +157,7 @@ not a convention, and it is the pattern worth copying into the rest of the codeb
 this is the only `Holds` in the document.
 
 Two honest caveats that do not change the marker but are worth knowing. The `ErrorCode` union
-(`src/api/client.ts:36`) is hand-mirrored from the backend's enum rather than derived from the
+(`src/api/client.ts:37`) is hand-mirrored from the backend's enum rather than derived from the
 generated schema, so it is a second place backend knowledge lives (see F2). And nothing forces a view
 to branch on `code` rather than `message`; that half remains convention.
 
@@ -170,10 +170,21 @@ In dev, Vite proxies the API prefix so the browser sees one origin. In productio
 by Firebase Hosting with a rewrite to the API. The prefix the proxy forwards and the prefix the
 client sends must be the same string, or dev works and production 404s.
 
-**Status: Holds.** `vite.config.ts` forwards `/api` and `src/api/client.ts:14` sends `/api/v1`, which
-agree. It is enforced structurally rather than by a check: there is only one prefix constant, and a
-mismatch would fail every request in dev immediately and loudly. This is the good kind of
-enforcement, where the design makes the error impossible to miss rather than merely detectable.
+**Status: Partial.** The two agree today: `vite.config.ts` forwards `/api` and `src/api/client.ts:14`
+sends `/api/v1`. Half of that is genuinely enforced, since the resource tests assert the exact
+outgoing URL (for example `src/api/inventory.test.ts:21` expects `/api/v1/me/inventory`), so changing
+the client's prefix breaks the suite.
+
+The **agreement** is not enforced. Nothing reads `vite.config.ts`, and `API_PREFIX` is referenced
+only inside `client.ts`, so editing the proxy pattern alone leaves every test green and breaks the
+dev server. It is tempting to call this `Holds` on the grounds that a mismatch fails loudly the
+moment you load the page, and that argument is worth resisting: fast manual feedback is not
+enforcement, it is discipline with a short loop. Something has to actually run for a rule to hold,
+and here nothing does.
+
+The cheap fix is a test that reads the proxy config and asserts it is a prefix of `API_PREFIX`, which
+is the kind of test that looks pedantic until the day it saves a broken deploy. Folded into
+[ROADMAP F4](ROADMAP.md#f4-test-against-the-real-contract).
 
 The README's description of this is stale (see §6).
 
@@ -267,7 +278,8 @@ right move. Three pieces of drift remain, all introduced by code changes that di
 docs with them:
 
 - `README.md:24` says the dev server proxies `/auth`, `/me`, `/units`, `/factions`. It proxies `/api`.
-- `README.md:83` and `package.json:13` both point at `../warhammer_unit`. The repo is `Warhammer-unit`.
+- `package.json:13`, `README.md:15`, `README.md:54`, `SPEC.md:8`, and `SPEC.md:192` all point at
+  `../warhammer_unit`. The repo is `Warhammer-unit`.
 - `SPEC.md:158` and `:164` list `ToastContext.tsx` and `factionFlavor.ts`, neither of which exists, and
   the structure listing omits `src/lib/errors.ts`, `src/api/schema.d.ts`, `src/toast/toastBus.ts`, and
   `src/ui/ErrorBoundary.tsx`, all of which do.

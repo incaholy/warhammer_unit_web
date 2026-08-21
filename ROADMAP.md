@@ -136,7 +136,7 @@ build hermeticity; pick deliberately.
 The freshness check is the same shape the backend already uses for its own `openapi.json`: regenerate
 in CI and fail if the working tree changes. That turns drift from a silent runtime bug into a red build.
 
-While in there: the `ErrorCode` union (`src/api/client.ts:36`) is still hand-mirrored from the
+While in there: the `ErrorCode` union (`src/api/client.ts:37`) is still hand-mirrored from the
 backend's enum. If the backend surfaces those codes in its OpenAPI document, this can be derived
 rather than duplicated, which removes the last hand-maintained copy of backend knowledge.
 
@@ -215,6 +215,13 @@ Options, roughly in increasing order of cost and confidence:
 MSW is the usual suggestion here and it is worth understanding, but be clear about what it buys: it
 moves *where* the stub lives, not whether it is a stub. It would not have caught the bug above. Prefer
 spending the effort on the contract.
+
+**One cheap addition belongs here** (it is why §2.5 is `Partial` rather than `Holds`): nothing ties the
+API prefix the client sends to the prefix the dev proxy forwards. The resource tests assert the
+outgoing URL, so the client half is covered, but `vite.config.ts` is never read by anything, so
+editing the proxy pattern alone leaves all 156 tests green and breaks the dev server. A test that
+imports the Vite config and asserts its proxy key is a prefix of `API_PREFIX` closes that, and it is
+a good example of testing an *agreement between two files* rather than the behaviour of one.
 
 Separately, there is no coverage threshold, so a new module can ship untested without any signal.
 
@@ -349,8 +356,9 @@ is actively misled.
 
 - `README.md:24` says the dev server proxies `/auth`, `/me`, `/units`, `/factions`. `vite.config.ts`
   proxies `/api`. The README was rewritten on this branch and this line survived the rewrite.
-- `README.md:83` and `package.json:13` both point at `../warhammer_unit`. The repo is
-  `Warhammer-unit`. This is what makes F2's command fail.
+- Five places point at a repo directory named `../warhammer_unit`: `package.json:13`, `README.md:15`,
+  `README.md:54`, `SPEC.md:8`, and `SPEC.md:192`. The repo is `Warhammer-unit`. The `package.json`
+  one is what makes F2's command fail; the rest send a reader to a path that does not exist.
 - `SPEC.md:158` and `:164` list `ToastContext.tsx` and `factionFlavor.ts` in the project structure.
   Neither exists. The same listing omits `src/lib/errors.ts`, `src/api/schema.d.ts`,
   `src/toast/toastBus.ts`, and `src/ui/ErrorBoundary.tsx`, all of which do.
