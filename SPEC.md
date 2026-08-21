@@ -32,6 +32,13 @@ See **Design language** below.
 
 ## Architecture overview
 
+> **`ARCHITECTURE.md` is the normative source for this section.** The layering
+> model below is the design intent and remains accurate. What it does not say is
+> which of these rules are actually *enforced* by a lint rule, a type, or a CI
+> step, and which are held up by convention alone. See
+> [`ARCHITECTURE.md`](ARCHITECTURE.md) for that, and [`ROADMAP.md`](ROADMAP.md)
+> for the gaps.
+
 Four layers, each only talking to the one below it — the frontend mirror of the
 backend's API → service → DB discipline:
 
@@ -426,6 +433,11 @@ where it and the real API must be reconciled, and how:
   base URL; the JWT lives in the browser.
 
 ## Roadmap
+
+> This is the **build** roadmap: the MVP port, feature by feature. Architecture
+> hardening (enforcement, the network contract, cross-repo concerns) is tracked
+> separately in [`ROADMAP.md`](ROADMAP.md), which reconciles against the
+> "Deferred" items below rather than duplicating them.
 
 Ordered easiest-first, mirroring the backend SPEC's style. Steps 1–8 are the MVP
 port; 9+ surface backend capabilities the base design omitted. **Steps 1–12 are

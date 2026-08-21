@@ -75,9 +75,16 @@ shape; `src/lib/errors.ts` turns those into user-facing messages.
 
 ## Documentation
 
-- [`SPEC.md`](SPEC.md) — the frontend specification: routing, views, and the API contract.
-- [`MVP.md`](MVP.md) — what the minimal product is and what's built.
-- [`CODE-REVIEW.md`](CODE-REVIEW.md) — a full review of both repos.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): the normative frontend architecture. The
+  structural decisions, and whether anything enforces each one. Read this before
+  making a structural change.
+- [`ROADMAP.md`](ROADMAP.md): the gap between that target and the code today,
+  ordered by value per unit of effort.
+- [`SPEC.md`](SPEC.md): the frontend specification. Routing, views, the design
+  language, and the build roadmap.
+- [`MVP.md`](MVP.md): what the minimal product is and what's built.
+- [`CODE-REVIEW.md`](CODE-REVIEW.md): a correctness review of both repos.
 
-Backend and cross-cutting docs (architecture, roadmap, deploy) live in the
-[`warhammer_unit`](../warhammer_unit) repo.
+Backend and deployment docs live in the
+[`Warhammer-unit`](https://github.com/incaholy/Warhammer-unit) repo, which keeps
+its own `ARCHITECTURE.md` and `ROADMAP.md` for the API.
