@@ -5,7 +5,6 @@ import {
   apiPost,
   apiPostForm,
   apiDelete,
-  apiGetWithHeaders,
   tokenStore,
   onUnauthorized,
 } from './client'
@@ -153,20 +152,5 @@ describe('api client', () => {
     expect(tokenStore.get()).toBeNull()
     expect(listener).toHaveBeenCalledOnce()
     off()
-  })
-
-  it('exposes the parsed body alongside the response headers via apiGetWithHeaders', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(
-        { items: [], total: 0, limit: 25, offset: 0 },
-        { headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'req-42' } },
-      ),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const { data, headers } = await apiGetWithHeaders('/units')
-
-    expect(data).toEqual({ items: [], total: 0, limit: 25, offset: 0 })
-    expect(headers.get('X-Request-Id')).toBe('req-42')
   })
 })

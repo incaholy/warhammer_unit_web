@@ -42,7 +42,7 @@ const intercessors = unit({
 })
 const tank = unit({ id: 'u-tank', unit_name: 'Repulsor', points: 180, keywords: ['Vehicle'] })
 
-const ARMY: Army_Read & { created_at: string } = {
+const ARMY: Army_Read = {
   id: 'a1',
   name: 'Vigil Host',
   faction_id: 'f1',

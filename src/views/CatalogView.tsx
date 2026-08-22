@@ -5,7 +5,7 @@
  * Left rail = faction filter (from `GET /factions`) with a live per-faction count;
  * main column = a search box bound to `q`, an Owned only / All units toggle that
  * cross-references the inventory, and paged unit rows (name, faction · role, an
- * owned tag, "+ Add"). "N of M" comes from the units query's `X-Total-Count` total. */
+ * owned tag, "+ Add"). "N of M" comes from the `total` in the units page body. */
 
 import { useMemo, useState } from 'react'
 import {

@@ -153,11 +153,6 @@ export async function apiGet<T>(path: string): Promise<T> {
   return (await request<T>(path)).data
 }
 
-/** Like apiGet but also exposes response headers (e.g. X-Total-Count on /units). */
-export function apiGetWithHeaders<T>(path: string): Promise<ApiResponse<T>> {
-  return request<T>(path)
-}
-
 export async function apiPost<T>(path: string, json?: unknown): Promise<T> {
   return (await request<T>(path, { method: 'POST', json })).data
 }

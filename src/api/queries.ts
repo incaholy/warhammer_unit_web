@@ -14,12 +14,10 @@ import * as armiesApi from './armies'
 import * as factionsApi from './factions'
 import * as inventoryApi from './inventory'
 import * as unitsApi from './units'
-import { getMe } from './auth'
 import type { ListUnitsParams } from './units'
 import type {
   Army_Create,
   Army_Read,
-  Army_Update,
   ArmyUnit_Read,
   Faction_Read,
   Page,
@@ -27,7 +25,6 @@ import type {
   Unit_Read,
   UnitAdd,
   UnitFacets,
-  User_Read,
   UserUnit_Read,
   UUID,
   Validation_Read,
@@ -37,7 +34,6 @@ import type {
 // Stable, hierarchical keys so mutations can invalidate exactly what they touch.
 
 export const queryKeys = {
-  me: ['me'] as const,
   armies: ['armies'] as const,
   army: (id: UUID) => ['army', id] as const,
   armyShortfall: (id: UUID) => ['army', id, 'shortfall'] as const,
@@ -52,10 +48,6 @@ export const queryKeys = {
 }
 
 // ---- Read hooks ----
-
-export function useMe(enabled = true): UseQueryResult<User_Read> {
-  return useQuery({ queryKey: queryKeys.me, queryFn: getMe, enabled })
-}
 
 export function useArmies(): UseQueryResult<Page<Army_Read>> {
   return useQuery({ queryKey: queryKeys.armies, queryFn: armiesApi.listArmies })
@@ -130,31 +122,6 @@ export function useCreateArmy(): UseMutationResult<Army_Read, Error, Army_Create
   })
 }
 
-export function useUpdateArmy(
-  id: UUID,
-): UseMutationResult<Army_Read, Error, Army_Update> {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: Army_Update) => armiesApi.updateArmy(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.army(id) })
-      qc.invalidateQueries({ queryKey: queryKeys.armies })
-    },
-  })
-}
-
-export function useDeleteArmy(): UseMutationResult<void, Error, UUID> {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: UUID) => armiesApi.deleteArmy(id),
-    onSuccess: (_data, id) => {
-      qc.removeQueries({ queryKey: queryKeys.army(id) })
-      qc.invalidateQueries({ queryKey: queryKeys.armies })
-    },
-    meta: { successMessage: 'Army deleted' },
-  })
-}
-
 /** Invalidate everything derived from an army's unit list. */
 function invalidateArmyMembership(
   qc: ReturnType<typeof useQueryClient>,
@@ -174,17 +141,6 @@ export function useAddArmyUnit(
     mutationFn: (body: UnitAdd) => armiesApi.addUnit(armyId, body),
     onSuccess: () => invalidateArmyMembership(qc, armyId),
     meta: { successMessage: 'Unit added to army' },
-  })
-}
-
-export function useSetArmyUnitAmount(
-  armyId: UUID,
-): UseMutationResult<ArmyUnit_Read, Error, { unitId: UUID; amount: number }> {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ unitId, amount }: { unitId: UUID; amount: number }) =>
-      armiesApi.setAmount(armyId, unitId, amount),
-    onSuccess: () => invalidateArmyMembership(qc, armyId),
   })
 }
 

@@ -28,7 +28,6 @@ afterEach(() => {
 
 describe('query keys', () => {
   it('are stable and hierarchical', () => {
-    expect(queryKeys.me).toEqual(['me'])
     expect(queryKeys.armies).toEqual(['armies'])
     expect(queryKeys.army('a1')).toEqual(['army', 'a1'])
     expect(queryKeys.unit('u1')).toEqual(['unit', 'u1'])
