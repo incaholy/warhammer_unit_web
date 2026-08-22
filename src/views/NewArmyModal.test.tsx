@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 import { NewArmyModal } from './NewArmyModal'
+import { queryKeys } from '../api/queries'
 import type { Army_Create, Army_Read, Faction_Read } from '../api/types'
 import { createArmy } from '../api/armies'
 
@@ -46,7 +47,7 @@ function renderModal(open: boolean) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   })
-  client.setQueryData(['factions'], {
+  client.setQueryData(queryKeys.factions, {
     items: factions,
     total: factions.length,
     limit: 50,

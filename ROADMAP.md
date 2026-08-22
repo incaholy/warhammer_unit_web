@@ -54,7 +54,7 @@ should be closed rather than contradicted.
 | 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | ✅ Return users to the page they asked for | §4 | Trivial |
 | 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | Enforce the layering rule with lint | §1, §2.1 | Small |
 | 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | Clear the doc and dead-code drift | §6 | Trivial |
-| 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | Make query keys consistently hierarchical | §3 | Small |
+| 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | ✅ Make query keys consistently hierarchical | §3 | Small |
 | 8 | [F4](#f4-test-against-the-real-contract) | Test against the real contract | §7 | Focused |
 | 9 | [F8](#f8-harden-ci-and-add-a-bundle-budget) | Harden CI, add a bundle budget | §8 | Small |
 | 10 | [F10](#f10-move-the-owned-filter-to-the-server) | Move the "owned" filter to the server | §9 | Moderate, cross-repo |
@@ -257,7 +257,19 @@ distinction between mocking a module, stubbing a transport, and testing a contra
 
 ## F5. Make query keys consistently hierarchical
 
-**Satisfies:** §3 (server state).
+**Satisfies:** §3 (server state). **✅ Done.**
+
+One rule now: `[resource, kind, ...]`. The explicit `'list'` / `'detail'` segment does two jobs — it
+roots every key for a resource under one prefix (which the old sibling shape could not do), and it
+keeps the list from being a *prefix* of the details, so invalidating the list alone needs no
+`exact: true`. `invalidateArmyMembership` went from four enumerated keys to two prefixes, and the
+inventory mutation's ad hoc `['army']` literal became the named `allArmies` prefix. The sweep covered
+`unit`/`units`, which had the identical sibling bug this item only cited for armies.
+
+The test named `'are stable and hierarchical'` was updated rather than deleted, and split: one half
+still pins the literals, the other asserts the *relationship* between keys, so it keeps holding when a
+key is added. A third test drives a real `QueryClient` — comparing key shapes with a helper of our own
+proves nothing about TanStack Query's matching.
 
 **What is missing.** The key factory (`src/api/queries.ts:39`) mixes two conventions:
 

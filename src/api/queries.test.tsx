@@ -26,14 +26,75 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** True when `prefix` would match `key` under TanStack Query's partial matching. */
+function matches(prefix: readonly unknown[], key: readonly unknown[]): boolean {
+  return prefix.every((segment, i) => JSON.stringify(segment) === JSON.stringify(key[i]))
+}
+
 describe('query keys', () => {
-  it('are stable and hierarchical', () => {
-    expect(queryKeys.armies).toEqual(['armies'])
-    expect(queryKeys.army('a1')).toEqual(['army', 'a1'])
-    expect(queryKeys.unit('u1')).toEqual(['unit', 'u1'])
-    expect(queryKeys.factions).toEqual(['factions'])
-    expect(queryKeys.inventory).toEqual(['inventory'])
-    expect(queryKeys.units({ q: 'x' })).toEqual(['units', { q: 'x' }])
+  it('are stable', () => {
+    expect(queryKeys.armies).toEqual(['armies', 'list'])
+    expect(queryKeys.army('a1')).toEqual(['armies', 'detail', 'a1'])
+    expect(queryKeys.unit('u1')).toEqual(['units', 'detail', 'u1'])
+    expect(queryKeys.factions).toEqual(['factions', 'list'])
+    expect(queryKeys.inventory).toEqual(['inventory', 'list'])
+    expect(queryKeys.units({ q: 'x' })).toEqual(['units', 'list', { q: 'x' }])
+  })
+
+  it('are hierarchical: one prefix reaches a resource and everything under it', () => {
+    // This is the property the old shape lacked -- `['armies']` and `['army', id]`
+    // were siblings, so no prefix reached both and every mutation had to name each
+    // key by hand. Asserted as a relationship rather than as literals, so it keeps
+    // holding when a key is added.
+    for (const key of [
+      queryKeys.armies,
+      queryKeys.army('a1'),
+      queryKeys.armyShortfall('a1'),
+      queryKeys.armyValidation('a1'),
+    ]) {
+      expect(matches(queryKeys.allArmies, key)).toBe(true)
+    }
+
+    // A single army's derived queries hang off its detail key...
+    expect(matches(queryKeys.army('a1'), queryKeys.armyShortfall('a1'))).toBe(true)
+    expect(matches(queryKeys.army('a1'), queryKeys.armyValidation('a1'))).toBe(true)
+    // ...but not off another army's, and not off the list.
+    expect(matches(queryKeys.army('a1'), queryKeys.armyShortfall('a2'))).toBe(false)
+    expect(matches(queryKeys.armies, queryKeys.army('a1'))).toBe(false)
+  })
+})
+
+describe('invalidation reaches what it should', () => {
+  it('one prefix invalidates an army and everything derived from it', async () => {
+    // The assertions above compare key shapes with a helper of our own, which
+    // proves nothing about TanStack Query. This drives the real client: seed four
+    // queries, invalidate one prefix, and check which ones actually went stale.
+    const { client } = makeWrapper()
+    client.setQueryData(queryKeys.armies, { items: [] })
+    client.setQueryData(queryKeys.army('a1'), { id: 'a1' })
+    client.setQueryData(queryKeys.armyShortfall('a1'), [])
+    client.setQueryData(queryKeys.armyValidation('a1'), { ok: true })
+    client.setQueryData(queryKeys.armyShortfall('a2'), [])
+
+    await client.invalidateQueries({ queryKey: queryKeys.army('a1') })
+
+    expect(client.getQueryState(queryKeys.army('a1'))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(queryKeys.armyShortfall('a1'))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(queryKeys.armyValidation('a1'))?.isInvalidated).toBe(true)
+    // ...and nothing else: not another army, and not the list.
+    expect(client.getQueryState(queryKeys.armyShortfall('a2'))?.isInvalidated).toBe(false)
+    expect(client.getQueryState(queryKeys.armies)?.isInvalidated).toBe(false)
+  })
+
+  it('the allArmies prefix reaches the list too', async () => {
+    const { client } = makeWrapper()
+    client.setQueryData(queryKeys.armies, { items: [] })
+    client.setQueryData(queryKeys.armyShortfall('a1'), [])
+
+    await client.invalidateQueries({ queryKey: queryKeys.allArmies })
+
+    expect(client.getQueryState(queryKeys.armies)?.isInvalidated).toBe(true)
+    expect(client.getQueryState(queryKeys.armyShortfall('a1'))?.isInvalidated).toBe(true)
   })
 })
 

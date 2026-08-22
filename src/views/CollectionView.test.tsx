@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { CollectionView } from './CollectionView'
 import type { Army_Read, Faction_Read, Unit_Read } from '../api/types'
 import { listArmies } from '../api/armies'
+import { queryKeys } from '../api/queries'
 
 /** Wrap rows in the pagination envelope the list hooks now expose. */
 const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
@@ -56,8 +57,8 @@ function renderView(seedArmies: Army_Read[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   })
-  client.setQueryData(['armies'], page(seedArmies))
-  client.setQueryData(['factions'], page(factions))
+  client.setQueryData(queryKeys.armies, page(seedArmies))
+  client.setQueryData(queryKeys.factions, page(factions))
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -90,8 +91,8 @@ describe('CollectionView', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    // Seed factions only; leave ['armies'] unseeded so its query stays pending.
-    client.setQueryData(['factions'], page(factions))
+    // Seed factions only; leave the armies list unseeded so its query stays pending.
+    client.setQueryData(queryKeys.factions, page(factions))
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter>

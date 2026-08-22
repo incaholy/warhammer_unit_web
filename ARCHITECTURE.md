@@ -214,20 +214,22 @@ frontend this project is measured against has **no query library at all**: hand-
 plus `useState`, no cache, no deduplication, no invalidation, and failed loads that only reach
 `console.error`. That is not a small gap; it is a whole layer.
 
-**Status: Partial.** The cache leak that used to head this list is fixed — `logout()` and `login()`
-both call `queryClient.clear()`, with a regression test on each ([ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out)).
-Two exceptions remain:
+**Status: Partial**, and — like §4 — only for a rule it inherits rather than one of its own. All three
+exceptions this section listed are closed:
 
-- **The key factory mixes two hierarchy conventions.** `armies` is `['armies']` while `army(id)` is
-  `['army', id]` (`src/api/queries.ts:41-42`), so they are siblings, not parent and child. Invalidating
-  the prefix `['army']` does not touch `['armies']`, so each army mutation has to name its keys by
-  hand and they do not agree: `useUpdateArmy` invalidates both, `useDeleteArmy` removes one and
-  invalidates the other, and `useCreateArmy` (`:122-131`) invalidates only `['armies']`. Meanwhile
-  `unitFacets` *is* nested under `['units']` (`:46`), so the other convention is also present. See [ROADMAP F5](ROADMAP.md#f5-make-query-keys-consistently-hierarchical).
-- **Four exported hooks have no call sites and no tests**: `useMe` (`:56`), `useUpdateArmy` (`:133`),
-  `useDeleteArmy` (`:146`), and `useSetArmyUnitAmount` (`:180`). `src/api/queries.test.tsx` imports
-  only `queryKeys`, `useUnits`, and `useCreateArmy`, so these four are simply dead. Covered in
-  [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
+- The cache leak is fixed: `logout()` and `login()` both call `queryClient.clear()`, with a regression
+  test on each ([ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out)).
+- The key factory follows one rule, `[resource, kind, ...]`, so every key for a resource extends that
+  resource's root and prefix invalidation does the work the call sites used to do by hand. The
+  membership helper went from four enumerated keys to two prefixes, and the inventory mutation's ad
+  hoc `['army']` literal is now a named `allArmies` prefix
+  ([ROADMAP F5](ROADMAP.md#f5-make-query-keys-consistently-hierarchical)).
+- The four hooks with no call sites and no tests are deleted, along with the query key whose only
+  consumer was one of them ([ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift)).
+
+What is left is enforcement. Nothing stops a component writing an inline `useQuery` or a mutation
+inventing a key literal instead of using the factory; both are convention today. The import rule in
+[ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint) is the place that becomes checkable.
 
 ---
 

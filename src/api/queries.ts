@@ -31,20 +31,36 @@ import type {
 } from './types'
 
 // ---- Query keys ----
-// Stable, hierarchical keys so mutations can invalidate exactly what they touch.
-
+// One rule: `[resource, kind, ...]`. Every key for a resource extends that
+// resource's root segment, so `invalidateQueries` can rely on TanStack Query's
+// prefix matching instead of each call site enumerating what it touched.
+//
+// The `'list'` / `'detail'` segment is what makes this work in both directions:
+// with `armies: ['armies']` and `army(id): ['army', id]` -- the previous shape --
+// they were *siblings*, so invalidating one never matched the other and every
+// mutation had to name both by hand (and the three army mutations disagreed about
+// which). Rooting them fixes that; the explicit `kind` keeps the list from being a
+// *prefix* of the details, so invalidating the list alone needs no `exact: true`.
+//
+// Read them as a tree:
+//   ['armies']                              <- allArmies, matches everything below
+//   ['armies', 'list']                      <- the list
+//   ['armies', 'detail', id]                <- one army
+//   ['armies', 'detail', id, 'shortfall']   <- derived from that army
 export const queryKeys = {
-  armies: ['armies'] as const,
-  army: (id: UUID) => ['army', id] as const,
-  armyShortfall: (id: UUID) => ['army', id, 'shortfall'] as const,
-  armyValidation: (id: UUID) => ['army', id, 'validate'] as const,
-  units: (filters: ListUnitsParams = {}) => ['units', filters] as const,
+  /** Prefix matching every armies query — the list, every detail, and their children. */
+  allArmies: ['armies'] as const,
+  armies: ['armies', 'list'] as const,
+  army: (id: UUID) => ['armies', 'detail', id] as const,
+  armyShortfall: (id: UUID) => ['armies', 'detail', id, 'shortfall'] as const,
+  armyValidation: (id: UUID) => ['armies', 'detail', id, 'validate'] as const,
+  units: (filters: ListUnitsParams = {}) => ['units', 'list', filters] as const,
   unitFacets: (filters: { q?: string; subfaction_id?: UUID } = {}) =>
     ['units', 'facets', filters] as const,
-  unit: (id: UUID) => ['unit', id] as const,
-  factions: ['factions'] as const,
+  unit: (id: UUID) => ['units', 'detail', id] as const,
+  factions: ['factions', 'list'] as const,
   factionTaxonomy: ['factions', 'taxonomy'] as const,
-  inventory: ['inventory'] as const,
+  inventory: ['inventory', 'list'] as const,
 }
 
 // ---- Read hooks ----
@@ -122,15 +138,17 @@ export function useCreateArmy(): UseMutationResult<Army_Read, Error, Army_Create
   })
 }
 
-/** Invalidate everything derived from an army's unit list. */
+/** Invalidate everything derived from an army's unit list.
+ *
+ * Two prefixes, not four keys: `army(id)` is the root of that army's detail,
+ * shortfall and validation, so one call covers all three and a fourth derived
+ * query added tomorrow is covered without editing this. */
 function invalidateArmyMembership(
   qc: ReturnType<typeof useQueryClient>,
   armyId: UUID,
 ): void {
   qc.invalidateQueries({ queryKey: queryKeys.army(armyId) })
   qc.invalidateQueries({ queryKey: queryKeys.armies })
-  qc.invalidateQueries({ queryKey: queryKeys.armyShortfall(armyId) })
-  qc.invalidateQueries({ queryKey: queryKeys.armyValidation(armyId) })
 }
 
 export function useAddArmyUnit(
@@ -161,7 +179,9 @@ export function useRemoveArmyUnit(
  * invalidate every army-scoped query too. */
 function invalidateInventory(qc: ReturnType<typeof useQueryClient>): void {
   qc.invalidateQueries({ queryKey: queryKeys.inventory })
-  qc.invalidateQueries({ queryKey: ['army'] })
+  // An army's shortfall is computed against the inventory, so changing what the
+  // user owns invalidates every armies query, not just one army's.
+  qc.invalidateQueries({ queryKey: queryKeys.allArmies })
 }
 
 export function useAddInventoryUnit(): UseMutationResult<UserUnit_Read, Error, UnitAdd> {

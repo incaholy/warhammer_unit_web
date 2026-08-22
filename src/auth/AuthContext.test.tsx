@@ -3,6 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './AuthContext'
 import { tokenStore } from '../api/client'
+import { queryKeys } from '../api/queries'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -108,14 +109,14 @@ describe('AuthContext', () => {
       await handle.login('kesh@x.io', 'secret')
     })
 
-    queryClient.setQueryData(['armies'], { items: [{ id: 'a1', name: 'USER A ARMY' }] })
-    expect(queryClient.getQueryData(['armies'])).toBeDefined()
+    queryClient.setQueryData(queryKeys.armies, { items: [{ id: 'a1', name: 'USER A ARMY' }] })
+    expect(queryClient.getQueryData(queryKeys.armies)).toBeDefined()
 
     act(() => {
       handle.logout()
     })
 
-    expect(queryClient.getQueryData(['armies'])).toBeUndefined()
+    expect(queryClient.getQueryData(queryKeys.armies)).toBeUndefined()
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
   })
 
@@ -127,13 +128,13 @@ describe('AuthContext', () => {
     renderProvider()
 
     await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'))
-    queryClient.setQueryData(['armies'], { items: [{ id: 'a1', name: 'USER A ARMY' }] })
+    queryClient.setQueryData(queryKeys.armies, { items: [{ id: 'a1', name: 'USER A ARMY' }] })
 
     await act(async () => {
       await handle.login('kesh@x.io', 'secret')
     })
 
-    expect(queryClient.getQueryData(['armies'])).toBeUndefined()
+    expect(queryClient.getQueryData(queryKeys.armies)).toBeUndefined()
   })
 
   it('hydrates the user from /me when a token is already stored', async () => {
