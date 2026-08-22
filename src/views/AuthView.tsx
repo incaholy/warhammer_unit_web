@@ -4,9 +4,10 @@
 
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Eyebrow, Field, SegmentedToggle } from '../ui'
 import { fieldErrors, messageForError } from '../lib/errors'
+import { redirectTarget } from '../lib/redirect'
 import { useAuth } from '../auth/AuthContext'
 import styles from './AuthView.module.css'
 
@@ -19,6 +20,7 @@ const MODE_OPTIONS = [
 
 export function AuthView() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, register } = useAuth()
 
   const [mode, setMode] = useState<Mode>('login')
@@ -64,7 +66,7 @@ export function AuthView() {
       } else {
         await register(name, email, password)
       }
-      navigate('/')
+      navigate(redirectTarget((location.state as { from?: unknown } | null)?.from))
     } catch (err) {
       // Attach per-field messages where the backend gave them; fall back to a
       // single banner only when there are none (e.g. a 401 on login).

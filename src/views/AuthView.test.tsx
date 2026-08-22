@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthView } from './AuthView'
 import { AuthProvider } from '../auth/AuthContext'
@@ -27,6 +27,48 @@ function renderView() {
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+/** Renders AuthView at /login with router state, plus a probe at the destination,
+ *  so a test can assert where a successful sign-in actually lands (ROADMAP F6). */
+function renderViewWithFrom(from: unknown) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[{ pathname: '/login', state: { from } }]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<AuthView />} />
+            <Route path="/armies/:armyId" element={<span>attempted page</span>} />
+            <Route path="/" element={<span>home</span>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+/** A fetch mock that logs in successfully. */
+function loginFetch() {
+  return vi.fn((rawUrl: string) => {
+    const url = rawUrl.replace(/^\/api\/v1/, '')
+    if (url === '/auth/login') {
+      return Promise.resolve(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
+    }
+    if (url === '/me') {
+      return Promise.resolve(jsonResponse({ id: 'u1', username: 'kesh', email: 'kesh@x.io' }))
+    }
+    return Promise.reject(new Error(`unexpected fetch: ${url}`))
+  })
+}
+
+function submitLogin() {
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'kesh@x.io' } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } })
+  const submit = screen
+    .getAllByRole('button')
+    .find((b) => b.getAttribute('type') === 'submit')!
+  fireEvent.click(submit)
 }
 
 /** The Log In / Sign Up mode toggle (scoped so its labels don't collide with
@@ -66,6 +108,20 @@ describe('AuthView', () => {
       'aria-pressed',
       'true',
     )
+  })
+
+  it('returns the user to the page they asked for after signing in (F6)', async () => {
+    vi.stubGlobal('fetch', loginFetch())
+    renderViewWithFrom('/armies/a1')
+    submitLogin()
+    await waitFor(() => expect(screen.getByText('attempted page')).toBeInTheDocument())
+  })
+
+  it('ignores an external destination and lands home instead (open redirect)', async () => {
+    vi.stubGlobal('fetch', loginFetch())
+    renderViewWithFrom('https://evil.example/phish')
+    submitLogin()
+    await waitFor(() => expect(screen.getByText('home')).toBeInTheDocument())
   })
 
   it('shows an inline error message when login fails', async () => {
