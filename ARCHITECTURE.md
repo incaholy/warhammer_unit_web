@@ -214,11 +214,10 @@ frontend this project is measured against has **no query library at all**: hand-
 plus `useState`, no cache, no deduplication, no invalidation, and failed loads that only reach
 `console.error`. That is not a small gap; it is a whole layer.
 
-**Status: Partial.** Three exceptions:
+**Status: Partial.** The cache leak that used to head this list is fixed — `logout()` and `login()`
+both call `queryClient.clear()`, with a regression test on each ([ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out)).
+Two exceptions remain:
 
-- **The cache is not cleared on sign-out**, which leaks data between accounts on a shared browser.
-  This is the highest-severity item in the roadmap and it is reproduced with evidence in
-  [ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out).
 - **The key factory mixes two hierarchy conventions.** `armies` is `['armies']` while `army(id)` is
   `['army', id]` (`src/api/queries.ts:41-42`), so they are siblings, not parent and child. Invalidating
   the prefix `['army']` does not touch `['armies']`, so each army mutation has to name its keys by
@@ -237,15 +236,20 @@ plus `useState`, no cache, no deduplication, no invalidation, and failed loads t
 The token lives in exactly one module. Sign-out ends the session completely. A guarded route that
 bounces an unauthenticated user preserves where they were going, so signing in returns them there.
 
-**Status: Partial.** The token boundary holds (§2.1). Two gaps:
+**Status: Partial**, and only because of a rule this section inherits rather than one of its own.
 
-- **Sign-out does not end the session completely.** `src/auth/AuthContext.tsx:74-77` clears the token
-  and the user object and stops. Cached server data survives. See
-  [ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out).
-- **The attempted URL is discarded.** `src/auth/RequireAuth.tsx:20` redirects with
-  `<Navigate to="/login" replace />` and no location state, so a deep link to a specific army lands on
-  the home view after signing in. See
-  [ROADMAP F6](ROADMAP.md#f6-return-users-to-the-page-they-asked-for).
+Both former gaps are closed. Sign-out now ends the session completely: `logout()` clears the token,
+the user, and the query cache, and `login()` clears it too, which closes the same leak by the other
+door — a session can end involuntarily when the client drops the token on a 401, and clearing from
+that listener would make mounted queries refetch, 401, and re-enter it
+([ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out)). And the guard now carries the
+attempted URL in router state, which `AuthView` consumes through a validator that refuses anything
+non-internal, protocol-relative `//host` included
+([ROADMAP F6](ROADMAP.md#f6-return-users-to-the-page-they-asked-for)).
+
+What keeps this from **Holds** is the first sentence of the principle: nothing enforces that the token
+lives in exactly one module. That is §2.1's gap, and it is fixed by the same import rule
+([ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint)).
 
 A detail worth crediting: `RequireAuth` returns `null` while the session is hydrating rather than
 redirecting, so a hard refresh does not flash the login screen at an already-authenticated user. That
@@ -271,12 +275,16 @@ attributes across non-test components plus 3 `aria-labelledby`, `aria-pressed` o
 `aria-modal` with a focus trap on the modal, and `role="status"` / `role="alert"` live regions. None
 of that is accidental.
 
-But it is entirely convention. There is **no `eslint-plugin-jsx-a11y`**, so the next component can
-ship a `<div onClick>` with no keyboard handler and nothing objects. Locking in work already done is
-the cheapest possible win. See [ROADMAP F7](ROADMAP.md#f7-lock-in-the-accessibility-work-with-a-linter).
+It is no longer only convention. `eslint-plugin-jsx-a11y` runs in lint, which gates CI, so the next
+component cannot ship a `<div onClick>` with no keyboard handler
+([ROADMAP F7](ROADMAP.md#f7-lock-in-the-accessibility-work-with-a-linter)). Its first run found seven
+real errors, all fixed rather than suppressed — the modal overlay is now `role="presentation"` and
+closes only on a click of the backdrop itself, which also deleted a `stopPropagation` handler, and the
+scrolling weapon table is a labelled `region` rather than a `group`. Treat the linter as a floor:
+it catches missing semantics and never catches a bad focus order or an unusable flow.
 
-The styling convention has two known exceptions: `src/ui/ErrorBoundary.tsx` and `src/App.tsx` style
-with inline objects rather than a module, and nothing prevents a third.
+**Status stays Partial for the styling half.** Two known exceptions: `src/ui/ErrorBoundary.tsx` and
+`src/App.tsx` style with inline objects rather than a module, and nothing prevents a third.
 
 ---
 
@@ -288,18 +296,21 @@ with inline objects rather than a module, and nothing prevents a third.
 - **This document is the normative architecture**, and `ROADMAP.md` is the gap list.
 - **Docs change in the same PR as the code that changes them.**
 
-**Status: Partial.** The `roadmap` branch rewrote the README into a genuine front door, which was the
-right move. Three pieces of drift remain, all introduced by code changes that did not carry their
-docs with them:
+**Status: Partial.** The `roadmap` branch rewrote the README into a genuine front door, and the drift
+this section listed is now cleared: the README describes the single `/api` proxy, `SPEC.md`'s
+structure listing matches the files that exist (no `ToastContext.tsx` or `factionFlavor.ts`; with
+`schema.d.ts`, `errors.ts`, `redirect.ts`, `toastBus.ts`, and `ErrorBoundary.tsx` present), the
+`X-Total-Count` and hand-written-`types.ts` descriptions in `SPEC.md` and `MVP.md` describe what
+actually ships, and the `Army_Read.created_at` deferred item is struck because the backend ships it.
 
-- `README.md:24` says the dev server proxies `/auth`, `/me`, `/units`, `/factions`. It proxies `/api`.
-- `package.json:13`, `README.md:15`, `README.md:54`, `SPEC.md:8`, and `SPEC.md:192` all point at
-  `../warhammer_unit`. The repo is `Warhammer-unit`.
-- `SPEC.md:158` and `:164` list `ToastContext.tsx` and `factionFlavor.ts`, neither of which exists, and
-  the structure listing omits `src/lib/errors.ts`, `src/api/schema.d.ts`, `src/toast/toastBus.ts`, and
-  `src/ui/ErrorBoundary.tsx`, all of which do.
-- `MVP.md:49`, `:78`, and `:86` still describe the `X-Total-Count` header and hand-written
-  `types.ts`, both of which this branch removed.
+One piece is deliberately left:
+
+- `package.json:13`, `README.md:15`, `README.md:54`, `SPEC.md:8`, and `SPEC.md:192` point at
+  `../warhammer_unit`, while a default clone of the backend is `Warhammer-unit` — a different
+  directory, by separator as well as case. It is left alone because "rename the path" is the wrong
+  fix: **any** sibling-checkout path is unusable in CI, so where `openapi.json` comes from is
+  [ROADMAP F2](ROADMAP.md#f2-repair-type-generation-and-check-it-in-ci)'s decision, and renaming here
+  first would break a working local setup for no gain.
 
 See [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
 
@@ -312,10 +323,10 @@ than on a mock's return value. Stubbing at the transport boundary (`fetch`) rath
 modules under test is deliberate and correct: it means a test proves the app sends the request it
 claims to send.
 
-**Status: Partial.** 29 test files and 156 tests pass, spanning the client, every resource module,
+**Status: Partial.** 31 test files and 164 tests pass, spanning the client, every resource module,
 auth, routing, the UI kit, and every view. Two thin spots are worth naming rather than glossing:
 `src/api/queries.test.tsx` holds 3 tests covering `queryKeys`, `useUnits`, and `useCreateArmy`, so the
-query layer's 20-plus exported hooks are mostly exercised indirectly through view tests, and four UI
+query layer's exported hooks are mostly exercised indirectly through view tests, and four UI
 primitives (`Eyebrow`, `Field`, `Input`, `Toast`) have no test file.
 
 The structural gap is what transport stubbing cannot see. **A stub answers whatever the test author

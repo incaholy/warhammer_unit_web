@@ -143,8 +143,9 @@ warhammer_web/
       theme.css           # design tokens (CSS variables) + font imports
       global.css          # reset, base element styles, keyframes, utilities
     api/
-      client.ts           # fetch wrapper: base, JWT, JSON, ApiError, X-Total-Count
-      types.ts            # hand or openapi-typescript generated schema types
+      client.ts           # fetch wrapper: base + /api/v1, JWT, JSON, ApiError
+      schema.d.ts         # generated from the backend's openapi.json (do not edit)
+      types.ts            # thin re-exports of schema.d.ts + client-side helpers
       auth.ts             # register, login, getMe
       units.ts            # listUnits, getUnit  (+ list weapons/abilities if needed)
       factions.ts         # listFactions, factionTaxonomy
@@ -155,13 +156,16 @@ warhammer_web/
       AuthContext.tsx     # token in localStorage, current user, login/register/logout
       RequireAuth.tsx     # route guard → redirects to /login
     toast/
-      ToastContext.tsx    # enqueue transient messages
+      ToastProvider.tsx   # renders the toast stack
+      toastBus.ts         # enqueue transient messages from outside React
     ui/                   # design-system primitives (see "UI kit")
       Button.tsx  Input.tsx  Field.tsx  Tag.tsx  SegmentedToggle.tsx
       Modal.tsx   Toast.tsx  Header.tsx  Breadcrumbs.tsx  Eyebrow.tsx  EmptyState.tsx
+      ErrorBoundary.tsx   # render-error fallback instead of a blank screen
     lib/
       roles.ts            # derive a display "role" + group units from keywords
-      factionFlavor.ts    # optional static blurb per faction name (design flavor)
+      errors.ts           # ApiError -> user-facing message + per-field messages
+      redirect.ts         # post-login destination, internal paths only
       format.ts           # points, counts, date labels
     views/
       AuthView.tsx        # /login  (login + signup tabs)
@@ -228,8 +232,10 @@ One `request()` helper backs every resource function:
   *password form*: send `application/x-www-form-urlencoded` with `username` and
   `password` fields (`username` may be a username **or** an email).
 - **Responses** — `204 No Content` returns `undefined`; otherwise parse JSON.
-  Reads that need the paged total (`GET /units`) expose the **`X-Total-Count`**
-  response header alongside the body.
+  Every collection returns a `Page<T>` body (`{items, total, limit, offset}`), so
+  the total travels **in the body**. It used to be an `X-Total-Count` header, which
+  a browser cannot read cross-origin unless the server names it in
+  `expose_headers` — that silence is what capped the deployed catalog at 25 units.
 - **Errors** — any non-2xx becomes a thrown `ApiError { status, message, field? }`,
   built from the backend's `{ "detail": message, "field"? }` body. A **401**
   additionally clears the stored token and signals the auth layer to bounce to
@@ -329,7 +335,7 @@ what the row's **+ Add** does (`POST …/units` vs `POST /me/inventory`) and the
 header's "Adding to —" label. Left rail = **faction filter** from `GET /factions`
 (each with a live count); main column = search box (`q`), an **Owned only / All
 units** toggle (cross-referencing inventory), and unit rows (name, faction · role,
-an owned tag, **+ Add**). Uses `X-Total-Count` for the "N of M" result label.
+an owned tag, **+ Add**). Uses the page body's `total` for the "N of M" label.
 Paged via `limit`/`offset`.
 
 ### InventoryView (`/inventory`)
@@ -390,9 +396,8 @@ where it and the real API must be reconciled, and how:
   `Swarm` → their names, else "Other Units"), and groups by that. This keeps the
   grouped "Order of Battle" / inventory layout without a backend change.
 - **Faction blurbs are flavor, not data.** The design's per-faction descriptive
-  copy has no backend field. Either drop it or keep a small static
-  `factionFlavor.ts` keyed by faction name; the army's own "note" uses the
-  backend's `description`.
+  copy has no backend field. Dropped rather than carried as a static table; the
+  army's own "note" uses the backend's `description`.
 - **Login by email.** Covered above — the email goes into the OAuth2 `username`
   field.
 - **Backend capabilities the base design doesn't yet surface** — `points_limit`,
@@ -446,9 +451,9 @@ backend); the remaining polish items are called out per step.
 
 1. ✅ **Scaffold** — `react-router-dom`, TanStack Query; `theme.css` /
    `global.css`; Vite demo removed.
-2. ✅ **HTTP client + types** — `client.ts` (base, JWT, `ApiError`, form-login,
-   `X-Total-Count`) and `types.ts` (hand-written, verified vs `/openapi.json`;
-   generation deferred — step 12).
+2. ✅ **HTTP client + types** — `client.ts` (base + `/api/v1`, JWT, `ApiError`,
+   form-login) and `types.ts`, now thin re-exports of the generated
+   `schema.d.ts`.
 3. ✅ **Auth** — `AuthContext`, `RequireAuth`, `AuthView` (login/signup), Vite proxy.
 4. ✅ **UI kit** — Button, Input/Field, Tag, SegmentedToggle, Modal (focus-trap),
    Toast, Header, Breadcrumbs, Eyebrow, EmptyState from the design tokens.
@@ -480,8 +485,7 @@ backend); the remaining polish items are called out per step.
 - ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`) running lint + build +
   test on push/PR to `main`.
 - **Deferred:** deploy config (`VITE_API_BASE_URL`, backend `SECRET_KEY` /
-  `ALLOWED_ORIGINS`) and a Playwright e2e smoke; `Army_Read.created_at` awaits a
-  backend field.
+  `ALLOWED_ORIGINS`) and a Playwright e2e smoke.
 
 ## Out of scope (not MVP)
 

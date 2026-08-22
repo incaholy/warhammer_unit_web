@@ -21,9 +21,10 @@ cp .env.example .env     # optional; leave VITE_API_BASE_URL empty for local dev
 npm run dev              # Vite dev server on http://localhost:5173
 ```
 
-In dev the Vite server **proxies** the backend's route prefixes (`/auth`, `/me`,
-`/units`, `/factions`, …) to `localhost:8000`, so the browser sees a single
-origin and no CORS is involved — just start the backend first.
+In dev the Vite server **proxies** `/api` to `localhost:8000`, so the browser sees
+a single origin and no CORS is involved — just start the backend first. Every
+resource route lives under that one prefix (`/api/v1/...`), which is why the proxy
+needs a single entry rather than one per resource.
 
 ```bash
 npm test                # run the test suite once

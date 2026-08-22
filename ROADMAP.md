@@ -48,10 +48,10 @@ should be closed rather than contradicted.
 
 | Order | # | Item | Satisfies | Effort |
 |---|---|---|---|---|
-| 1 | [F1](#f1-clear-the-query-cache-on-sign-out) | Clear the query cache on sign-out | §3, §4 | Trivial |
+| 1 | [F1](#f1-clear-the-query-cache-on-sign-out) | ✅ Clear the query cache on sign-out | §3, §4 | Trivial |
 | 2 | [F2](#f2-repair-type-generation-and-check-it-in-ci) | Repair type generation, check it in CI | §2.3 | Small |
-| 3 | [F7](#f7-lock-in-the-accessibility-work-with-a-linter) | Lock in the accessibility work | §5 | Trivial |
-| 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | Return users to the page they asked for | §4 | Trivial |
+| 3 | [F7](#f7-lock-in-the-accessibility-work-with-a-linter) | ✅ Lock in the accessibility work | §5 | Trivial |
+| 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | ✅ Return users to the page they asked for | §4 | Trivial |
 | 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | Enforce the layering rule with lint | §1, §2.1 | Small |
 | 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | Clear the doc and dead-code drift | §6 | Trivial |
 | 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | Make query keys consistently hierarchical | §3 | Small |
@@ -67,7 +67,15 @@ introduced on purpose.
 
 ## F1. Clear the query cache on sign-out
 
-**Satisfies:** §3 (server state), §4 (session). **Highest severity item on this list.**
+**Satisfies:** §3 (server state), §4 (session). **✅ Done.**
+
+`logout()` clears the token, the user, and the query cache. `login()` clears it too, which closes the
+same leak by its other door: a session also ends involuntarily when the client drops the token on a
+401, and clearing from that listener would remove queries that still have mounted observers, which
+refetch, 401, and re-enter it. `clear()` rather than `resetQueries()` because the departing user's
+refetches would carry no token. Two regression tests, both verified to fail without the fix.
+
+The original finding, kept because the reasoning is the reusable part:
 
 **What is missing.** `src/auth/AuthContext.tsx:74-77` is the whole of `logout()`: it clears the token
 and sets the user to null. Nothing touches the TanStack Query cache, and grepping `src/auth/` for
@@ -293,7 +301,11 @@ is a correctness one.
 
 ## F6. Return users to the page they asked for
 
-**Satisfies:** §4 (session).
+**Satisfies:** §4 (session). **✅ Done.**
+
+`RequireAuth` carries the attempted path, query and hash in router state; `AuthView` consumes it
+through `src/lib/redirect.ts`, which returns `/` for anything that is not an internal path —
+protocol-relative `//host` included, since it starts with `/` and is external. Seven tests.
 
 **What is missing.** `src/auth/RequireAuth.tsx:20` redirects with `<Navigate to="/login" replace />`
 and carries no record of where the user was going, so the attempted URL is lost. Someone opening a
@@ -316,7 +328,13 @@ open redirect vulnerabilities.
 
 ## F7. Lock in the accessibility work with a linter
 
-**Satisfies:** §5 (presentation and accessibility).
+**Satisfies:** §5 (presentation and accessibility). **✅ Done.**
+
+`eslint-plugin-jsx-a11y` runs in lint, which gates CI. The first run found seven errors, as predicted:
+four real (the modal overlay and card, a mislabelled scroll region), two the plugin not knowing this
+codebase (`Input` registered as a control component; `region` allowed to carry `tabIndex`), and one
+documented exception (`autoFocus` inside an explicitly invoked dialog, where APG asks for focus to
+land inside on open).
 
 **What is missing.** The accessibility work in this codebase is real and better than most projects at
 this stage: 29 `aria-label` attributes across non-test components plus 3 `aria-labelledby`,
@@ -381,7 +399,13 @@ tested artifacts reach production.
 
 ## F9. Clear the doc and dead-code drift
 
-**Satisfies:** §6 (docs).
+**Satisfies:** §6 (docs). **✅ Done, except the repo-path references.**
+
+The dead code is gone (`apiGetWithHeaders`, the four unreferenced hooks, and the `me` query key that
+had no remaining consumer), and the docs describe what ships. The five `../warhammer_unit` references
+are deliberately untouched: the local checkout really is `warhammer_unit`, so renaming them to match
+the repo would break a working setup, and a sibling-checkout path cannot work in CI regardless. That
+is [F2](#f2-repair-type-generation-and-check-it-in-ci)'s decision, not a rename.
 
 Small, individually trivial, and worth doing in one pass because each item is a place where a reader
 is actively misled.
