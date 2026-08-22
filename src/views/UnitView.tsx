@@ -107,7 +107,7 @@ function WeaponTable({
       <div
         className={styles.tableScroll}
         tabIndex={0}
-        role="group"
+        role="region"
         aria-label={`${title} weapons`}
       >
         <table className={styles.table} aria-label={title}>

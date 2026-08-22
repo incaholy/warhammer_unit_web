@@ -85,7 +85,19 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   if (!open) return null
 
   return (
-    <div className={styles.overlay} data-testid="modal-overlay" onClick={onClose}>
+    // The overlay is decorative (`role="presentation"`), so closing on a click of
+    // the backdrop *itself* needs no keyboard equivalent of its own -- Escape
+    // already closes, which is the keyboard parity that matters. Comparing target
+    // to currentTarget replaces the card's stopPropagation handler: a click inside
+    // the card bubbles here but is not the overlay, so it does not close.
+    <div
+      className={styles.overlay}
+      data-testid="modal-overlay"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div
         ref={cardRef}
         className={styles.card}
@@ -94,7 +106,6 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : 'Dialog'}
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
       >
         {title && (
           <div className={styles.header}>
