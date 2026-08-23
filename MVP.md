@@ -113,7 +113,7 @@ deferred niceties (see below).
 ### To add / harden ⚙️ (deferred)
 - [ ] **Set a real deploy config** — `VITE_API_BASE_URL` for cross-origin, plus
   the backend's `SECRET_KEY` / `ALLOWED_ORIGINS` (deploy-time, not code).
-- [ ] **`npm run gen:api`** — migrate `types.ts` to `openapi-typescript` output
+- [x] **`npm run gen:api`** — migrate `types.ts` to `openapi-typescript` output
   (hand-written types are verified correct, so this is drift-protection, not a fix).
 - [ ] **Optimistic mutations** — currently invalidate-and-refetch; optimistic UI
   would make add/remove feel instant.

@@ -24,5 +24,5 @@ preview: ## Serve the already-built dist/ locally to preview the production buil
 lint: ## Run eslint across the project.
 	$(NPM) run lint
 
-gen-api: ## Regenerate src/api/schema.d.ts from the backend's openapi.json (types.ts re-exports it).
+gen-api: ## Regenerate src/api/schema.d.ts from the backend's published openapi.json (OPENAPI_REF to target a branch).
 	$(NPM) run gen:api

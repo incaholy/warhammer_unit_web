@@ -136,13 +136,15 @@ Hand-maintaining types that mirror another repo's schema is a drift generator, a
 at runtime instead of at compile time. The backend publishes `openapi.json` and verifies its
 freshness in its own CI, so the generation input is guaranteed current at the source.
 
-**Status: Partial.**
+**Status: Holds** — `npm run gen:api` reads the backend's published `openapi.json` by URL (no sibling
+checkout, so it works in CI), and CI regenerates and fails on any diff, so stale types are a red
+build rather than a silent runtime bug (F2).
 
 The generation genuinely happened and the result is genuinely correct. `src/api/schema.d.ts` is
 `openapi-typescript` output, and I regenerated it from the backend's current `openapi.json` and
 diffed: **byte-identical**. The types are in sync right now.
 
-Two things keep it from `Holds`:
+*(Historic, now closed by F2.)* Two things kept it from `Holds`:
 
 - **The committed regeneration command does not work.** `package.json:13` runs
   `openapi-typescript ../warhammer_unit/openapi.json`, but the backend repo is `Warhammer-unit`, so
@@ -310,14 +312,10 @@ structure listing matches the files that exist (no `ToastContext.tsx` or `factio
 `X-Total-Count` and hand-written-`types.ts` descriptions in `SPEC.md` and `MVP.md` describe what
 actually ships, and the `Army_Read.created_at` deferred item is struck because the backend ships it.
 
-One piece is deliberately left:
-
-- `package.json:13`, `README.md:15`, `README.md:54`, `SPEC.md:8`, and `SPEC.md:192` point at
-  `../warhammer_unit`, while a default clone of the backend is `Warhammer-unit` — a different
-  directory, by separator as well as case. It is left alone because "rename the path" is the wrong
-  fix: **any** sibling-checkout path is unusable in CI, so where `openapi.json` comes from is
-  [ROADMAP F2](ROADMAP.md#f2-repair-type-generation-and-check-it-in-ci)'s decision, and renaming here
-  first would break a working local setup for no gain.
+The sibling-path references are resolved where they mattered: `package.json` no longer takes a
+filesystem path at all (F2 replaced it with the backend's published URL, which is what made the CI
+freshness gate writable). The remaining `../warhammer_unit` mentions describe where to find a local
+backend checkout to run, not where types come from, and they match this machine's layout.
 
 See [ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift).
 

@@ -6,7 +6,9 @@
  * a single backend schema (the generic `Page<T>`, the `UUID` alias, the dict-shaped
  * taxonomy, and the consolidated unit-entry / add bodies) stay hand-defined below.
  *
- * Do not edit `schema.d.ts` by hand — run `npm run gen:api` (or `make gen-api`). */
+ * Do not edit `schema.d.ts` by hand — run `npm run gen:api` (or `make gen-api`),
+ * which regenerates it from the backend's published openapi.json. CI fails if
+ * the committed file is stale (ROADMAP F2). */
 
 import type { components } from './schema'
 

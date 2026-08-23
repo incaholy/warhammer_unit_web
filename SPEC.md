@@ -190,7 +190,7 @@ fallback, not the primary mechanism).
 | `npm run build` | `tsc -b` typecheck + `vite build` → `dist/` |
 | `npm run preview` | serve the production build locally |
 | `npm run lint` | eslint |
-| `npm run gen:api` *(planned)* | regenerate `src/api/types.ts` from `/openapi.json` |
+| `npm run gen:api` | regenerate `src/api/schema.d.ts` from the backend's published `openapi.json` |
 
 **Prerequisite:** the backend must be running and its catalog **seeded**, or the
 app renders correct-but-empty views. Bring it up from `../warhammer_unit`:

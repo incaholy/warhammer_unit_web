@@ -28,7 +28,7 @@ explicitly rather than silently duplicated:
 
 | `SPEC.md` deferred item | Status here |
 |---|---|
-| "the `npm run gen:api` script" | Landed on `roadmap`, but **broken**. Repaired by [F2](#f2-repair-type-generation-and-check-it-in-ci). |
+| "the `npm run gen:api` script" | Landed on `roadmap`, was **broken**, now repaired — see [F2](#f2-repair-type-generation-and-check-it-in-ci). |
 | "MSW not adopted (tests mock `fetch`)" | Still true, and defensible. [F4](#f4-test-against-the-real-contract) argues contract testing is the better spend. |
 | "a Playwright e2e smoke" | Still open. Noted in [F4](#f4-test-against-the-real-contract), not claimed as new. |
 | "deploy config" | Partly landed (`.env.example`, `firebase.json`). The missing CI deploy step is [F8](#f8-harden-ci-and-add-a-bundle-budget). |
@@ -49,7 +49,7 @@ should be closed rather than contradicted.
 | Order | # | Item | Satisfies | Effort |
 |---|---|---|---|---|
 | 1 | [F1](#f1-clear-the-query-cache-on-sign-out) | ✅ Clear the query cache on sign-out | §3, §4 | Trivial |
-| 2 | [F2](#f2-repair-type-generation-and-check-it-in-ci) | Repair type generation, check it in CI | §2.3 | Small |
+| 2 | [F2](#f2-repair-type-generation-and-check-it-in-ci) | ✅ Repair type generation, check it in CI | §2.3 | Small |
 | 3 | [F7](#f7-lock-in-the-accessibility-work-with-a-linter) | ✅ Lock in the accessibility work | §5 | Trivial |
 | 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | ✅ Return users to the page they asked for | §4 | Trivial |
 | 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | ✅ Enforce the layering rule with lint | §1, §2.1 | Small |
@@ -119,7 +119,10 @@ not merely stored.
 
 ## F2. Repair type generation and check it in CI
 
-**Satisfies:** §2.3.
+**Satisfies:** §2.3. **✅ Done** — the source is the backend's published `openapi.json` by URL, not a
+sibling checkout, and CI regenerates and fails on any diff. The `ErrorCode` follow-on below is **not**
+available: `openapi.json` contains none of the code strings, because the error bodies are built by
+hand in the backend's exception handlers, so it would need a backend change first.
 
 **What is missing.** The generated-types story is correct in its result and broken in its mechanism.
 

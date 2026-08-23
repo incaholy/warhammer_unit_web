@@ -28,6 +28,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The committed src/api/schema.d.ts is generated from the backend's
+      # openapi.json, which the backend's own CI verifies is fresh. Without this
+      # step a backend schema change leaves this repo green against stale types --
+      # and a checked-in generated file that can drift silently is worse than a
+      # hand-written one, because it is trusted more (ROADMAP F2).
+      #
+      # The ref is this branch's name, so `roadmap` here reads `roadmap` there and
+      # `main` reads `main` once both merge; a branch with no backend counterpart
+      # falls back to main. Nothing to remember to undo.
+      - name: Check generated API types are fresh
+        env:
+          OPENAPI_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          npm run gen:api
+          git diff --exit-code src/api/schema.d.ts \
+            || { echo "::error::src/api/schema.d.ts is stale — run 'npm run gen:api' and commit it"; exit 1; }
+
       - name: Lint
         run: npm run lint
 
