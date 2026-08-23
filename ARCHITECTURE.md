@@ -37,10 +37,10 @@ strictly below, and it is why several sections that describe genuinely good, con
 code are still marked `Partial`. That is not a criticism of the code. It is a statement about what
 would still be true after the next contributor, or the next you, forgets the rule.
 
-**Exactly one principle currently reaches `Holds`** (§2.4), and it is worth studying because it shows
-what turning a convention into a guarantee actually costs: one type annotation. Everything else in
-this document, including several rules the code follows without a single exception today, is
-convention. That ratio is the finding.
+**Exactly one principle reached `Holds`** when this was written (§2.4), and it is worth studying
+because it shows what turning a convention into a guarantee actually costs: one type annotation. That
+ratio was the finding. It is now five (§1, §2.4, §2.5, §3, §4), closed by F3's lint rules and F4's
+proxy test.
 
 ---
 
@@ -63,14 +63,17 @@ knows a path prefix exists. It also touched `vite.config.ts`, where an eight-ent
 collapsed to one, and the resource tests that assert outgoing URLs. That the app layer was a
 one-line change is the win; that the proxy had to change separately is the subject of §2.5.
 
-**Status: Partial.**
+**Status: Holds** — enforced by four ESLint import rules (F3): `fetch` is restricted outside
+`src/api/client.ts`; views/ui may not import the client's data access, a resource module, or
+`@tanstack/react-query`; and `src/api/`/`src/lib/` may not import from `src/views/`, `src/ui/` or
+`src/auth/`. (Bare `fetch` only, not `window.fetch`.)
 
 The rule holds in the code today, and I checked rather than assumed: there is **exactly one `fetch`
 call site** in non-test source (`src/api/client.ts:114`), no view or UI component calls `fetch`, and
 no view imports a resource module directly. The only `src/api/` imports in `src/views/` are types and
 the `ApiError` class, which are not data access.
 
-What keeps it from `Holds` is that **nothing enforces it**. ESLint has no import-boundary rule
+*(Historic, now closed by F3.)* What kept it from `Holds` was that **nothing enforced it**. ESLint had no import-boundary rule
 (`eslint.config.js` extends the recommended presets and nothing else), so a view could import
 `apiGet` directly, or call `fetch`, and lint, build, and all 156 tests would stay green.
 
@@ -98,8 +101,9 @@ and `:86` read and write a layout preference directly. That is benign data and a
 it means the confinement rule as usually stated ("only the client touches storage") is already not
 true, and any enforcement has to be written for the token specifically.
 
-**Status: Partial.** True today, unenforced. Same mechanism and same fix as §1: an import rule that
-confines `fetch` and `localStorage` to this module. Rolled into
+**Status: Partial.** The `fetch` and token halves are now enforced (F3: `fetch` restricted outside
+this module, `tokenStore` unimportable from views/ui). Still unenforced: `localStorage` generally,
+which needs `CollectionView`'s layout preference moved behind a module first. Rolled into
 [ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint).
 
 ### 2.2 Data that crossed the network is validated, not asserted
@@ -182,12 +186,15 @@ environments reach the API by different routes, and the prefix the dev proxy for
 the prefix the client sends or **dev** breaks while production is unaffected. That asymmetry is
 worth naming, because it means the dev proxy is the fragile half and the half no test covers.
 
-**Status: Partial.** The two agree today: `vite.config.ts` forwards `/api` and `src/api/client.ts:14`
+**Status: Holds** — `src/api/devProxy.test.ts` reads the proxy patterns from `vite.config.ts` and the
+URL the client actually emits, and asserts the agreement. Verified by changing the proxy key alone.
+
+The two agree today: `vite.config.ts` forwards `/api` and `src/api/client.ts:14`
 sends `/api/v1`. Half of that is genuinely enforced, since the resource tests assert the exact
 outgoing URL (for example `src/api/inventory.test.ts:21` expects `/api/v1/me/inventory`), so changing
 the client's prefix breaks the suite.
 
-The **agreement** is not enforced. Nothing reads `vite.config.ts`, and `API_PREFIX` is referenced
+*(Historic, now closed.)* The **agreement** was not enforced: nothing read `vite.config.ts`, and `API_PREFIX` is referenced
 only inside `client.ts`, so editing the proxy pattern alone leaves every test green and breaks the
 dev server. It is tempting to call this `Holds` on the grounds that a mismatch fails loudly the
 moment you load the page, and that argument is worth resisting: fast manual feedback is not
@@ -214,8 +221,9 @@ frontend this project is measured against has **no query library at all**: hand-
 plus `useState`, no cache, no deduplication, no invalidation, and failed loads that only reach
 `console.error`. That is not a small gap; it is a whole layer.
 
-**Status: Partial**, and — like §4 — only for a rule it inherits rather than one of its own. All three
-exceptions this section listed are closed:
+**Status: Holds** for the structural half (§2.4's scoping): views/ui may not import
+`@tanstack/react-query` (F3), so an inline `useQuery` fails lint. *Server state never in `useState`*
+stays convention — no rule can decide it. All three exceptions this section listed are closed:
 
 - The cache leak is fixed: `logout()` and `login()` both call `queryClient.clear()`, with a regression
   test on each ([ROADMAP F1](ROADMAP.md#f1-clear-the-query-cache-on-sign-out)).
@@ -227,9 +235,7 @@ exceptions this section listed are closed:
 - The four hooks with no call sites and no tests are deleted, along with the query key whose only
   consumer was one of them ([ROADMAP F9](ROADMAP.md#f9-clear-the-doc-and-dead-code-drift)).
 
-What is left is enforcement. Nothing stops a component writing an inline `useQuery` or a mutation
-inventing a key literal instead of using the factory; both are convention today. The import rule in
-[ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint) is the place that becomes checkable.
+Enforcement landed with [ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint).
 
 ---
 
@@ -238,7 +244,8 @@ inventing a key literal instead of using the factory; both are convention today.
 The token lives in exactly one module. Sign-out ends the session completely. A guarded route that
 bounces an unauthenticated user preserves where they were going, so signing in returns them there.
 
-**Status: Partial**, and only because of a rule this section inherits rather than one of its own.
+**Status: Holds** — both gaps closed, and the token boundary is now enforced by lint (F3: no view or
+UI file may import `tokenStore`).
 
 Both former gaps are closed. Sign-out now ends the session completely: `logout()` clears the token,
 the user, and the query cache, and `login()` clears it too, which closes the same leak by the other
@@ -249,9 +256,7 @@ attempted URL in router state, which `AuthView` consumes through a validator tha
 non-internal, protocol-relative `//host` included
 ([ROADMAP F6](ROADMAP.md#f6-return-users-to-the-page-they-asked-for)).
 
-What keeps this from **Holds** is the first sentence of the principle: nothing enforces that the token
-lives in exactly one module. That is §2.1's gap, and it is fixed by the same import rule
-([ROADMAP F3](ROADMAP.md#f3-enforce-the-layering-rule-with-lint)).
+The first sentence of the principle is enforced by F3's import rule.
 
 A detail worth crediting: `RequireAuth` returns `null` while the session is hydrating rather than
 redirecting, so a hard refresh does not flash the login screen at an already-authenticated user. That

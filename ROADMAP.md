@@ -52,7 +52,7 @@ should be closed rather than contradicted.
 | 2 | [F2](#f2-repair-type-generation-and-check-it-in-ci) | Repair type generation, check it in CI | §2.3 | Small |
 | 3 | [F7](#f7-lock-in-the-accessibility-work-with-a-linter) | ✅ Lock in the accessibility work | §5 | Trivial |
 | 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | ✅ Return users to the page they asked for | §4 | Trivial |
-| 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | Enforce the layering rule with lint | §1, §2.1 | Small |
+| 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | ✅ Enforce the layering rule with lint | §1, §2.1 | Small |
 | 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | Clear the doc and dead-code drift | §6 | Trivial |
 | 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | ✅ Make query keys consistently hierarchical | §3 | Small |
 | 8 | [F4](#f4-test-against-the-real-contract) | Test against the real contract | §7 | Focused |
@@ -164,7 +164,8 @@ rather than duplicated, which removes the last hand-maintained copy of backend k
 
 ## F3. Enforce the layering rule with lint
 
-**Satisfies:** §1 (layering), §2.1 (one HTTP client).
+**Satisfies:** §1 (layering), §2.1 (one HTTP client). **✅ Done** for the token/`fetch` scope — four
+ESLint rules, each verified against a deliberate violation. The `localStorage` scope stays open.
 
 **What is missing.** The layering rule is followed everywhere and enforced by nothing.
 
@@ -207,7 +208,8 @@ functions, the general name for a test that asserts a structural property rather
 
 ## F4. Test against the real contract
 
-**Satisfies:** §7 (testing).
+**Satisfies:** §7 (testing). **◐ Partly done** — `src/api/devProxy.test.ts` closes the dev-proxy
+agreement (§2.5 now Holds). The contract half waits on [F2](#f2-repair-type-generation-and-check-it-in-ci).
 
 **What is missing.** The suite is good and its blind spot is structural, not a matter of coverage.
 
