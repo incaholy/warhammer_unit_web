@@ -4,14 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './AuthContext'
 import { tokenStore } from '../api/client'
 import { queryKeys } from '../api/queries'
+import { jsonResponse, makeUser } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 /** Route the fetch mock by request path so login (form) → token, /me → user. */
 function routedFetch() {
@@ -21,7 +15,7 @@ function routedFetch() {
       return Promise.resolve(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
     }
     if (url === '/me') {
-      return Promise.resolve(jsonResponse({ id: 'u1', username: 'kesh', email: 'kesh@x.io' }))
+      return Promise.resolve(jsonResponse(makeUser({ id: 'u1', username: 'kesh', email: 'kesh@x.io' })))
     }
     return Promise.reject(new Error(`unexpected fetch: ${url}`))
   })

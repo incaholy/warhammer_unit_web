@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { listInventory, addUnit, setAmount, removeUnit } from './inventory'
+import type { UserUnit_Read } from './types'
+import { jsonResponse, makeUnit, makeUserUnit, page } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -15,7 +10,7 @@ afterEach(() => {
 
 describe('inventory resource', () => {
   it('listInventory GETs /me/inventory', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page<UserUnit_Read>([])))
     vi.stubGlobal('fetch', fetchMock)
     await listInventory()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/inventory')
@@ -24,7 +19,7 @@ describe('inventory resource', () => {
   it('addUnit POSTs to /me/inventory', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ unit: { id: 'u1' }, amount: 1 }, { status: 201 }))
+      .mockResolvedValue(jsonResponse(makeUserUnit({ unit: makeUnit({ id: 'u1' }), amount: 1 }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await addUnit({ unit_id: 'u1' })
@@ -36,7 +31,7 @@ describe('inventory resource', () => {
   })
 
   it('setAmount PATCHes /me/inventory/{unit_id} with { amount }', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ unit: { id: 'u1' }, amount: 3 }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(makeUserUnit({ unit: makeUnit({ id: 'u1' }), amount: 3 })))
     vi.stubGlobal('fetch', fetchMock)
 
     await setAmount('u1', 3)

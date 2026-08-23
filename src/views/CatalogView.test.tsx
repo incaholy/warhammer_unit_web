@@ -4,6 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import CatalogView, { type CatalogTarget } from './CatalogView'
 import type { Faction_Read, Unit_Read } from '../api/types'
+import {
+  jsonResponse,
+  makeArmy,
+  makeUnit,
+  makeUserUnit,
+  page,
+} from '../test/fixtures'
 
 // ---- Mock data ----------------------------------------------------------------
 
@@ -12,58 +19,23 @@ const factions: Faction_Read[] = [
   { id: 'f2', name: 'Xenos', subfactions: [] },
 ]
 
-function makeUnit(id: string, name: string, factionId: string, keywords: string[]): Unit_Read {
-  return {
-    id,
-    unit_name: name,
-    faction_id: factionId,
-    subfaction_id: null,
-    movement: 6,
-    toughness: 4,
-    armor_save: 3,
-    wounds: 2,
-    invulnerable_save: null,
-    leadership: 6,
-    objective_control: 1,
-    points: 100,
-    keywords,
-    weapons: [],
-    abilities: [],
-  }
+/** Local shorthand over the shared builder, so the table of units below stays readable. */
+function unitRow(id: string, name: string, factionId: string, keywords: string[]): Unit_Read {
+  return makeUnit({ id, unit_name: name, faction_id: factionId, keywords })
 }
 
 const units: Unit_Read[] = [
-  makeUnit('u1', 'Sword Captain', 'f1', ['Character']),
-  makeUnit('u2', 'Line Trooper', 'f1', ['Battleline']),
-  makeUnit('u3', 'Hive Warrior', 'f2', ['Battleline']),
+  unitRow('u1', 'Sword Captain', 'f1', ['Character']),
+  unitRow('u2', 'Line Trooper', 'f1', ['Battleline']),
+  unitRow('u3', 'Hive Warrior', 'f2', ['Battleline']),
 ]
 
 // The user owns u1 → an "Owned" tag should render for it.
-const inventory = [{ unit: units[0], amount: 2 }]
+const inventory = [makeUserUnit({ unit: units[0], amount: 2 })]
 
-const army = {
-  id: 'army-1',
-  name: 'The Hollow Vigil',
-  faction_id: 'f1',
-  subfaction_id: null,
-  description: null,
-  points_limit: null,
-  points_total: 0,
-  units: [],
-}
+const army = makeArmy({ id: 'army-1' })
 
 // ---- Fetch stub ---------------------------------------------------------------
-
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
-
-/** Wrap a list of rows in the pagination envelope every list endpoint returns. */
-const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 
 /** Route by method + path, filtering /units by `faction_id` and `q`. */
 function makeFetchMock() {

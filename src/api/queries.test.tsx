@@ -3,14 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { queryKeys, useUnits, useCreateArmy } from './queries'
+import { jsonResponse, makeArmy, makeUnit, page } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 function makeWrapper() {
   const client = new QueryClient({
@@ -101,7 +95,7 @@ describe('invalidation reaches what it should', () => {
 describe('useUnits', () => {
   it('resolves with the paged result including total from the body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [{ id: 'u1' }], total: 42, limit: 25, offset: 0 }),
+      jsonResponse(page([makeUnit({ id: 'u1' })], { total: 42, limit: 25 })),
     )
     vi.stubGlobal('fetch', fetchMock)
     const { wrapper } = makeWrapper()
@@ -118,7 +112,7 @@ describe('useCreateArmy', () => {
   it('invalidates the armies key on success', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ id: 'a1', name: 'Vigil' }, { status: 201 }))
+      .mockResolvedValue(jsonResponse(makeArmy({ id: 'a1', name: 'Vigil' }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
     const { client, wrapper } = makeWrapper()
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries')

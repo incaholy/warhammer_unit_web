@@ -11,14 +11,9 @@ import {
   shortfall,
   validate,
 } from './armies'
+import type { Army_Read, Shortfall_Read } from './types'
+import { jsonResponse, makeArmy, makeArmyUnit, makeUnit, makeValidation, page } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -26,14 +21,14 @@ afterEach(() => {
 
 describe('armies resource', () => {
   it('listArmies GETs /me/armies', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page<Army_Read>([])))
     vi.stubGlobal('fetch', fetchMock)
     await listArmies()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies')
   })
 
   it('getArmy GETs /me/armies/{id}', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'a1' }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(makeArmy({ id: 'a1' })))
     vi.stubGlobal('fetch', fetchMock)
     await getArmy('a1')
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1')
@@ -42,7 +37,7 @@ describe('armies resource', () => {
   it('createArmy POSTs JSON to /me/armies', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ id: 'a1', name: 'Vigil' }, { status: 201 }))
+      .mockResolvedValue(jsonResponse(makeArmy({ id: 'a1', name: 'Vigil' }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await createArmy({ name: 'Vigil', faction_id: 'f1' })
@@ -55,7 +50,7 @@ describe('armies resource', () => {
   })
 
   it('updateArmy PATCHes /me/armies/{id}', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'a1' }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(makeArmy({ id: 'a1' })))
     vi.stubGlobal('fetch', fetchMock)
 
     await updateArmy('a1', { name: 'Renamed' })
@@ -80,7 +75,7 @@ describe('armies resource', () => {
   it('addUnit POSTs to /me/armies/{id}/units', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ unit: { id: 'u1' }, amount: 2 }, { status: 201 }))
+      .mockResolvedValue(jsonResponse(makeArmyUnit({ unit: makeUnit({ id: 'u1' }), amount: 2 }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await addUnit('a1', { unit_id: 'u1', amount: 2 })
@@ -92,7 +87,7 @@ describe('armies resource', () => {
   })
 
   it('setAmount PATCHes /me/armies/{id}/units/{unit_id} with { amount }', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ unit: { id: 'u1' }, amount: 5 }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(makeArmyUnit({ unit: makeUnit({ id: 'u1' }), amount: 5 })))
     vi.stubGlobal('fetch', fetchMock)
 
     await setAmount('a1', 'u1', 5)
@@ -115,7 +110,7 @@ describe('armies resource', () => {
   })
 
   it('shortfall GETs /me/armies/{id}/shortfall', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse<Shortfall_Read[]>([]))
     vi.stubGlobal('fetch', fetchMock)
     await shortfall('a1')
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1/shortfall')
@@ -124,7 +119,7 @@ describe('armies resource', () => {
   it('validate GETs /me/armies/{id}/validate', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ ok: true, points_total: 0, points_limit: null, issues: [] }))
+      .mockResolvedValue(jsonResponse(makeValidation()))
     vi.stubGlobal('fetch', fetchMock)
     await validate('a1')
     expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/me/armies/a1/validate')

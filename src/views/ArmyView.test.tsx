@@ -8,39 +8,21 @@ import ArmyView from './ArmyView'
 import type {
   Army_Read,
   Shortfall_Read,
-  Unit_Read,
   Validation_Read,
 } from '../api/types'
+import { jsonResponse, makeFaction, makeUnit, page } from '../test/fixtures'
 
 // ---- Fixtures ----
 
-function unit(over: Partial<Unit_Read> & { id: string; unit_name: string }): Unit_Read {
-  return {
-    faction_id: 'f1',
-    subfaction_id: null,
-    movement: 6,
-    toughness: 4,
-    armor_save: 3,
-    wounds: 2,
-    invulnerable_save: null,
-    leadership: 6,
-    objective_control: 1,
-    points: 100,
-    keywords: [],
-    weapons: [],
-    abilities: [],
-    ...over,
-  }
-}
 
-const captain = unit({ id: 'u-cap', unit_name: 'Captain', points: 80, keywords: ['Character'] })
-const intercessors = unit({
+const captain = makeUnit({ id: 'u-cap', unit_name: 'Captain', points: 80, keywords: ['Character'] })
+const intercessors = makeUnit({
   id: 'u-int',
   unit_name: 'Intercessors',
   points: 100,
   keywords: ['Battleline', 'Infantry'],
 })
-const tank = unit({ id: 'u-tank', unit_name: 'Repulsor', points: 180, keywords: ['Vehicle'] })
+const tank = makeUnit({ id: 'u-tank', unit_name: 'Repulsor', points: 180, keywords: ['Vehicle'] })
 
 const ARMY: Army_Read = {
   id: 'a1',
@@ -60,7 +42,7 @@ const ARMY: Army_Read = {
 
 const EMPTY_ARMY: Army_Read = { ...ARMY, units: [], points_total: 0 }
 
-const FACTIONS = [{ id: 'f1', name: 'Space Marines', subfactions: [] }]
+const FACTIONS = [makeFaction({ id: 'f1', name: 'Space Marines' })]
 
 // A legal, no-shortfall army over the wire — the default so the base-view tests
 // exercise the clean state.
@@ -69,13 +51,6 @@ const NO_SHORTFALL: Shortfall_Read[] = []
 
 // ---- Harness ----
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 interface StubOptions {
   onDelete?: (url: string) => void
@@ -96,7 +71,7 @@ function stubFetch(army: Army_Read, options: StubOptions = {}) {
     }
     if (url.includes('/factions'))
       return Promise.resolve(
-        jsonResponse({ items: FACTIONS, total: FACTIONS.length, limit: 50, offset: 0 }),
+        jsonResponse(page(FACTIONS)),
       )
     if (url.includes('/validate')) return Promise.resolve(jsonResponse(validation))
     if (url.includes('/shortfall')) return Promise.resolve(jsonResponse(shortfall))
@@ -256,7 +231,7 @@ describe('ArmyView', () => {
   })
 
   it('renders a wrong-faction issue with its offending unit', async () => {
-    const orks = unit({ id: 'u-ork', unit_name: 'Ork Boyz', faction_id: 'f9' })
+    const orks = makeUnit({ id: 'u-ork', unit_name: 'Ork Boyz', faction_id: 'f9' })
     const validation: Validation_Read = {
       ok: false,
       points_total: 1080,

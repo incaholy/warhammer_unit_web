@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { listUnits, unitFacets, getUnit } from './units'
-
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
+import { jsonResponse, makeFacets, makeUnit, page } from '../test/fixtures'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -16,7 +9,7 @@ afterEach(() => {
 describe('units resource', () => {
   it('listUnits returns the paged envelope with items and total from the body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [{ id: 'u1' }], total: 137, limit: 25, offset: 0 }),
+      jsonResponse(page([makeUnit({ id: 'u1' })], { total: 137, limit: 25 })),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -29,7 +22,7 @@ describe('units resource', () => {
   it('reads total from the body even when it exceeds the returned page', async () => {
     // total counts the whole filter, not just this page's rows.
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ items: [{ id: 'u1' }, { id: 'u2' }], total: 58, limit: 2, offset: 0 }),
+      jsonResponse(page([makeUnit({ id: 'u1' }), makeUnit({ id: 'u2' })], { total: 58, limit: 2 })),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -40,7 +33,7 @@ describe('units resource', () => {
   })
 
   it('builds the query string from filter params', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page<ReturnType<typeof makeUnit>>([])))
     vi.stubGlobal('fetch', fetchMock)
 
     await listUnits({ faction_id: 'f1', subfaction_id: 's2', q: 'termi', limit: 20, offset: 40 })
@@ -55,7 +48,7 @@ describe('units resource', () => {
   })
 
   it('omits the query string entirely when no filters are given', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(page<ReturnType<typeof makeUnit>>([])))
     vi.stubGlobal('fetch', fetchMock)
 
     await listUnits()
@@ -66,7 +59,7 @@ describe('units resource', () => {
 
   it('unitFacets GETs /units/facets and returns per-faction counts', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ total: 5, by_faction: { f1: 3, f2: 2 } }),
+      jsonResponse(makeFacets({ total: 5, by_faction: { f1: 3, f2: 2 } })),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -80,7 +73,7 @@ describe('units resource', () => {
 
   it('unitFacets carries the q search term in the query string', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ total: 1, by_faction: { f2: 1 } }),
+      jsonResponse(makeFacets({ total: 1, by_faction: { f2: 1 } })),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -92,7 +85,7 @@ describe('units resource', () => {
   })
 
   it('getUnit GETs /units/{id}', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'u9' }))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(makeUnit({ id: 'u9' })))
     vi.stubGlobal('fetch', fetchMock)
 
     await getUnit('u9')

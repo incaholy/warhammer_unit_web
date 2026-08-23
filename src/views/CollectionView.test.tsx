@@ -4,12 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 import { CollectionView } from './CollectionView'
-import type { Army_Read, Faction_Read, Unit_Read } from '../api/types'
+import type { Army_Read, Faction_Read } from '../api/types'
 import { listArmies } from '../api/armies'
 import { queryKeys } from '../api/queries'
+import { makeUnit, page } from '../test/fixtures'
 
 /** Wrap rows in the pagination envelope the list hooks now expose. */
-const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 
 // The read hooks call the api module directly; mock it so we can drive a pending
 // query (a promise that never settles) for the skeleton-state test. Existing
@@ -18,7 +18,7 @@ vi.mock('../api/armies', () => ({
   listArmies: vi.fn(() => new Promise<never>(() => {})),
 }))
 
-const unit = (id: string) => ({ id }) as unknown as Unit_Read
+const unit = (id: string) => makeUnit({ id })
 
 const factions: Faction_Read[] = [
   { id: 'f-dominion', name: 'The Dominion', subfactions: [] },

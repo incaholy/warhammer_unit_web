@@ -5,14 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthView } from './AuthView'
 import { AuthProvider } from '../auth/AuthContext'
 import { tokenStore } from '../api/client'
+import { jsonResponse, makeUser } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 // Mirrors main.tsx's nesting: AuthProvider reads the query client so sign-out can
 // clear cached server state (ROADMAP F1). Same harness shape as App.test.tsx.
@@ -56,7 +50,7 @@ function loginFetch() {
       return Promise.resolve(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
     }
     if (url === '/me') {
-      return Promise.resolve(jsonResponse({ id: 'u1', username: 'kesh', email: 'kesh@x.io' }))
+      return Promise.resolve(jsonResponse(makeUser({ id: 'u1', username: 'kesh', email: 'kesh@x.io' })))
     }
     return Promise.reject(new Error(`unexpected fetch: ${url}`))
   })

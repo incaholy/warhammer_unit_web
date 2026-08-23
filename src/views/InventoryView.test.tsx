@@ -5,36 +5,15 @@ import { MemoryRouter } from 'react-router-dom'
 
 import { InventoryView } from './InventoryView'
 import { queryKeys } from '../api/queries'
+import { jsonResponse, makeUnit, makeUserUnit, page } from '../test/fixtures'
 import type { Unit_Read, UserUnit_Read } from '../api/types'
 
 // --- fetch stub (mutations go through the real HTTP client) ---
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 // A minimal Unit_Read with the given name + keywords (the only fields this view reads).
-function makeUnit(id: string, unit_name: string, keywords: string[]): Unit_Read {
-  return {
-    id,
-    unit_name,
-    faction_id: 'faction-1',
-    subfaction_id: null,
-    movement: 6,
-    toughness: 4,
-    armor_save: 3,
-    wounds: 2,
-    invulnerable_save: null,
-    leadership: 6,
-    objective_control: 1,
-    points: 100,
-    keywords,
-    weapons: [],
-    abilities: [],
-  }
+/** Shorthand over the shared builder, so the fixture table below stays readable. */
+function unitRow(id: string, unit_name: string, keywords: string[]): Unit_Read {
+  return makeUnit({ id, unit_name, keywords })
 }
 
 function makeEntry(unit: Unit_Read, amount: number): UserUnit_Read {
@@ -42,13 +21,12 @@ function makeEntry(unit: Unit_Read, amount: number): UserUnit_Read {
 }
 
 /** Wrap rows in the pagination envelope the inventory list hook now exposes. */
-const page = <T,>(items: T[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 
 // Owned units spanning three derived roles (Characters, Battleline, Vehicles).
 const OWNED: UserUnit_Read[] = [
-  makeEntry(makeUnit('u-captain', 'Blade Captain', ['Character', 'Infantry']), 1),
-  makeEntry(makeUnit('u-troops', 'Battle Sisters', ['Battleline', 'Infantry']), 3),
-  makeEntry(makeUnit('u-tank', 'Siege Tank', ['Vehicle']), 2),
+  makeEntry(unitRow('u-captain', 'Blade Captain', ['Character', 'Infantry']), 1),
+  makeEntry(unitRow('u-troops', 'Battle Sisters', ['Battleline', 'Infantry']), 3),
+  makeEntry(unitRow('u-tank', 'Siege Tank', ['Vehicle']), 2),
 ]
 
 function renderView(owned: UserUnit_Read[] | null) {
@@ -72,7 +50,7 @@ describe('InventoryView', () => {
   beforeEach(() => {
     fetchMock = vi.fn((_url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }))
-      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse({ unit: {}, amount: 1 }))
+      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse(makeUserUnit({ unit: makeUnit(), amount: 1 })))
       // any GET (e.g. an invalidation-triggered refetch)
       return Promise.resolve(jsonResponse(page(OWNED)))
     })
