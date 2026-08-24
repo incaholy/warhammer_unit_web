@@ -47,8 +47,8 @@ jobs:
           OPENAPI_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           npm run gen:api
-          git diff --exit-code src/api/schema.d.ts \
-            || { echo "::error::src/api/schema.d.ts is stale — run 'npm run gen:api' and commit it"; exit 1; }
+          git diff --exit-code src/api/schema.d.ts src/api/schemas.gen.ts \
+            || { echo "::error::generated API files are stale — run 'npm run gen:api' and commit them"; exit 1; }
 
       - name: Lint
         run: npm run lint

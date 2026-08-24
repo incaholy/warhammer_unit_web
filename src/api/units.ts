@@ -4,6 +4,8 @@
 
 import { apiGet } from './client'
 import type { Page, Unit_Read, UnitFacets, UUID } from './types'
+import { parsed } from './parse'
+import * as S from './schemas.gen'
 
 export interface ListUnitsParams {
   faction_id?: UUID
@@ -27,7 +29,8 @@ function toQueryString(params: ListUnitsParams): string {
 
 /** `GET /units` — the paged catalog. `total` (for "N of M") is in the body. */
 export function listUnits(params: ListUnitsParams = {}): Promise<Page<Unit_Read>> {
-  return apiGet<Page<Unit_Read>>(`/units${toQueryString(params)}`)
+  const path = `/units${toQueryString(params)}`
+  return apiGet(path).then((d) => parsed(S.Page_Unit_Read_, d, path))
 }
 
 /** `GET /units/facets` — per-faction unit counts for the current filter,
@@ -37,10 +40,11 @@ export function unitFacets(params: { q?: string; subfaction_id?: UUID } = {}): P
   if (params.q) search.set('q', params.q)
   if (params.subfaction_id) search.set('subfaction_id', params.subfaction_id)
   const qs = search.toString()
-  return apiGet<UnitFacets>(`/units/facets${qs ? `?${qs}` : ''}`)
+  const path = `/units/facets${qs ? `?${qs}` : ''}`
+  return apiGet(path).then((d) => parsed(S.UnitFacets, d, path))
 }
 
 /** `GET /units/{id}` — a single datasheet. */
 export function getUnit(id: UUID): Promise<Unit_Read> {
-  return apiGet<Unit_Read>(`/units/${id}`)
+  return apiGet(`/units/${id}`).then((d) => parsed(S.Unit_Read, d, '/units/{id}'))
 }

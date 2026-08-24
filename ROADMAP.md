@@ -58,7 +58,7 @@ should be closed rather than contradicted.
 | 8 | [F4](#f4-test-against-the-real-contract) | Test against the real contract | §7 | Focused |
 | 9 | [F8](#f8-harden-ci-and-add-a-bundle-budget) | ◐ Harden CI, add a bundle budget | §8 | Small |
 | 10 | [F10](#f10-move-the-owned-filter-to-the-server) | Move the "owned" filter to the server | §9 | Moderate, cross-repo |
-| 11 | [F11](#f11-decide-what-zod-is-for) | Decide what zod is for | §2.2 | Decision first |
+| 11 | [F11](#f11-decide-what-zod-is-for) | ✅ Decide what zod is for | §2.2 | Decision first |
 
 F10 changes a contract the backend owns. Land both sides together, or the gap becomes a mismatch you
 introduced on purpose.
@@ -507,7 +507,11 @@ from the same query as the data; server-side filtering against a join.
 
 ## F11. Decide what zod is for
 
-**Satisfies:** §2.2. **The deliverable is a written decision, not necessarily code.**
+**Satisfies:** §2.2. **✅ Decided: validate success payloads too**, with the schemas generated from
+openapi.json rather than hand-written. Measured first, as this item asks: zod is **15.52 kB gzip** on
+its own (271.20 → 330.55 kB raw when added), essentially all of the branch's entry-chunk growth —
+which makes errors-only the worst value of the three, since the library is paid for either way. The
+generated response schemas add a further 2.78 kB gzip.
 
 Zod currently validates exactly one thing: the error response body (`src/api/client.ts:132`). It is
 imported in exactly one file. The success path still asserts with `as T` (`:146`).

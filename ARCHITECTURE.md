@@ -113,7 +113,9 @@ An `as SomeType` on a parsed response is a claim to the compiler, not a check. `
 catches it**, including `strict`. The only things that catch a shape mismatch are runtime validation
 at the boundary or types generated from the real schema.
 
-**Status: Partial.**
+**Status: Holds** — both paths are parsed now, against schemas GENERATED from the backend's
+openapi.json (`src/api/schemas.gen.ts`), so there is still one source of truth and CI fails if they
+drift. Objects are non-strict, so a field the backend adds is ignored rather than fatal (F11).
 
 The **error** path does this correctly and it is a genuine improvement: `src/api/client.ts:132` parses
 the error body with a zod schema via `safeParse`, so a wrong shape degrades to the status-derived
@@ -121,9 +123,9 @@ message instead of propagating a lie. The `code` field uses `.catch(undefined)` 
 error code from the backend degrades gracefully rather than failing the whole parse. That is a
 thoughtful detail.
 
-The **success** path still asserts: `src/api/client.ts:146` ends in `(await res.json()) as T`. So the
-lesson was applied to the shape that arrives when things go wrong, and not to the shape that arrives
-when they go right.
+*(Historic, now closed by F11.)* The **success** path used to assert: `client.ts` ended in
+`(await res.json()) as T`, so the lesson was applied to the shape that arrives when things go wrong
+and not to the shape that arrives when they go right.
 
 Be careful about the obvious conclusion, though. "Validate every response with zod" is not
 automatically correct: it costs bundle size and a second schema to maintain alongside the generated
