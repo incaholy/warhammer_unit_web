@@ -56,7 +56,7 @@ should be closed rather than contradicted.
 | 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | Clear the doc and dead-code drift | §6 | Trivial |
 | 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | ✅ Make query keys consistently hierarchical | §3 | Small |
 | 8 | [F4](#f4-test-against-the-real-contract) | Test against the real contract | §7 | Focused |
-| 9 | [F8](#f8-harden-ci-and-add-a-bundle-budget) | Harden CI, add a bundle budget | §8 | Small |
+| 9 | [F8](#f8-harden-ci-and-add-a-bundle-budget) | ◐ Harden CI, add a bundle budget | §8 | Small |
 | 10 | [F10](#f10-move-the-owned-filter-to-the-server) | Move the "owned" filter to the server | §9 | Moderate, cross-repo |
 | 11 | [F11](#f11-decide-what-zod-is-for) | Decide what zod is for | §2.2 | Decision first |
 
@@ -378,7 +378,9 @@ order or an unusable flow, so it is a floor and not a ceiling.
 
 ## F8. Harden CI and add a bundle budget
 
-**Satisfies:** §8 (build and CI).
+**Satisfies:** §8 (build and CI). **◐ Mostly done** — triggers widened so a PR into any branch is
+checked, a bundle budget on the entry chunk, and coverage thresholds. The deploy step stays open: it
+needs a Firebase credential stored as a repository secret.
 
 **What is missing.** The pipeline is the right shape and ahead of the codebases this project is
 measured against. `.github/workflows/ci.yml` runs `npm ci`, lint, `npm run build` (which is

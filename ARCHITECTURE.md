@@ -354,7 +354,9 @@ smoke test as deferred, so that is a known gap rather than an oversight.
 CI runs lint, type check, build, and tests on every push and pull request, on every branch. The
 production bundle has a size budget, because a dependency added for one call site is easy to add and invisible afterwards.
 
-**Status: Partial.**
+**Status: Partial.** Three of the five gaps below are closed (F8): CI now runs on a PR into any
+branch, the entry chunk has a budget enforced in CI (`npm run check:size`), and coverage has a
+threshold floor. The deploy step is still missing, and it needs a credential this repo does not hold.
 
 The pipeline exists and is the right shape: `.github/workflows/ci.yml` runs `npm ci`, `npm run lint`,
 `npm run build` (which is `tsc -b && vite build`, so the typecheck gates too), and `npm test`. Both
