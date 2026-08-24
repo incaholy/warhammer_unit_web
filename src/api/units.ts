@@ -12,6 +12,10 @@ export interface ListUnitsParams {
   subfaction_id?: UUID
   /** Free-text search over unit names. */
   q?: string
+  /** Only units in the caller's inventory. Filtered server-side on purpose:
+   *  narrowing a page in the browser hides owned units that fall on other pages
+   *  and makes every derived count wrong. Requires a signed-in caller (401). */
+  owned?: boolean
   limit?: number
   offset?: number
 }
@@ -21,6 +25,9 @@ function toQueryString(params: ListUnitsParams): string {
   if (params.faction_id) search.set('faction_id', params.faction_id)
   if (params.subfaction_id) search.set('subfaction_id', params.subfaction_id)
   if (params.q) search.set('q', params.q)
+  // Only sent when on: `owned=false` is the default, so omitting it keeps the URL
+  // and the query key stable for the common case.
+  if (params.owned) search.set('owned', 'true')
   if (params.limit !== undefined) search.set('limit', String(params.limit))
   if (params.offset !== undefined) search.set('offset', String(params.offset))
   const qs = search.toString()
@@ -33,12 +40,21 @@ export function listUnits(params: ListUnitsParams = {}): Promise<Page<Unit_Read>
   return apiGet(path).then((d) => parsed(S.Page_Unit_Read_, d, path))
 }
 
+export interface UnitFacetsParams {
+  q?: string
+  subfaction_id?: UUID
+  owned?: boolean
+}
+
 /** `GET /units/facets` — per-faction unit counts for the current filter,
  * respecting the search term. Powers the catalog rail without downloading rows. */
-export function unitFacets(params: { q?: string; subfaction_id?: UUID } = {}): Promise<UnitFacets> {
+export function unitFacets(params: UnitFacetsParams = {}): Promise<UnitFacets> {
   const search = new URLSearchParams()
   if (params.q) search.set('q', params.q)
   if (params.subfaction_id) search.set('subfaction_id', params.subfaction_id)
+  // The rail has to share the list's filter, or it reports counts for units the
+  // list is not showing.
+  if (params.owned) search.set('owned', 'true')
   const qs = search.toString()
   const path = `/units/facets${qs ? `?${qs}` : ''}`
   return apiGet(path).then((d) => parsed(S.UnitFacets, d, path))

@@ -32,6 +32,8 @@ const units: Unit_Read[] = [
 
 // The user owns u1 → an "Owned" tag should render for it.
 const inventory = [makeUserUnit({ unit: units[0], amount: 2 })]
+const ownedIds = new Set(inventory.map((entry) => entry.unit.id))
+const isOwned = (u: Unit_Read) => ownedIds.has(u.id)
 
 const army = makeArmy({ id: 'army-1' })
 
@@ -54,6 +56,7 @@ function makeFetchMock() {
       const q = url.searchParams.get('q')?.toLowerCase()
       let matched = units
       if (q) matched = matched.filter((u) => u.unit_name.toLowerCase().includes(q))
+      if (url.searchParams.get('owned') === 'true') matched = matched.filter(isOwned)
       const by_faction: Record<string, number> = {}
       for (const u of matched) by_faction[u.faction_id] = (by_faction[u.faction_id] ?? 0) + 1
       return jsonResponse({ total: matched.length, by_faction })
@@ -65,6 +68,9 @@ function makeFetchMock() {
       let matched = units
       if (factionId) matched = matched.filter((u) => u.faction_id === factionId)
       if (q) matched = matched.filter((u) => u.unit_name.toLowerCase().includes(q))
+      // The server owns this filter now (backend `owned=true`), so the fake server
+      // has to apply it too -- otherwise the test proves nothing about the toggle.
+      if (url.searchParams.get('owned') === 'true') matched = matched.filter(isOwned)
       return jsonResponse(page(matched))
     }
 
@@ -131,6 +137,59 @@ describe('CatalogView', () => {
     renderView()
     // 3 units total, all on the first page.
     expect(await screen.findByText('3 of 3')).toBeInTheDocument()
+  })
+
+  it('asks the server for owned-only units instead of filtering the page (F10)', async () => {
+    renderView()
+    await screen.findByText('Sword Captain')
+
+    fireEvent.click(screen.getByRole('button', { name: /Owned only/i }))
+
+    // Only the owned unit remains...
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+    expect(screen.queryByText('Line Trooper')).not.toBeInTheDocument()
+
+    // ...and it remains because the REQUEST carried the filter. Filtering the
+    // page in the browser would hide owned units sitting on other pages and make
+    // the count compare a filtered page against an unfiltered total.
+    const asked = fetchMock.mock.calls.some(([input, init]) => {
+      const method = (init?.method ?? 'GET').toUpperCase()
+      const url = new URL(input as string, 'http://localhost')
+      return (
+        method === 'GET' &&
+        url.pathname.replace(/^\/api\/v1/, '') === '/units' &&
+        url.searchParams.get('owned') === 'true'
+      )
+    })
+    expect(asked).toBe(true)
+  })
+
+  it('counts the filtered set, not the whole catalog', async () => {
+    renderView()
+    expect(await screen.findByText('3 of 3')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Owned only/i }))
+
+    // 1 of 1, not "1 of 3" -- the total now counts the same filtered set.
+    expect(await screen.findByText('1 of 1')).toBeInTheDocument()
+  })
+
+  it('sends owned to the facets aggregate so the rail agrees with the list', async () => {
+    renderView()
+    await screen.findByText('Sword Captain')
+
+    fireEvent.click(screen.getByRole('button', { name: /Owned only/i }))
+
+    await waitFor(() => {
+      const asked = fetchMock.mock.calls.some(([input]) => {
+        const url = new URL(input as string, 'http://localhost')
+        return (
+          url.pathname.replace(/^\/api\/v1/, '') === '/units/facets' &&
+          url.searchParams.get('owned') === 'true'
+        )
+      })
+      expect(asked).toBe(true)
+    })
   })
 
   it('filters units when a faction is selected', async () => {

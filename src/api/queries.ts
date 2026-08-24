@@ -14,7 +14,7 @@ import * as armiesApi from './armies'
 import * as factionsApi from './factions'
 import * as inventoryApi from './inventory'
 import * as unitsApi from './units'
-import type { ListUnitsParams } from './units'
+import type { ListUnitsParams, UnitFacetsParams } from './units'
 import type {
   Army_Create,
   Army_Read,
@@ -55,8 +55,7 @@ export const queryKeys = {
   armyShortfall: (id: UUID) => ['armies', 'detail', id, 'shortfall'] as const,
   armyValidation: (id: UUID) => ['armies', 'detail', id, 'validate'] as const,
   units: (filters: ListUnitsParams = {}) => ['units', 'list', filters] as const,
-  unitFacets: (filters: { q?: string; subfaction_id?: UUID } = {}) =>
-    ['units', 'facets', filters] as const,
+  unitFacets: (filters: UnitFacetsParams = {}) => ['units', 'facets', filters] as const,
   unit: (id: UUID) => ['units', 'detail', id] as const,
   factions: ['factions', 'list'] as const,
   factionTaxonomy: ['factions', 'taxonomy'] as const,
@@ -100,9 +99,7 @@ export function useUnits(filters: ListUnitsParams = {}): UseQueryResult<Page<Uni
   })
 }
 
-export function useUnitFacets(
-  filters: { q?: string; subfaction_id?: UUID } = {},
-): UseQueryResult<UnitFacets> {
+export function useUnitFacets(filters: UnitFacetsParams = {}): UseQueryResult<UnitFacets> {
   return useQuery({
     queryKey: queryKeys.unitFacets(filters),
     queryFn: () => unitsApi.unitFacets(filters),

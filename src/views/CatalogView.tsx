@@ -55,11 +55,17 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
 
   // Per-faction counts for the rail — a server-side GROUP BY aggregate over the
   // same search filter (replaces downloading up to 1000 rows to count in JS).
-  const facetsQuery = useUnitFacets({ q: q || undefined })
+  // "Owned only" is a server-side filter (backend `owned=true`). Filtering the
+  // page here instead hid owned units that fell on other pages, and made the
+  // "N of M" counter compare a filtered page against an unfiltered total --
+  // filtering and pagination have to happen on the same side.
+  const ownedOnly = ownedMode === 'owned'
+  const facetsQuery = useUnitFacets({ q: q || undefined, owned: ownedOnly || undefined })
   // Main list — the actual faction-filtered, paged rows plus the total (in body).
   const unitsQuery = useUnits({
     q: q || undefined,
     faction_id: factionId || undefined,
+    owned: ownedOnly || undefined,
     limit: PAGE_SIZE,
     offset,
   })
@@ -104,10 +110,9 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
   const allCount = facetsQuery.data?.total ?? 0
 
   const total = unitsQuery.data?.total ?? 0
-  const pageUnits = unitsQuery.data?.items ?? []
-  // "Owned only" narrows the current page against the inventory.
-  const visibleUnits =
-    ownedMode === 'owned' ? pageUnits.filter((u) => ownedIds.has(u.id)) : pageUnits
+  // The server already applied every filter, so the page IS what to render and
+  // `total` counts the same set -- "N of M" is correct by construction.
+  const visibleUnits = unitsQuery.data?.items ?? []
 
   function resetPaging() {
     setOffset(0)
