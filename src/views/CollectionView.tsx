@@ -103,8 +103,10 @@ export function CollectionView() {
       units += armyUnitCount(army)
       points += army.points_total
     }
-    return { armies: armies.length, units, points }
-  }, [armies])
+    // `total` for the same reason InventoryView uses it: the header states a fact
+    // about the whole collection.
+    return { armies: armiesQuery.data?.total ?? armies.length, units, points }
+  }, [armies, armiesQuery.data])
 
   const openArmy = (id: string) => navigate(`/armies/${id}`)
 

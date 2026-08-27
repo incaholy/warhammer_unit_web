@@ -29,11 +29,11 @@ const OWNED: UserUnit_Read[] = [
   makeEntry(unitRow('u-tank', 'Siege Tank', ['Vehicle']), 2),
 ]
 
-function renderView(owned: UserUnit_Read[] | null) {
+function renderView(owned: UserUnit_Read[] | null, over: { total?: number } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  if (owned !== null) client.setQueryData(queryKeys.inventory, page(owned))
+  if (owned !== null) client.setQueryData(queryKeys.inventory, page(owned, over))
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -59,6 +59,15 @@ describe('InventoryView', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('states the collection size in the header, not the number of rows in hand', () => {
+    // The reported regression: with the list paginated and no limit sent, the
+    // client held 50 of 137 rows and the header announced "50 owned datasheets"
+    // as fact. Seeding a page whose `total` exceeds its `items` proves the header
+    // reads `total` rather than counting what it was handed.
+    renderView(OWNED, { total: 137 })
+    expect(screen.getByText(/137 owned datasheets/i)).toBeInTheDocument()
   })
 
   it('shows skeleton placeholders while the inventory query is pending', () => {

@@ -31,7 +31,13 @@ const units: Unit_Read[] = [
 ]
 
 // The user owns u1 → an "Owned" tag should render for it.
-const inventory = [makeUserUnit({ unit: units[0], amount: 2 })]
+// Deliberately larger than one page (the backend caps a request at 200), with the
+// entry that matters LAST. A client that reads only the first page answers "do I
+// own this?" against a window and renders an owned unit as un-owned.
+const inventoryFiller = Array.from({ length: 250 }, (_, i) =>
+  makeUserUnit({ unit: makeUnit({ id: `filler-${i}` }) }),
+)
+const inventory = [...inventoryFiller, makeUserUnit({ unit: units[0], amount: 2 })]
 const ownedIds = new Set(inventory.map((entry) => entry.unit.id))
 const isOwned = (u: Unit_Read) => ownedIds.has(u.id)
 
@@ -47,7 +53,15 @@ function makeFetchMock() {
     const path = url.pathname.replace(/^\/api\/v1/, '')
 
     if (method === 'GET' && path === '/factions') return jsonResponse(page(factions))
-    if (method === 'GET' && path === '/me/inventory') return jsonResponse(page(inventory))
+    if (method === 'GET' && path === '/me/inventory') {
+      // Paginates like the real endpoint, so a client that takes only the first
+      // page is visibly wrong rather than accidentally right.
+      const limit = Number(url.searchParams.get('limit') ?? 50)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      return jsonResponse(
+        page(inventory.slice(offset, offset + limit), { total: inventory.length, limit, offset }),
+      )
+    }
     if (method === 'GET' && path === '/me/armies/army-1') return jsonResponse(army)
 
     // Per-faction rail counts — grouped over the same `q` the request carries

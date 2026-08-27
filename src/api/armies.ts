@@ -16,12 +16,14 @@ import type {
   Validation_Read,
 } from './types'
 import { z } from 'zod'
+import { toQueryString, type PageParams } from './paging'
 import { parsed } from './parse'
 import * as S from './schemas.gen'
 
 /** `GET /me/armies` — the user's armies (paged). */
-export function listArmies(): Promise<Page<Army_Read>> {
-  return apiGet('/me/armies').then((d) => parsed(S.Page_Army_Read_, d, '/me/armies'))
+export function listArmies(params: PageParams = {}): Promise<Page<Army_Read>> {
+  const path = `/me/armies${toQueryString(params)}`
+  return apiGet(path).then((d) => parsed(S.Page_Army_Read_, d, '/me/armies'))
 }
 
 /** `GET /me/armies/{id}`. */

@@ -3,12 +3,14 @@
 
 import { apiDelete, apiGet, apiPatch, apiPost } from './client'
 import type { AmountSet, Page, UnitAdd, UserUnit_Read, UUID } from './types'
+import { toQueryString, type PageParams } from './paging'
 import { parsed } from './parse'
 import * as S from './schemas.gen'
 
 /** `GET /me/inventory` — owned units with amounts (paged). */
-export function listInventory(): Promise<Page<UserUnit_Read>> {
-  return apiGet('/me/inventory').then((d) => parsed(S.Page_UserUnit_Read_, d, '/me/inventory'))
+export function listInventory(params: PageParams = {}): Promise<Page<UserUnit_Read>> {
+  const path = `/me/inventory${toQueryString(params)}`
+  return apiGet(path).then((d) => parsed(S.Page_UserUnit_Read_, d, '/me/inventory'))
 }
 
 /** `POST /me/inventory` — record ownership of a unit (upsert; `amount` defaults

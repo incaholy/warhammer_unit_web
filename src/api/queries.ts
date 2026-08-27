@@ -14,6 +14,7 @@ import * as armiesApi from './armies'
 import * as factionsApi from './factions'
 import * as inventoryApi from './inventory'
 import * as unitsApi from './units'
+import { fetchAllPages } from './paging'
 import type { ListUnitsParams, UnitFacetsParams } from './units'
 import type {
   Army_Create,
@@ -64,8 +65,18 @@ export const queryKeys = {
 
 // ---- Read hooks ----
 
+// The three collections below are fetched COMPLETE, not paged. They are scoped to
+// one user (or bounded and admin-curated, for factions) and their consumers run
+// aggregates over the whole set: inventory search and role grouping, army/unit/
+// points totals, and the catalog's "do I own this?" lookup. Handing those a page
+// makes every aggregate page-scoped -- silently, because a sum over 50 of 137 rows
+// still looks like a number. The shared catalog stays paged, which is what R4 was
+// actually for. See src/api/paging.ts.
 export function useArmies(): UseQueryResult<Page<Army_Read>> {
-  return useQuery({ queryKey: queryKeys.armies, queryFn: armiesApi.listArmies })
+  return useQuery({
+    queryKey: queryKeys.armies,
+    queryFn: () => fetchAllPages(armiesApi.listArmies),
+  })
 }
 
 export function useArmy(id: UUID): UseQueryResult<Army_Read> {
@@ -115,11 +126,17 @@ export function useUnit(id: UUID): UseQueryResult<Unit_Read> {
 }
 
 export function useFactions(): UseQueryResult<Page<Faction_Read>> {
-  return useQuery({ queryKey: queryKeys.factions, queryFn: factionsApi.listFactions })
+  return useQuery({
+    queryKey: queryKeys.factions,
+    queryFn: () => fetchAllPages(factionsApi.listFactions),
+  })
 }
 
 export function useInventory(): UseQueryResult<Page<UserUnit_Read>> {
-  return useQuery({ queryKey: queryKeys.inventory, queryFn: inventoryApi.listInventory })
+  return useQuery({
+    queryKey: queryKeys.inventory,
+    queryFn: () => fetchAllPages(inventoryApi.listInventory),
+  })
 }
 
 // ---- Army mutation hooks ----
