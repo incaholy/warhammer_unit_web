@@ -19,6 +19,7 @@ import type { ListUnitsParams, UnitFacetsParams } from './units'
 import type {
   Army_Create,
   Army_Read,
+  Army_Update,
   ArmyUnit_Read,
   Faction_Read,
   Page,
@@ -151,6 +152,51 @@ export function useCreateArmy(): UseMutationResult<Army_Read, Error, Army_Create
       qc.invalidateQueries({ queryKey: queryKeys.armies })
     },
     meta: { successMessage: 'Army created' },
+  })
+}
+
+export function useUpdateArmy(id: UUID): UseMutationResult<Army_Read, Error, Army_Update> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Army_Update) => armiesApi.updateArmy(id, body),
+    onSuccess: () => {
+      // The detail prefix covers this army's shortfall and validation too; the
+      // list carries its name and points, so both move.
+      qc.invalidateQueries({ queryKey: queryKeys.army(id) })
+      qc.invalidateQueries({ queryKey: queryKeys.armies })
+    },
+    meta: { successMessage: 'Army updated' },
+  })
+}
+
+export function useDeleteArmy(): UseMutationResult<void, Error, UUID> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: UUID) => armiesApi.deleteArmy(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.armies })
+      // Deliberately NOT removeQueries on the army's detail. The detail view is
+      // still mounted when this runs -- the caller navigates away afterwards --
+      // and removing a query that still has an observer makes that observer
+      // refetch immediately, so the app requests the army it just deleted, plus
+      // its shortfall and validation: three 404s in the console.
+      //
+      // Leaving it cached costs nothing. Navigating away makes it inactive and it
+      // is garbage-collected, and a Back into the deleted army refetches (staleTime
+      // is 0), gets its 404, and lands on the not-found state, which is correct.
+    },
+    meta: { successMessage: 'Army deleted' },
+  })
+}
+
+export function useSetArmyUnitAmount(
+  armyId: UUID,
+): UseMutationResult<ArmyUnit_Read, Error, { unitId: UUID; amount: number }> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ unitId, amount }: { unitId: UUID; amount: number }) =>
+      armiesApi.setAmount(armyId, unitId, amount),
+    onSuccess: () => invalidateArmyMembership(qc, armyId),
   })
 }
 

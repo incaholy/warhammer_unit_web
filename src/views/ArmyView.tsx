@@ -3,20 +3,25 @@
  * datasheet with a Remove action — plus a link into the catalog to add more.
  * Data comes from the single-army query hook keyed by the `:armyId` route param. */
 
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 
-import { Button, Eyebrow, EmptyState, Tag } from '../ui'
+import { Button, Eyebrow, EmptyState, Input, Modal, Tag } from '../ui'
 import { ApiError } from '../api/client'
 import {
   useArmy,
   useFactions,
   useRemoveArmyUnit,
+  useSetArmyUnitAmount,
+  useUpdateArmy,
+  useDeleteArmy,
   useArmyValidation,
   useArmyShortfall,
 } from '../api/queries'
 import { groupByRole } from '../lib/roles'
 import { formatPoints, pluralize, formatCreatedLabel } from '../lib/format'
 import type {
+  Unit_Read,
   Army_Read,
   ArmyUnit_Read,
   Validation_Read,
@@ -57,6 +62,8 @@ export default function ArmyView() {
   const validationQuery = useArmyValidation(armyId)
   const shortfallQuery = useArmyShortfall(armyId)
   const removeUnit = useRemoveArmyUnit(armyId)
+  const deleteArmy = useDeleteArmy()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   if (armyQuery.isPending) {
     return <ArmySkeleton />
@@ -92,10 +99,41 @@ export default function ArmyView() {
     <div className={styles.view}>
       <header className={styles.header}>
         {factionName && <Eyebrow>{factionName}</Eyebrow>}
-        <h1 className={styles.name}>{army.name}</h1>
+        <ArmyName army={army} />
         <p className={styles.meta}>{meta}</p>
         <PointsLimit army={army} />
+        <div className={styles.headerActions}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={deleteArmy.isPending}
+          >
+            Delete Army
+          </Button>
+        </div>
       </header>
+
+      <Modal
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        title="Delete this army?"
+      >
+        <p className={styles.confirmBody}>
+          {army.name} and its order of battle will be removed. This cannot be undone.
+        </p>
+        <div className={styles.confirmActions}>
+          <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deleteArmy.mutate(army.id, { onSuccess: () => navigate('/') })}
+            disabled={deleteArmy.isPending}
+          >
+            {deleteArmy.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </Modal>
 
       <section className={styles.battle}>
         <div className={styles.battleHead}>
@@ -127,8 +165,8 @@ export default function ArmyView() {
                     <Link to={`/units/${unit.id}`} className={styles.unitLink}>
                       {unit.unit_name}
                     </Link>
-                    {amount > 1 && <span className={styles.qty}>×{amount}</span>}
                   </div>
+                  <UnitAmount armyId={army.id} unit={unit} amount={amount} />
                   <span className={styles.rowPoints}>
                     {formatPoints(unit.points * amount)}
                   </span>
@@ -166,6 +204,131 @@ export default function ArmyView() {
 
 /** A single shimmering placeholder block. Purely decorative — hidden from the
  * accessibility tree; the surrounding region carries the "loading" status. */
+/** The army name, editable in place.
+ *
+ * Inline rather than a modal: renaming is a single field, and a dialog for one
+ * text input is more ceremony than the task. Escape cancels and Enter saves, so
+ * the keyboard path matches what the shape implies. */
+function ArmyName({ army }: { army: Army_Read }) {
+  const updateArmy = useUpdateArmy(army.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(army.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus explicitly rather than with `autoFocus`. Same reason the dialog's field
+  // is focused by Modal's effect: an attribute applied during commit is easy to
+  // have silently overridden, and this is also what the a11y rule asks for --
+  // focus moved by an action the user took, not stolen on render.
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  function save() {
+    const name = draft.trim()
+    // An unchanged or empty name is not a request worth making; the backend
+    // rejects empty with a 400, and this keeps the toast for real failures.
+    if (!name || name === army.name) return setEditing(false)
+    updateArmy.mutate({ name }, { onSuccess: () => setEditing(false) })
+  }
+
+  if (!editing) {
+    return (
+      <div className={styles.nameRow}>
+        <h1 className={styles.name}>{army.name}</h1>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setDraft(army.name)
+            setEditing(true)
+          }}
+          aria-label={`Rename ${army.name}`}
+        >
+          Rename
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.nameRow}>
+      <Input
+        ref={inputRef}
+        aria-label="Army name"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+      <Button size="sm" onClick={save} disabled={updateArmy.isPending}>
+        {updateArmy.isPending ? 'Saving…' : 'Save'}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
+    </div>
+  )
+}
+
+/** How long to wait after the last keystroke before writing the amount. */
+const AMOUNT_DEBOUNCE_MS = 400
+
+/** Editable quantity for one unit in the army.
+ *
+ * Debounced so holding a key does not fire a request per keystroke, and mirrors
+ * InventoryView's control rather than inventing a second interaction for the same
+ * job. The backend rejects 0 (`amount: must be >= 1 (use remove_unit to remove)`),
+ * so removal stays the Remove button's job. */
+function UnitAmount({
+  armyId,
+  unit,
+  amount,
+}: {
+  armyId: UUID
+  unit: Unit_Read
+  amount: number
+}) {
+  const setAmount = useSetArmyUnitAmount(armyId)
+  const [qty, setQty] = useState(String(amount))
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Re-sync from the server unless the user is mid-edit (a debounce is pending).
+  useEffect(() => {
+    if (timer.current === null) setQty(String(amount))
+  }, [amount])
+
+  useEffect(() => () => {
+    if (timer.current !== null) clearTimeout(timer.current)
+  }, [])
+
+  function onQtyChange(next: string) {
+    setQty(next)
+    const parsed = Number(next)
+    if (timer.current !== null) clearTimeout(timer.current)
+    if (next === '' || Number.isNaN(parsed) || parsed < 1) return
+    timer.current = setTimeout(() => {
+      timer.current = null
+      setAmount.mutate({ unitId: unit.id, amount: parsed })
+    }, AMOUNT_DEBOUNCE_MS)
+  }
+
+  return (
+    <label className={styles.qty}>
+      <span className={styles.srOnly}>Quantity of {unit.unit_name}</span>
+      <Input
+        type="number"
+        min={1}
+        className={styles.qtyInput}
+        aria-label={`Quantity of ${unit.unit_name}`}
+        value={qty}
+        onChange={(e) => onQtyChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
 function SkeletonBlock({ className }: { className?: string }) {
   const cls = [styles.skeleton, className].filter(Boolean).join(' ')
   return <span className={cls} aria-hidden="true" />

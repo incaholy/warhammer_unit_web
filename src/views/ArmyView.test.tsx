@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -10,7 +10,7 @@ import type {
   Shortfall_Read,
   Validation_Read,
 } from '../api/types'
-import { jsonResponse, makeFaction, makeUnit, page } from '../test/fixtures'
+import { jsonResponse, makeArmyUnit, makeFaction, makeUnit, page } from '../test/fixtures'
 
 // ---- Fixtures ----
 
@@ -69,6 +69,17 @@ function stubFetch(army: Army_Read, options: StubOptions = {}) {
       onDelete?.(url)
       return Promise.resolve(new Response(null, { status: 204 }))
     }
+    if (init?.method === 'PATCH') {
+      // Rename patches the army; a unit quantity patches .../units/{id}.
+      const body = JSON.parse(String(init.body ?? '{}'))
+      return Promise.resolve(
+        jsonResponse(
+          url.includes('/units/')
+            ? makeArmyUnit({ unit: intercessors, amount: body.amount ?? 1 })
+            : { ...army, ...body },
+        ),
+      )
+    }
     if (url.includes('/factions'))
       return Promise.resolve(
         jsonResponse(page(FACTIONS)),
@@ -103,9 +114,109 @@ function renderView(armyId = 'a1') {
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+  // Restore here, not at the end of the test that installs them: a test failing
+  // before its own cleanup would otherwise leave fake timers on and every later
+  // test would hang on a real `waitFor`.
+  vi.useRealTimers()
 })
 
 describe('ArmyView', () => {
+  it('renames the army in place', async () => {
+    const fetchMock = stubFetch(ARMY)
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Rename Vigil Host/i }))
+    const field = screen.getByLabelText('Army name')
+    expect(field).toHaveFocus() // moved by an effect, not `autoFocus`
+
+    fireEvent.change(field, { target: { value: 'Hollow Vigil' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      const patched = fetchMock.mock.calls.some(
+        ([, init]) =>
+          init?.method === 'PATCH' && JSON.parse(String(init.body)).name === 'Hollow Vigil',
+      )
+      expect(patched).toBe(true)
+    })
+  })
+
+  it('does not send a rename that changed nothing', async () => {
+    const fetchMock = stubFetch(ARMY)
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Rename Vigil Host/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('cancels a rename on Escape', async () => {
+    stubFetch(ARMY)
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    fireEvent.click(screen.getByRole('button', { name: /Rename Vigil Host/i }))
+    fireEvent.change(screen.getByLabelText('Army name'), { target: { value: 'Discarded' } })
+    fireEvent.keyDown(screen.getByLabelText('Army name'), { key: 'Escape' })
+
+    expect(screen.getByRole('heading', { name: 'Vigil Host' })).toBeInTheDocument()
+  })
+
+  it('deletes the army behind a confirmation, then leaves the page', async () => {
+    const deleted: string[] = []
+    stubFetch(ARMY, { onDelete: (url) => deleted.push(url) })
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    // Destructive, so it asks first rather than acting on the click.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Army' }))
+    expect(screen.getByRole('dialog', { name: /Delete this army/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleted.some((u) => u.endsWith('/me/armies/a1'))).toBe(true))
+  })
+
+  it('keeps the army when the confirmation is dismissed', async () => {
+    const deleted: string[] = []
+    stubFetch(ARMY, { onDelete: (url) => deleted.push(url) })
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Army' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(deleted).toHaveLength(0)
+  })
+
+  it('changes a unit quantity, debounced', async () => {
+    const fetchMock = stubFetch(ARMY)
+    renderView()
+    // Let the initial load settle on real timers -- `findBy*` polls, so installing
+    // fake timers first would hang it.
+    await screen.findByLabelText('Quantity of Intercessors')
+    vi.useFakeTimers()
+
+    const field = screen.getByLabelText('Quantity of Intercessors')
+    fireEvent.change(field, { target: { value: '5' } })
+
+    // Nothing yet — a request per keystroke is what the debounce avoids.
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
+
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+    })
+    const patched = fetchMock.mock.calls.some(
+      ([url, init]) =>
+        init?.method === 'PATCH' &&
+        String(url).includes('/units/') &&
+        JSON.parse(String(init.body)).amount === 5,
+    )
+    expect(patched).toBe(true)
+  })
+
   it('renders the army header with faction, name, and points/units meta', async () => {
     stubFetch(ARMY)
     renderView()
@@ -139,7 +250,8 @@ describe('ArmyView', () => {
     // Each unit row links to its datasheet and shows quantity when > 1.
     const link = screen.getByRole('link', { name: 'Intercessors' })
     expect(link).toHaveAttribute('href', '/units/u-int')
-    expect(screen.getByText('×3')).toBeInTheDocument()
+    // The quantity is an editable field now, not a "×3" label.
+    expect(screen.getByLabelText('Quantity of Intercessors')).toHaveValue(3)
   })
 
   it('calls the remove-unit mutation (DELETE) when Remove is clicked', async () => {
