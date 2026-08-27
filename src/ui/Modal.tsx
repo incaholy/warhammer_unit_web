@@ -20,10 +20,12 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
 
 /** Dim overlay (`overlayIn`) + centered paper card (`cardIn`). Closes on
  *  Escape and on overlay click. While open it traps Tab/Shift+Tab within the
- *  dialog, moves focus to the first focusable element (or the card) on open,
- *  and restores focus to the previously-focused element on close. */
+ *  dialog, moves focus to the first focusable element in the body (falling back
+ *  to the card) on open, and restores focus to the previously-focused element on
+ *  close. */
 export function Modal({ open, onClose, title, children }: ModalProps) {
   const cardRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
   // Escape to close.
@@ -37,13 +39,25 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   }, [open, onClose])
 
   // Focus management: move focus in on open, restore it on close.
+  //
+  // Prefer the first focusable in the BODY over the first in the card. The card's
+  // first focusable is the header Close button, so a form dialog would otherwise
+  // open with focus on "x" and the user has to tab to start typing. APG asks for
+  // focus to land inside the dialog, and on the first input when it contains a
+  // form -- which is what this does, once, for every dialog.
+  //
+  // This has to live here rather than as `autoFocus` on the field. React applies
+  // `autoFocus` during commit and this effect runs after it, so the effect always
+  // wins: an `autoFocus` in a dialog body is silently inert.
   useEffect(() => {
     if (!open) return
     const previouslyFocused = document.activeElement as HTMLElement | null
     const card = cardRef.current
     if (card) {
-      const focusables = focusableElements(card)
-      ;(focusables[0] ?? card).focus()
+      const body = bodyRef.current
+      const inBody = body ? focusableElements(body) : []
+      const target = inBody[0] ?? focusableElements(card)[0] ?? card
+      target.focus()
     }
     return () => {
       previouslyFocused?.focus?.()
@@ -122,7 +136,9 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             </button>
           </div>
         )}
-        <div className={styles.body}>{children}</div>
+        <div ref={bodyRef} className={styles.body}>
+          {children}
+        </div>
       </div>
     </div>
   )

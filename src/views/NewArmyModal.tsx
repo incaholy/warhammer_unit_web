@@ -112,12 +112,6 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
           placeholder="The Hollow Vigil"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          // Modal focuses its first focusable element on open, which is the header
-          // Close button; autoFocus moves it to the first real control instead.
-          // `no-autofocus` targets page-level focus stealing, not an explicitly
-          // invoked dialog, where APG asks for focus to land inside on open.
-          // eslint-disable-next-line jsx-a11y/no-autofocus
-          autoFocus
         />
 
         <div className={styles.field}>

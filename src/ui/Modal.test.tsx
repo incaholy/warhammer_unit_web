@@ -80,8 +80,9 @@ describe('Modal', () => {
         <input aria-label="army-name" />
       </Modal>,
     )
-    // First focusable inside the dialog is the close button (rendered first).
-    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus()
+    // The first focusable in the BODY, not the header Close button that precedes
+    // it in the DOM: a form dialog should open ready to type in.
+    expect(screen.getByLabelText('army-name')).toHaveFocus()
   })
 
   it('focuses the card when there is no focusable content', () => {

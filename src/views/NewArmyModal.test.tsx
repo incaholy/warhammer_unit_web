@@ -68,6 +68,16 @@ describe('NewArmyModal', () => {
     navigateMock.mockReset()
   })
 
+  it('opens with the name field focused, ready to type', () => {
+    // Regression for the review: this used to rely on `autoFocus` on the Field,
+    // which is inert -- React applies it during commit and Modal's focus effect
+    // runs after, so focus landed on the header Close button. Nothing covered it,
+    // which is why the dead attribute and its comment survived. Modal now focuses
+    // the first focusable in the body.
+    renderModal(true)
+    expect(screen.getByLabelText('Army Name')).toHaveFocus()
+  })
+
   it('renders the name field and faction options when open', () => {
     renderModal(true)
 

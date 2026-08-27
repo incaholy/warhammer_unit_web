@@ -330,11 +330,10 @@ than on a mock's return value. Stubbing at the transport boundary (`fetch`) rath
 modules under test is deliberate and correct: it means a test proves the app sends the request it
 claims to send.
 
-**Status: Partial.** 31 test files and 164 tests pass, spanning the client, every resource module,
-auth, routing, the UI kit, and every view. Two thin spots are worth naming rather than glossing:
-`src/api/queries.test.tsx` holds 3 tests covering `queryKeys`, `useUnits`, and `useCreateArmy`, so the
-query layer's exported hooks are mostly exercised indirectly through view tests, and four UI
-primitives (`Eyebrow`, `Field`, `Input`, `Toast`) have no test file.
+**Status: Partial.** 34 test files and 186 tests pass, spanning the client, every resource module,
+auth, routing, the UI kit, and every view. One thin spot is worth naming rather than glossing: four UI
+primitives (`Eyebrow`, `Field`, `Input`, `Toast`) have no test file. Coverage now has a threshold
+floor (`vite.config.ts`, §8), so a module shipping untested fails the build.
 
 The structural gap is what transport stubbing cannot see. **A stub answers whatever the test author
 expected, so a test suite mocking `fetch` can be fully green against a contract the real backend does
@@ -394,15 +393,13 @@ fixed on one side.
 **Filtering and pagination must happen on the same side.** If the server paginates, the server must
 filter, or a client-side filter narrows only the current page and every derived count is wrong.
 
-**Status: Partial**, and this is the one architectural rule the codebase gets half right.
+**Status: Holds** — both halves are server-side now, and tests assert the request shape rather than a
+mocked return value ([ROADMAP F10](ROADMAP.md#f10-move-the-owned-filter-to-the-server)).
 
-The `roadmap` branch fixed the **counting** side properly: per-faction counts now come from a
-server-side aggregate endpoint rather than being derived by downloading the catalog, which is what
-`CODE-REVIEW.md` finding 1 asked for.
+The counting side came first: per-faction counts are a server-side aggregate rather than being derived
+by downloading the catalog. The filtering side followed — the backend grew an `owned` parameter on
+`GET /units` and `/units/facets`, so the page, its total and the rail are built from one predicate and
+"N of M" is correct by construction rather than patched.
 
-The **filtering** side is unchanged. `src/views/CatalogView.tsx:109` narrows the already-paginated page
-against the inventory, so the "N of M" counter at `:183` compares a filtered page against an
-unfiltered total, and an owned unit on page three is invisible while filtering page one. The code
-comment is candid that it "narrows the current page". This cannot be fixed in this repo alone: I
-checked the backend and `GET /units` exposes no `owned` filter. See
-[ROADMAP F10](ROADMAP.md#f10-move-the-owned-filter-to-the-server).
+*(Historic.)* `CatalogView` used to narrow the already-paginated page against the inventory, so an
+owned unit on page three was invisible while filtering page one.
