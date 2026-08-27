@@ -46,8 +46,8 @@ deferred niceties (see below).
 |---|---|---|
 | App shell — providers, routing, auth gate, header/breadcrumbs | `src/App.tsx`, `src/main.tsx` | ✅ |
 | Design system — tokens + global CSS | `src/styles/` | ✅ |
-| HTTP client — base URL, JWT, `ApiError`, form-login, `X-Total-Count` | `src/api/client.ts` | ✅ |
-| API types — hand-written, verified vs `/openapi.json` (gen:api deferred) | `src/api/types.ts` | ✅ |
+| HTTP client — base URL + `/api/v1`, JWT, `ApiError`, form-login, 204 handling | `src/api/client.ts` | ✅ |
+| API types — generated from the backend's `openapi.json` | `src/api/schema.d.ts`, `types.ts` | ✅ |
 | Data layer — per-resource functions + Query hooks | `src/api/*`, `queries.ts` | ✅ |
 | Auth/session — context, guard, login/signup | `src/auth/` | ✅ |
 | Toasts — bus + provider, wired to mutation outcomes | `src/toast/` | ✅ |
@@ -73,9 +73,10 @@ deferred niceties (see below).
 ### Built ✅ (MVP)
 - [x] **Scaffold** — `react-router-dom` + TanStack Query; `theme.css` /
   `global.css` from the design tokens; Vite demo removed.
-- [x] **HTTP client + types** — `client.ts` (base URL, `Authorization: Bearer`,
-  JSON, `ApiError` from `{detail, field}`, OAuth2 **form** login, `204` handling,
-  `X-Total-Count`); hand-written `types.ts` (verified against live `/openapi.json`).
+- [x] **HTTP client + types** — `client.ts` (base URL + `/api/v1`,
+  `Authorization: Bearer`, JSON, `ApiError` from `{detail, code, field, errors[]}`
+  parsed with zod, OAuth2 **form** login, `204` handling); `schema.d.ts` generated
+  from the backend's `openapi.json`, re-exported through `types.ts`.
 - [x] **Auth** — `AuthContext` (token in `localStorage`, `GET /me` hydrate),
   `RequireAuth` guard, `AuthView`, 401 → `/login`, Vite dev proxy to `:8000`.
 - [x] **UI kit** — Button, Input, Field, Tag, SegmentedToggle, Modal (focus-trap),
@@ -83,7 +84,7 @@ deferred niceties (see below).
 - [x] **Collection** — armies list/grid toggle (persisted), aggregate meta, empty
   state; **New Army modal** → `POST /me/armies`.
 - [x] **Catalog** — faction filter rail (with counts), search (`q`), owned-only
-  toggle, target-aware **+ Add**, "N of M" from `X-Total-Count`, paging.
+  toggle, target-aware **+ Add**, "N of M" from the page body's `total`, paging.
 - [x] **Unit datasheet** — 6-stat profile grid, ranged/melee weapon tables,
   abilities, keyword chips; optional context action.
 - [x] **Inventory** — role-grouped collapsible sections, debounced editable qty,
@@ -112,7 +113,7 @@ deferred niceties (see below).
 ### To add / harden ⚙️ (deferred)
 - [ ] **Set a real deploy config** — `VITE_API_BASE_URL` for cross-origin, plus
   the backend's `SECRET_KEY` / `ALLOWED_ORIGINS` (deploy-time, not code).
-- [ ] **`npm run gen:api`** — migrate `types.ts` to `openapi-typescript` output
+- [x] **`npm run gen:api`** — migrate `types.ts` to `openapi-typescript` output
   (hand-written types are verified correct, so this is drift-protection, not a fix).
 - [ ] **Optimistic mutations** — currently invalidate-and-refetch; optimistic UI
   would make add/remove feel instant.

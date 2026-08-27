@@ -5,7 +5,6 @@ import {
   apiPost,
   apiPostForm,
   apiDelete,
-  apiGetWithHeaders,
   tokenStore,
   onUnauthorized,
 } from './client'
@@ -81,17 +80,63 @@ describe('api client', () => {
     await expect(apiDelete('/me/inventory/unit-1')).resolves.toBeUndefined()
   })
 
-  it('throws an ApiError carrying status, detail message, and field', async () => {
+  it('throws an ApiError carrying status, code, detail message, and field', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ detail: 'email already taken', field: 'email' }, { status: 409 }))
+      .mockResolvedValue(
+        jsonResponse({ detail: 'email already taken', code: 'CONFLICT', field: 'email' }, { status: 409 }),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
       name: 'ApiError',
       status: 409,
+      code: 'CONFLICT',
       message: 'email already taken',
       field: 'email',
+    })
+  })
+
+  it('carries the full errors[] array for a multi-field validation (R9/C)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: 'value is not a valid email address',
+          code: 'REQUEST_VALIDATION',
+          field: 'email',
+          errors: [
+            { code: 'REQUEST_VALIDATION', field: 'email', detail: 'value is not a valid email address' },
+            { code: 'REQUEST_VALIDATION', field: 'password', detail: 'string too short' },
+          ],
+        },
+        { status: 422 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
+      status: 422,
+      field: 'email', // top-level mirrors the first
+      errors: [
+        { field: 'email', detail: 'value is not a valid email address' },
+        { field: 'password', detail: 'string too short' },
+      ],
+    })
+  })
+
+  it('falls back to a string message when the error body is the wrong shape', async () => {
+    // e.g. FastAPI's old 422 *array* — the zod parse fails, so we keep a
+    // status-derived string message (never "[object Object]") and no code.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ detail: [{ msg: 'bad' }] }, { status: 422 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiGet('/units/not-a-uuid')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 422,
+      code: undefined,
+      message: expect.any(String),
     })
   })
 
@@ -107,19 +152,5 @@ describe('api client', () => {
     expect(tokenStore.get()).toBeNull()
     expect(listener).toHaveBeenCalledOnce()
     off()
-  })
-
-  it('exposes response headers (X-Total-Count) via apiGetWithHeaders', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([], {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': '137' },
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const { data, headers } = await apiGetWithHeaders('/units')
-
-    expect(data).toEqual([])
-    expect(headers.get('X-Total-Count')).toBe('137')
   })
 })

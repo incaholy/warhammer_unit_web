@@ -14,47 +14,72 @@ import * as armiesApi from './armies'
 import * as factionsApi from './factions'
 import * as inventoryApi from './inventory'
 import * as unitsApi from './units'
-import { getMe } from './auth'
-import type { ListUnitsParams, ListUnitsResult } from './units'
+import { fetchAllPages } from './paging'
+import type { ListUnitsParams, UnitFacetsParams } from './units'
 import type {
   Army_Create,
   Army_Read,
   Army_Update,
   ArmyUnit_Read,
   Faction_Read,
+  Page,
   Shortfall_Read,
   Unit_Read,
   UnitAdd,
-  User_Read,
+  UnitFacets,
   UserUnit_Read,
   UUID,
   Validation_Read,
 } from './types'
 
 // ---- Query keys ----
-// Stable, hierarchical keys so mutations can invalidate exactly what they touch.
-
+// One rule: `[resource, kind, ...]`. Every key for a resource extends that
+// resource's root segment, so `invalidateQueries` can rely on TanStack Query's
+// prefix matching instead of each call site enumerating what it touched.
+//
+// The `'list'` / `'detail'` segment is what makes this work in both directions:
+// with `armies: ['armies']` and `army(id): ['army', id]` -- the previous shape --
+// they were *siblings*, so invalidating one never matched the other and every
+// mutation had to name both by hand (and the three army mutations disagreed about
+// which). Rooting them fixes that; the explicit `kind` keeps the list from being a
+// *prefix* of the details, so invalidating the list alone needs no `exact: true`.
+//
+// Read them as a tree:
+//   ['armies']                              <- allArmies, matches everything below
+//   ['armies', 'list']                      <- the list
+//   ['armies', 'detail', id]                <- one army
+//   ['armies', 'detail', id, 'shortfall']   <- derived from that army
 export const queryKeys = {
-  me: ['me'] as const,
-  armies: ['armies'] as const,
-  army: (id: UUID) => ['army', id] as const,
-  armyShortfall: (id: UUID) => ['army', id, 'shortfall'] as const,
-  armyValidation: (id: UUID) => ['army', id, 'validate'] as const,
-  units: (filters: ListUnitsParams = {}) => ['units', filters] as const,
-  unit: (id: UUID) => ['unit', id] as const,
-  factions: ['factions'] as const,
+  /** Prefix matching every armies query — the list, every detail, and their children. */
+  allArmies: ['armies'] as const,
+  /** Prefix matching every units query — lists, details, and the facets rail. */
+  allUnits: ['units'] as const,
+  armies: ['armies', 'list'] as const,
+  army: (id: UUID) => ['armies', 'detail', id] as const,
+  armyShortfall: (id: UUID) => ['armies', 'detail', id, 'shortfall'] as const,
+  armyValidation: (id: UUID) => ['armies', 'detail', id, 'validate'] as const,
+  units: (filters: ListUnitsParams = {}) => ['units', 'list', filters] as const,
+  unitFacets: (filters: UnitFacetsParams = {}) => ['units', 'facets', filters] as const,
+  unit: (id: UUID) => ['units', 'detail', id] as const,
+  factions: ['factions', 'list'] as const,
   factionTaxonomy: ['factions', 'taxonomy'] as const,
-  inventory: ['inventory'] as const,
+  inventory: ['inventory', 'list'] as const,
 }
 
 // ---- Read hooks ----
 
-export function useMe(enabled = true): UseQueryResult<User_Read> {
-  return useQuery({ queryKey: queryKeys.me, queryFn: getMe, enabled })
-}
-
-export function useArmies(): UseQueryResult<Army_Read[]> {
-  return useQuery({ queryKey: queryKeys.armies, queryFn: armiesApi.listArmies })
+// The three collections below are fetched COMPLETE, not paged. They are scoped to
+// one user (or bounded and admin-curated, for factions) and their consumers run
+// aggregates over the whole set: inventory search and role grouping, army/unit/
+// points totals, and the catalog's "do I own this?" lookup. Handing those a page
+// makes every aggregate page-scoped -- silently, because a sum over 50 of 137 rows
+// still looks like a number. The shared catalog stays paged, which is what R4 was
+// actually for. See src/api/paging.ts.
+export function useArmies(): UseQueryResult<Page<Army_Read>> {
+  return useQuery({
+    queryKey: queryKeys.armies,
+    queryFn: () => fetchAllPages(armiesApi.listArmies),
+  })
 }
 
 export function useArmy(id: UUID): UseQueryResult<Army_Read> {
@@ -81,10 +106,17 @@ export function useArmyValidation(id: UUID): UseQueryResult<Validation_Read> {
   })
 }
 
-export function useUnits(filters: ListUnitsParams = {}): UseQueryResult<ListUnitsResult> {
+export function useUnits(filters: ListUnitsParams = {}): UseQueryResult<Page<Unit_Read>> {
   return useQuery({
     queryKey: queryKeys.units(filters),
     queryFn: () => unitsApi.listUnits(filters),
+  })
+}
+
+export function useUnitFacets(filters: UnitFacetsParams = {}): UseQueryResult<UnitFacets> {
+  return useQuery({
+    queryKey: queryKeys.unitFacets(filters),
+    queryFn: () => unitsApi.unitFacets(filters),
   })
 }
 
@@ -96,12 +128,18 @@ export function useUnit(id: UUID): UseQueryResult<Unit_Read> {
   })
 }
 
-export function useFactions(): UseQueryResult<Faction_Read[]> {
-  return useQuery({ queryKey: queryKeys.factions, queryFn: factionsApi.listFactions })
+export function useFactions(): UseQueryResult<Page<Faction_Read>> {
+  return useQuery({
+    queryKey: queryKeys.factions,
+    queryFn: () => fetchAllPages(factionsApi.listFactions),
+  })
 }
 
-export function useInventory(): UseQueryResult<UserUnit_Read[]> {
-  return useQuery({ queryKey: queryKeys.inventory, queryFn: inventoryApi.listInventory })
+export function useInventory(): UseQueryResult<Page<UserUnit_Read>> {
+  return useQuery({
+    queryKey: queryKeys.inventory,
+    queryFn: () => fetchAllPages(inventoryApi.listInventory),
+  })
 }
 
 // ---- Army mutation hooks ----
@@ -117,16 +155,17 @@ export function useCreateArmy(): UseMutationResult<Army_Read, Error, Army_Create
   })
 }
 
-export function useUpdateArmy(
-  id: UUID,
-): UseMutationResult<Army_Read, Error, Army_Update> {
+export function useUpdateArmy(id: UUID): UseMutationResult<Army_Read, Error, Army_Update> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: Army_Update) => armiesApi.updateArmy(id, body),
     onSuccess: () => {
+      // The detail prefix covers this army's shortfall and validation too; the
+      // list carries its name and points, so both move.
       qc.invalidateQueries({ queryKey: queryKeys.army(id) })
       qc.invalidateQueries({ queryKey: queryKeys.armies })
     },
+    meta: { successMessage: 'Army updated' },
   })
 }
 
@@ -134,33 +173,19 @@ export function useDeleteArmy(): UseMutationResult<void, Error, UUID> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: UUID) => armiesApi.deleteArmy(id),
-    onSuccess: (_data, id) => {
-      qc.removeQueries({ queryKey: queryKeys.army(id) })
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.armies })
+      // Deliberately NOT removeQueries on the army's detail. The detail view is
+      // still mounted when this runs -- the caller navigates away afterwards --
+      // and removing a query that still has an observer makes that observer
+      // refetch immediately, so the app requests the army it just deleted, plus
+      // its shortfall and validation: three 404s in the console.
+      //
+      // Leaving it cached costs nothing. Navigating away makes it inactive and it
+      // is garbage-collected, and a Back into the deleted army refetches (staleTime
+      // is 0), gets its 404, and lands on the not-found state, which is correct.
     },
     meta: { successMessage: 'Army deleted' },
-  })
-}
-
-/** Invalidate everything derived from an army's unit list. */
-function invalidateArmyMembership(
-  qc: ReturnType<typeof useQueryClient>,
-  armyId: UUID,
-): void {
-  qc.invalidateQueries({ queryKey: queryKeys.army(armyId) })
-  qc.invalidateQueries({ queryKey: queryKeys.armies })
-  qc.invalidateQueries({ queryKey: queryKeys.armyShortfall(armyId) })
-  qc.invalidateQueries({ queryKey: queryKeys.armyValidation(armyId) })
-}
-
-export function useAddArmyUnit(
-  armyId: UUID,
-): UseMutationResult<ArmyUnit_Read, Error, UnitAdd> {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: UnitAdd) => armiesApi.addUnit(armyId, body),
-    onSuccess: () => invalidateArmyMembership(qc, armyId),
-    meta: { successMessage: 'Unit added to army' },
   })
 }
 
@@ -172,6 +197,30 @@ export function useSetArmyUnitAmount(
     mutationFn: ({ unitId, amount }: { unitId: UUID; amount: number }) =>
       armiesApi.setAmount(armyId, unitId, amount),
     onSuccess: () => invalidateArmyMembership(qc, armyId),
+  })
+}
+
+/** Invalidate everything derived from an army's unit list.
+ *
+ * Two prefixes, not four keys: `army(id)` is the root of that army's detail,
+ * shortfall and validation, so one call covers all three and a fourth derived
+ * query added tomorrow is covered without editing this. */
+function invalidateArmyMembership(
+  qc: ReturnType<typeof useQueryClient>,
+  armyId: UUID,
+): void {
+  qc.invalidateQueries({ queryKey: queryKeys.army(armyId) })
+  qc.invalidateQueries({ queryKey: queryKeys.armies })
+}
+
+export function useAddArmyUnit(
+  armyId: UUID,
+): UseMutationResult<ArmyUnit_Read, Error, UnitAdd> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: UnitAdd) => armiesApi.addUnit(armyId, body),
+    onSuccess: () => invalidateArmyMembership(qc, armyId),
+    meta: { successMessage: 'Unit added to army' },
   })
 }
 
@@ -192,7 +241,16 @@ export function useRemoveArmyUnit(
  * invalidate every army-scoped query too. */
 function invalidateInventory(qc: ReturnType<typeof useQueryClient>): void {
   qc.invalidateQueries({ queryKey: queryKeys.inventory })
-  qc.invalidateQueries({ queryKey: ['army'] })
+  // An army's shortfall is computed against the inventory, so changing what the
+  // user owns invalidates every armies query, not just one army's.
+  qc.invalidateQueries({ queryKey: queryKeys.allArmies })
+  // Units too, since F10: `useUnits({owned: true})` and the facets rail are
+  // filtered server-side by inventory membership, so what the user owns is now an
+  // input to those queries. That edge was added to the data graph without being
+  // added to the invalidation graph. Invisible today only because `staleTime` is
+  // 0 and everything refetches on mount -- it becomes a stale render the moment
+  // anyone sets one.
+  qc.invalidateQueries({ queryKey: queryKeys.allUnits })
 }
 
 export function useAddInventoryUnit(): UseMutationResult<UserUnit_Read, Error, UnitAdd> {

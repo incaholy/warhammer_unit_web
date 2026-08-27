@@ -24,10 +24,15 @@ export function InventoryView() {
   const { data: inventory, isLoading, isError } = useInventory()
   const [query, setQuery] = useState('')
 
-  const owned = useMemo(() => inventory ?? [], [inventory])
+  const owned = useMemo(() => inventory?.items ?? [], [inventory])
 
   // Header meta: owned datasheets (distinct entries) · total models (sum of amounts).
-  const datasheetCount = owned.length
+  // `total` rather than `owned.length`: the count states a fact about the whole
+  // inventory, so it should come from the server's count, not from however many
+  // rows happen to be in hand. They agree today because the inventory is fetched
+  // complete (src/api/paging.ts) -- reading `total` means they still agree if that
+  // ever changes, instead of quietly reporting a page size as a collection size.
+  const datasheetCount = inventory?.total ?? owned.length
   const modelCount = owned.reduce((sum, entry) => sum + entry.amount, 0)
   const meta = `${pluralize(datasheetCount, 'owned datasheet')} · ${pluralize(
     modelCount,

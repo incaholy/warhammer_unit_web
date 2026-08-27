@@ -3,7 +3,15 @@
  * into a typed ApiError. Nothing else reads the token or hard-codes a path.
  * See SPEC.md → "HTTP client". */
 
+import { z } from 'zod'
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+
+/** The API version prefix every resource route mounts under (backend ROADMAP R5).
+ * Resource functions pass bare paths ('/units'); this is prepended here so the
+ * version lives in exactly one place. `/health` is unversioned but the app never
+ * calls it. A future breaking change ships as '/api/v2' by bumping this. */
+const API_PREFIX = '/api/v1'
 
 const TOKEN_KEY = 'muster.token'
 
@@ -24,21 +32,69 @@ export function onUnauthorized(listener: UnauthorizedListener): () => void {
   return () => unauthorizedListeners.delete(listener)
 }
 
-/** The shape of the backend's error body: `{ "detail": message, "field"? }`. */
-interface ApiErrorBody {
-  detail?: string
-  field?: string
-}
+/** The backend's stable, machine-readable error codes (mirrors
+ * app/core/errors.py `ErrorCode`). Views branch on these, not on status/message. */
+export const ERROR_CODES = [
+  'NOT_FOUND',
+  'CONFLICT',
+  'VALIDATION',
+  'REQUEST_VALIDATION',
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'INTERNAL',
+] as const
+export type ErrorCode = (typeof ERROR_CODES)[number]
+
+/** One entry in an error's `errors[]` array — same `{code, field, detail}` shape
+ * as the top level. `field` is null for non-field (whole-body) errors. */
+const apiFieldErrorSchema = z.object({
+  code: z.enum(ERROR_CODES).optional().catch(undefined),
+  field: z.string().nullable().optional(),
+  detail: z.string(),
+})
+export type FieldError = z.infer<typeof apiFieldErrorSchema>
+
+/** The one error shape the backend returns: `{ detail, code, field?, errors[] }`.
+ * `errors` is a uniform array — one element for most failures, all of them for a
+ * multi-field validation (ROADMAP R9/C); the top level mirrors `errors[0]`.
+ * Parsed at the boundary (not cast) so a wrong shape is caught, not assumed;
+ * `code` uses `.catch` so an unknown/future code degrades to `undefined` instead
+ * of failing the whole parse. */
+const apiErrorBodySchema = z.object({
+  detail: z.string(),
+  code: z.enum(ERROR_CODES).optional().catch(undefined),
+  field: z.string().optional(),
+  errors: z.array(apiFieldErrorSchema).optional(),
+  // The correlation key. The backend puts it in every error body and exposes
+  // X-Request-ID cross-origin specifically so a user's report ties to a log line
+  // and a Sentry event (backend ROADMAP R7). Collecting it and dropping it makes
+  // that whole mechanism stop one step short of the person who needs it.
+  request_id: z.string().optional(),
+})
 
 export class ApiError extends Error {
   readonly status: number
+  readonly code?: ErrorCode
+  /** Ties this failure to its server log line and Sentry event. */
+  readonly requestId?: string
   readonly field?: string
+  readonly errors?: FieldError[]
 
-  constructor(status: number, message: string, field?: string) {
+  constructor(
+    status: number,
+    message: string,
+    code?: ErrorCode,
+    field?: string,
+    errors?: FieldError[],
+    requestId?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
     this.field = field
+    this.errors = errors
+    this.requestId = requestId
   }
 }
 
@@ -70,7 +126,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     body = JSON.stringify(options.json)
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${BASE_URL}${API_PREFIX}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body,
@@ -84,15 +140,27 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
 
   if (!res.ok) {
     let message = res.statusText || `HTTP ${res.status}`
+    let code: ErrorCode | undefined
     let field: string | undefined
+    let errors: FieldError[] | undefined
+    // Prefer the header: it is present even on a response whose body never made it
+    // (a proxy error page, a truncated stream), which is exactly when a user most
+    // needs something to quote.
+    let requestId: string | undefined = res.headers.get('X-Request-ID') ?? undefined
     try {
-      const errorBody = (await res.json()) as ApiErrorBody
-      if (errorBody.detail) message = errorBody.detail
-      field = errorBody.field
+      const parsed = apiErrorBodySchema.safeParse(await res.json())
+      if (parsed.success) {
+        message = parsed.data.detail
+        code = parsed.data.code
+        field = parsed.data.field
+        errors = parsed.data.errors
+        requestId ??= parsed.data.request_id
+      }
+      // A body that doesn't match the shape keeps the status-derived message.
     } catch {
       // Non-JSON error body — keep the status-derived message.
     }
-    throw new ApiError(res.status, message, field)
+    throw new ApiError(res.status, message, code, field, errors, requestId)
   }
 
   const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
@@ -103,11 +171,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
 
 export async function apiGet<T>(path: string): Promise<T> {
   return (await request<T>(path)).data
-}
-
-/** Like apiGet but also exposes response headers (e.g. X-Total-Count on /units). */
-export function apiGetWithHeaders<T>(path: string): Promise<ApiResponse<T>> {
-  return request<T>(path)
 }
 
 export async function apiPost<T>(path: string, json?: unknown): Promise<T> {
