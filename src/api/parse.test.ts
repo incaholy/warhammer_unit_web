@@ -15,6 +15,39 @@ function badResponse(body: unknown): Response {
   })
 }
 
+import { addUnit } from './inventory'
+import { messageForError } from '../lib/errors'
+import { CODE_MESSAGES } from '../lib/errors'
+
+describe('an error the client can actually produce reaches the user as copy', () => {
+  it('never shows a backend detail that embeds an id', async () => {
+    // Reachability, not just behaviour: the previous test for this branch built
+    // `new ApiError(403, '', 'FORBIDDEN')` by hand -- a state the client cannot
+    // produce, since ApiError.message is never empty. This drives the real 409
+    // body through the real client and asserts what a user would read.
+    const body = {
+      detail:
+        "unit 3f2a1b8c-5d4e-4f6a-9b7c-1e2d3f4a5b6c is already in " +
+        "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d's inventory",
+      code: 'CONFLICT',
+      errors: [{ code: 'CONFLICT', field: null, detail: 'duplicate' }],
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+
+    const err = await addUnit({ unit_id: 'u1' }).catch((e) => e)
+    expect(messageForError(err)).toBe(CODE_MESSAGES.CONFLICT)
+    expect(messageForError(err)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i)
+  })
+})
+
 describe('success-path validation (F11)', () => {
   it('accepts a response that matches the generated schema', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(page([makeUnit()]))))

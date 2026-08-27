@@ -9,9 +9,23 @@ describe('messageForError', () => {
     expect(messageForError(err)).toBe('email already taken')
   })
 
-  it('falls back to the per-code message when there is no detail', () => {
-    const err = new ApiError(403, '', 'FORBIDDEN')
-    expect(messageForError(err)).toBe(CODE_MESSAGES.FORBIDDEN)
+  it('falls back to the per-code message when the detail embeds an id', () => {
+    // The backend's real 409 from `POST /me/inventory` on a repeat add. Shown
+    // verbatim it is two raw UUIDs and a possessive apostrophe on a user id.
+    const err = new ApiError(
+      409,
+      "unit 3f2a1b8c-5d4e-4f6a-9b7c-1e2d3f4a5b6c is already in " +
+        "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d's inventory",
+      'CONFLICT',
+    )
+    expect(messageForError(err)).toBe(CODE_MESSAGES.CONFLICT)
+  })
+
+  it('keeps a detail that reads as copy, for the same code', () => {
+    // Registration produces CONFLICT too, with a message worth showing. No
+    // per-code rule could separate these two; the id is what distinguishes them.
+    const err = new ApiError(409, "username 'kesh' is already taken", 'CONFLICT', 'username')
+    expect(messageForError(err)).toBe("username 'kesh' is already taken")
   })
 
   it('returns a generic message for non-ApiError values (no internal leak)', () => {

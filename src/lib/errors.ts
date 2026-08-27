@@ -19,15 +19,30 @@ export const CODE_MESSAGES: Record<ErrorCode, string> = {
 
 const GENERIC = 'Something went wrong. Please try again.'
 
-/** A user-facing message for any thrown value. Prefers the backend's specific
- * `detail` (a clean string since R2), then a per-code message, then `fallback`
- * (default generic). Non-`ApiError` values get `fallback` — never a raw internal
- * message — so a caller can supply context (e.g. "Could not create the army."). */
+/** Any string containing one is describing a row, not talking to a person. */
+const EMBEDS_AN_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+/** A user-facing message for any thrown value.
+ *
+ * Prefers the backend's `detail`, which is often the best copy available
+ * ("username 'kesh' is already taken", "amount: must be >= 1"), and falls back to
+ * this module's per-code message when the detail is not fit to show a person.
+ *
+ * "Not fit" means it embeds an id. The same `code` produces both kinds — CONFLICT
+ * is "username 'kesh' is already taken" from registration and
+ * "unit {uuid} is already in {uuid}'s inventory" from the inventory — so no
+ * per-code rule can separate them, but the id itself is exact to detect. No copy
+ * written for a person contains a UUID.
+ *
+ * This is what the module always claimed to do; until now the first branch was
+ * `err.message || …`, and `ApiError.message` is never empty (it starts as the
+ * status text and is only ever overwritten by `detail`), so the code map was
+ * unreachable and users saw the raw string. Non-`ApiError` values get `fallback`,
+ * never a raw internal message, so a caller can supply context. */
 export function messageForError(err: unknown, fallback: string = GENERIC): string {
-  if (err instanceof ApiError) {
-    return err.message || (err.code ? CODE_MESSAGES[err.code] : fallback)
-  }
-  return fallback
+  if (!(err instanceof ApiError)) return fallback
+  if (err.message && !EMBEDS_AN_ID.test(err.message)) return err.message
+  return err.code ? CODE_MESSAGES[err.code] : fallback
 }
 
 /** Map of backend field name → message, from an error's `errors[]` array — so a
