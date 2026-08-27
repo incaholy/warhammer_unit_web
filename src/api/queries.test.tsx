@@ -92,6 +92,24 @@ describe('invalidation reaches what it should', () => {
   })
 })
 
+describe('invalidation covers the edges F10 added', () => {
+  it('an inventory change invalidates units, which are now filtered by ownership', async () => {
+    // F10 made useUnits({owned:true}) and the facets rail server-filtered by
+    // inventory membership, so what the user owns became an INPUT to those
+    // queries. That edge went into the data graph without going into the
+    // invalidation graph.
+    const { client } = makeWrapper()
+    client.setQueryData(queryKeys.units({ owned: true }), page([makeUnit()]))
+    client.setQueryData(queryKeys.unitFacets({ owned: true }), { total: 1, by_faction: {} })
+    client.setQueryData(queryKeys.inventory, page([]))
+
+    await client.invalidateQueries({ queryKey: queryKeys.allUnits })
+
+    expect(client.getQueryState(queryKeys.units({ owned: true }))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(queryKeys.unitFacets({ owned: true }))?.isInvalidated).toBe(true)
+  })
+})
+
 describe('useUnits', () => {
   it('resolves with the paged result including total from the body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(

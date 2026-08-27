@@ -16,7 +16,8 @@ function badResponse(body: unknown): Response {
 }
 
 import { addUnit } from './inventory'
-import { messageForError } from '../lib/errors'
+import { ApiError } from './client'
+import { messageForError, messageWithReference } from '../lib/errors'
 import { CODE_MESSAGES } from '../lib/errors'
 
 describe('an error the client can actually produce reaches the user as copy', () => {
@@ -45,6 +46,47 @@ describe('an error the client can actually produce reaches the user as copy', ()
     const err = await addUnit({ unit_id: 'u1' }).catch((e) => e)
     expect(messageForError(err)).toBe(CODE_MESSAGES.CONFLICT)
     expect(messageForError(err)).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i)
+  })
+})
+
+describe('request id reaches the user (R7 last mile)', () => {
+  it('carries request_id from the error body onto ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: 'internal server error', code: 'INTERNAL', request_id: 'req-abc123' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+    const err = await addUnit({ unit_id: 'u1' }).catch((e) => e)
+    expect(err.requestId).toBe('req-abc123')
+  })
+
+  it('prefers the header, which survives a body that never arrived', async () => {
+    // A proxy error page or a truncated stream has no parseable body -- exactly
+    // when a user most needs something to quote.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<html>502 Bad Gateway</html>', {
+          status: 502,
+          headers: { 'Content-Type': 'text/html', 'X-Request-ID': 'req-from-header' },
+        }),
+      ),
+    )
+    const err = await addUnit({ unit_id: 'u1' }).catch((e) => e)
+    expect(err.requestId).toBe('req-from-header')
+  })
+
+  it('appends the reference on a server fault, and not on a client error', async () => {
+    const serverFault = new ApiError(500, 'internal server error', 'INTERNAL', undefined, undefined, 'req-xyz')
+    expect(messageWithReference(serverFault)).toContain('(ref: req-xyz)')
+
+    // A 409 is actionable by the user; an opaque id would just be noise.
+    const conflict = new ApiError(409, "username 'kesh' is already taken", 'CONFLICT', undefined, undefined, 'req-xyz')
+    expect(messageWithReference(conflict)).toBe("username 'kesh' is already taken")
   })
 })
 

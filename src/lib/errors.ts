@@ -45,6 +45,20 @@ export function messageForError(err: unknown, fallback: string = GENERIC): strin
   return err.code ? CODE_MESSAGES[err.code] : fallback
 }
 
+/** A reference a user can quote, for failures they would need to report.
+ *
+ * Only for server faults (5xx). A 409 or a 422 is something the user can act on
+ * themselves, and appending an opaque id to "That already exists." is noise. A
+ * 500 is not actionable, so the useful thing to hand them is the one string that
+ * finds the log line and the Sentry event (backend ROADMAP R7).
+ *
+ * Returns the message unchanged when there is nothing to add. */
+export function messageWithReference(err: unknown, fallback: string = GENERIC): string {
+  const message = messageForError(err, fallback)
+  if (!(err instanceof ApiError) || err.status < 500 || !err.requestId) return message
+  return `${message} (ref: ${err.requestId})`
+}
+
 /** Map of backend field name → message, from an error's `errors[]` array — so a
  * form can show all its bad fields at once (ROADMAP R9/C). Empty for non-`ApiError`
  * values or errors without field info. First message per field wins. */

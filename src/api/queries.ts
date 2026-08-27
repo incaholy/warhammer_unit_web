@@ -51,6 +51,8 @@ import type {
 export const queryKeys = {
   /** Prefix matching every armies query — the list, every detail, and their children. */
   allArmies: ['armies'] as const,
+  /** Prefix matching every units query — lists, details, and the facets rail. */
+  allUnits: ['units'] as const,
   armies: ['armies', 'list'] as const,
   army: (id: UUID) => ['armies', 'detail', id] as const,
   armyShortfall: (id: UUID) => ['armies', 'detail', id, 'shortfall'] as const,
@@ -196,6 +198,13 @@ function invalidateInventory(qc: ReturnType<typeof useQueryClient>): void {
   // An army's shortfall is computed against the inventory, so changing what the
   // user owns invalidates every armies query, not just one army's.
   qc.invalidateQueries({ queryKey: queryKeys.allArmies })
+  // Units too, since F10: `useUnits({owned: true})` and the facets rail are
+  // filtered server-side by inventory membership, so what the user owns is now an
+  // input to those queries. That edge was added to the data graph without being
+  // added to the invalidation graph. Invisible today only because `staleTime` is
+  // 0 and everything refetches on mount -- it becomes a stale render the moment
+  // anyone sets one.
+  qc.invalidateQueries({ queryKey: queryKeys.allUnits })
 }
 
 export function useAddInventoryUnit(): UseMutationResult<UserUnit_Read, Error, UnitAdd> {

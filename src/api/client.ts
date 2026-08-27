@@ -65,21 +65,36 @@ const apiErrorBodySchema = z.object({
   code: z.enum(ERROR_CODES).optional().catch(undefined),
   field: z.string().optional(),
   errors: z.array(apiFieldErrorSchema).optional(),
+  // The correlation key. The backend puts it in every error body and exposes
+  // X-Request-ID cross-origin specifically so a user's report ties to a log line
+  // and a Sentry event (backend ROADMAP R7). Collecting it and dropping it makes
+  // that whole mechanism stop one step short of the person who needs it.
+  request_id: z.string().optional(),
 })
 
 export class ApiError extends Error {
   readonly status: number
   readonly code?: ErrorCode
+  /** Ties this failure to its server log line and Sentry event. */
+  readonly requestId?: string
   readonly field?: string
   readonly errors?: FieldError[]
 
-  constructor(status: number, message: string, code?: ErrorCode, field?: string, errors?: FieldError[]) {
+  constructor(
+    status: number,
+    message: string,
+    code?: ErrorCode,
+    field?: string,
+    errors?: FieldError[],
+    requestId?: string,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.field = field
     this.errors = errors
+    this.requestId = requestId
   }
 }
 
@@ -128,6 +143,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     let code: ErrorCode | undefined
     let field: string | undefined
     let errors: FieldError[] | undefined
+    // Prefer the header: it is present even on a response whose body never made it
+    // (a proxy error page, a truncated stream), which is exactly when a user most
+    // needs something to quote.
+    let requestId: string | undefined = res.headers.get('X-Request-ID') ?? undefined
     try {
       const parsed = apiErrorBodySchema.safeParse(await res.json())
       if (parsed.success) {
@@ -135,12 +154,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
         code = parsed.data.code
         field = parsed.data.field
         errors = parsed.data.errors
+        requestId ??= parsed.data.request_id
       }
       // A body that doesn't match the shape keeps the status-derived message.
     } catch {
       // Non-JSON error body — keep the status-derived message.
     }
-    throw new ApiError(res.status, message, code, field, errors)
+    throw new ApiError(res.status, message, code, field, errors, requestId)
   }
 
   const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
