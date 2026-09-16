@@ -1262,10 +1262,10 @@ export interface operations {
                 subfaction_id?: string | null;
                 /** @description case-insensitive name search */
                 q?: string | null;
-                /** @description only units in the caller's inventory */
-                owned?: boolean;
                 limit?: number;
                 offset?: number;
+                /** @description only units in the caller's inventory */
+                owned?: boolean;
             };
             header?: never;
             path?: never;
