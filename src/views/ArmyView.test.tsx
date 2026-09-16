@@ -87,7 +87,12 @@ function stubFetch(army: Army_Read, options: StubOptions = {}) {
     if (url.includes('/validate')) return Promise.resolve(jsonResponse(validation))
     if (url.includes('/shortfall')) return Promise.resolve(jsonResponse(shortfall))
     if (url.includes('/me/armies/')) return Promise.resolve(jsonResponse(army))
-    return Promise.resolve(jsonResponse({}))
+    // Fail loudly on anything unrouted, as CatalogView's fake server does. This
+    // used to return `jsonResponse({})` -- a body no endpoint sends, which only
+    // typechecked because `{}` satisfied the `FactionTaxonomy` member of ApiBody.
+    // Removing that type closed the hole and surfaced it. A silent empty body hides
+    // a request the test did not expect; a thrown error names it.
+    return Promise.reject(new Error(`Unhandled request in ArmyView test: ${url}`))
   })
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock

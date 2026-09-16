@@ -49,10 +49,6 @@ export interface Page<T> {
   offset: number
 }
 
-/** `GET /taxonomy` — allowed subfactions per faction name (a dict response, not a
- * named schema). */
-export type FactionTaxonomy = Record<string, string[]>
-
 /** Inventory and army rows are both a catalog unit plus an amount — the same
  * shape from either list. */
 export type UnitEntry_Read = UserUnit_Read

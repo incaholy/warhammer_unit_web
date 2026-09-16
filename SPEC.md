@@ -148,7 +148,7 @@ warhammer_web/
       types.ts            # thin re-exports of schema.d.ts + client-side helpers
       auth.ts             # register, login, getMe
       units.ts            # listUnits, getUnit  (+ list weapons/abilities if needed)
-      factions.ts         # listFactions, factionTaxonomy
+      factions.ts         # listFactions (subfactions come nested, with ids)
       armies.ts           # CRUD + units + shortfall + validate
       inventory.ts        # list/add/setAmount/remove
       queries.ts          # TanStack Query keys + hooks wrapping the above

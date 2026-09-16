@@ -20,7 +20,6 @@ import type {
   Army_Read,
   ArmyUnit_Read,
   Faction_Read,
-  FactionTaxonomy,
   Page,
   Shortfall_Read,
   Token,
@@ -62,7 +61,6 @@ type ApiBody =
   | Validation_Read
   | UnitFacets
   | Token
-  | FactionTaxonomy
   | ApiErrorBody
   | Shortfall_Read[]
   | Page<Unit_Read>

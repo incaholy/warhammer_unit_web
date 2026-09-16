@@ -62,7 +62,6 @@ export const queryKeys = {
   unitFacets: (filters: UnitFacetsParams = {}) => ['units', 'facets', filters] as const,
   unit: (id: UUID) => ['units', 'detail', id] as const,
   factions: ['factions', 'list'] as const,
-  factionTaxonomy: ['factions', 'taxonomy'] as const,
   inventory: ['inventory', 'list'] as const,
 }
 
