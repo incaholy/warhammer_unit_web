@@ -101,6 +101,56 @@
   color: var(--fainter);
 }
 
+/* Editable quantity per unit — mirrors InventoryView's control. */
+.qtyInput {
+  width: 64px;
+  text-align: center;
+}
+
+.qtyInput:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* Visually hidden, still announced. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Name + rename control on one line. */
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.confirmBody {
+  margin: 0 0 20px;
+  color: var(--faint);
+  line-height: 1.6;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .rowPoints {
   font-family: var(--font-mono);
   text-transform: uppercase;

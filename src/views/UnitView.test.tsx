@@ -64,7 +64,7 @@ function renderView(ui: ReactElement = <UnitView />) {
     defaultOptions: { queries: { retry: false } },
   })
   client.setQueryData(queryKeys.unit(UNIT.id), UNIT)
-  client.setQueryData(queryKeys.factions, [FACTION])
+  client.setQueryData(queryKeys.factions, { items: [FACTION], total: 1, limit: 50, offset: 0 })
 
   return render(
     <QueryClientProvider client={client}>
@@ -143,7 +143,12 @@ describe('UnitView', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    client.setQueryData(queryKeys.factions, [FACTION])
+    client.setQueryData(queryKeys.factions, {
+      items: [FACTION],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    })
 
     render(
       <QueryClientProvider client={client}>

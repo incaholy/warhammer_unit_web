@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { register, login, getMe } from './auth'
+import type { Token } from './types'
+import { jsonResponse, makeUser } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -17,13 +12,13 @@ describe('auth resource', () => {
   it('register POSTs JSON to /auth/register', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ id: 'u1', username: 'me', email: 'me@x.io' }, { status: 201 }))
+      .mockResolvedValue(jsonResponse(makeUser({ id: 'u1', username: 'me', email: 'me@x.io' }), { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     const user = await register({ username: 'me', email: 'me@x.io', password: 'pw' })
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/auth/register')
+    expect(url).toBe('/api/v1/auth/register')
     expect(init.method).toBe('POST')
     expect(init.headers['Content-Type']).toBe('application/json')
     expect(JSON.parse(init.body)).toEqual({ username: 'me', email: 'me@x.io', password: 'pw' })
@@ -33,13 +28,13 @@ describe('auth resource', () => {
   it('login form-encodes the identifier as the username field', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ access_token: 'tok', token_type: 'bearer' }))
+      .mockResolvedValue(jsonResponse<Token>({ access_token: 'tok', token_type: 'bearer' }))
     vi.stubGlobal('fetch', fetchMock)
 
     const token = await login('me@x.io', 'secret')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/auth/login')
+    expect(url).toBe('/api/v1/auth/login')
     expect(init.method).toBe('POST')
     expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
     expect(init.body).toContain('username=me%40x.io')
@@ -50,13 +45,13 @@ describe('auth resource', () => {
   it('getMe GETs /me', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ id: 'u1', username: 'me', email: 'me@x.io' }))
+      .mockResolvedValue(jsonResponse(makeUser({ id: 'u1', username: 'me', email: 'me@x.io' })))
     vi.stubGlobal('fetch', fetchMock)
 
     await getMe()
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/me')
+    expect(url).toBe('/api/v1/me')
     expect(init.method ?? 'GET').toBe('GET')
   })
 })

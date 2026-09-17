@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { tokenStore } from './api/client'
 import App from './App'
+import { jsonResponse, makeUser, page } from './test/fixtures'
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -19,12 +20,6 @@ function renderAt(path: string) {
   )
 }
 
-function json(body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
 
 describe('App routing', () => {
   beforeEach(() => {
@@ -51,8 +46,9 @@ describe('App routing', () => {
       'fetch',
       vi.fn(async (url: string | URL) => {
         const u = String(url)
-        if (u.endsWith('/me')) return json({ id: 'u1', username: 'cmdr', email: 'c@dominion.imp' })
-        return json([]) // inventory / factions etc.
+        if (u.endsWith('/me'))
+          return jsonResponse(makeUser({ id: 'u1', username: 'cmdr', email: 'c@dominion.imp' }))
+        return jsonResponse(page([])) // inventory / factions etc.
       }),
     )
 

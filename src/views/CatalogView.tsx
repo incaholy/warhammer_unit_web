@@ -5,7 +5,7 @@
  * Left rail = faction filter (from `GET /factions`) with a live per-faction count;
  * main column = a search box bound to `q`, an Owned only / All units toggle that
  * cross-references the inventory, and paged unit rows (name, faction · role, an
- * owned tag, "+ Add"). "N of M" comes from the units query's `X-Total-Count` total. */
+ * owned tag, "+ Add"). "N of M" comes from the `total` in the units page body. */
 
 import { useMemo, useState } from 'react'
 import {
@@ -14,6 +14,7 @@ import {
   useArmy,
   useFactions,
   useInventory,
+  useUnitFacets,
   useUnits,
 } from '../api/queries'
 import type { UUID } from '../api/types'
@@ -34,7 +35,6 @@ export interface CatalogViewProps {
 type OwnedMode = 'all' | 'owned'
 
 const PAGE_SIZE = 25
-const INDEX_LIMIT = 1000
 
 const OWNED_OPTIONS: { label: string; value: OwnedMode }[] = [
   { label: 'All units', value: 'all' },
@@ -53,12 +53,19 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
   const factionsQuery = useFactions()
   const inventoryQuery = useInventory()
 
-  // Index query (search-filtered, unpaged) → live per-faction counts for the rail.
-  const indexQuery = useUnits({ q: q || undefined, limit: INDEX_LIMIT })
-  // Main list — the actual faction-filtered, paged rows plus the X-Total-Count total.
+  // Per-faction counts for the rail — a server-side GROUP BY aggregate over the
+  // same search filter (replaces downloading up to 1000 rows to count in JS).
+  // "Owned only" is a server-side filter (backend `owned=true`). Filtering the
+  // page here instead hid owned units that fell on other pages, and made the
+  // "N of M" counter compare a filtered page against an unfiltered total --
+  // filtering and pagination have to happen on the same side.
+  const ownedOnly = ownedMode === 'owned'
+  const facetsQuery = useUnitFacets({ q: q || undefined, owned: ownedOnly || undefined })
+  // Main list — the actual faction-filtered, paged rows plus the total (in body).
   const unitsQuery = useUnits({
     q: q || undefined,
     faction_id: factionId || undefined,
+    owned: ownedOnly || undefined,
     limit: PAGE_SIZE,
     offset,
   })
@@ -75,31 +82,37 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
 
   const factionNames = useMemo(() => {
     const map = new Map<UUID, string>()
-    for (const f of factionsQuery.data ?? []) map.set(f.id, f.name)
+    for (const f of factionsQuery.data?.items ?? []) map.set(f.id, f.name)
     return map
   }, [factionsQuery.data])
 
   const ownedIds = useMemo(() => {
     const set = new Set<UUID>()
-    for (const entry of inventoryQuery.data ?? []) set.add(entry.unit.id)
+    for (const entry of inventoryQuery.data?.items ?? []) set.add(entry.unit.id)
     return set
   }, [inventoryQuery.data])
 
-  // Per-faction counts (and the "All" total) from the search-filtered index.
-  const factionCounts = useMemo(() => {
-    const map = new Map<UUID, number>()
-    for (const unit of indexQuery.data?.units ?? []) {
-      map.set(unit.faction_id, (map.get(unit.faction_id) ?? 0) + 1)
-    }
-    return map
-  }, [indexQuery.data])
-  const allCount = indexQuery.data?.total ?? 0
+  // Units already in the add target. POST is create-only (409 on a repeat), so an
+  // already-added unit shows a disabled "Added" instead of a "+ Add" that would
+  // conflict; quantity changes happen via PATCH in the target's own view.
+  const targetMemberIds = useMemo(() => {
+    if (target.kind === 'inventory') return ownedIds
+    const set = new Set<UUID>()
+    for (const entry of armyQuery.data?.units ?? []) set.add(entry.unit.id)
+    return set
+  }, [target.kind, ownedIds, armyQuery.data])
+
+  // Per-faction counts (and the "All" total) from the server-side facets aggregate.
+  const factionCounts = useMemo(
+    () => new Map<UUID, number>(Object.entries(facetsQuery.data?.by_faction ?? {})),
+    [facetsQuery.data],
+  )
+  const allCount = facetsQuery.data?.total ?? 0
 
   const total = unitsQuery.data?.total ?? 0
-  const pageUnits = unitsQuery.data?.units ?? []
-  // "Owned only" narrows the current page against the inventory.
-  const visibleUnits =
-    ownedMode === 'owned' ? pageUnits.filter((u) => ownedIds.has(u.id)) : pageUnits
+  // The server already applied every filter, so the page IS what to render and
+  // `total` counts the same set -- "N of M" is correct by construction.
+  const visibleUnits = unitsQuery.data?.items ?? []
 
   function resetPaging() {
     setOffset(0)
@@ -133,7 +146,7 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
               resetPaging()
             }}
           />
-          {(factionsQuery.data ?? []).map((faction) => (
+          {(factionsQuery.data?.items ?? []).map((faction) => (
             <FactionButton
               key={faction.id}
               label={faction.name}
@@ -199,6 +212,7 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
             <ul className={styles.rows}>
               {visibleUnits.map((unit) => {
                 const owned = ownedIds.has(unit.id)
+                const alreadyInTarget = targetMemberIds.has(unit.id)
                 const faction = factionNames.get(unit.faction_id) ?? 'Unknown'
                 const role = deriveRole(unit.keywords)
                 return (
@@ -214,10 +228,10 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={isAdding}
+                        disabled={isAdding || alreadyInTarget}
                         onClick={() => handleAdd(unit.id)}
                       >
-                        + Add
+                        {alreadyInTarget ? 'Added' : '+ Add'}
                       </Button>
                     </div>
                   </li>

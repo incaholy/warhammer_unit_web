@@ -90,11 +90,11 @@ export function CollectionView() {
   }
 
   const factionName = useMemo(() => {
-    const byId = new Map((factionsQuery.data ?? []).map((f) => [f.id, f.name]))
+    const byId = new Map((factionsQuery.data?.items ?? []).map((f) => [f.id, f.name]))
     return (id: string) => byId.get(id) ?? ''
   }, [factionsQuery.data])
 
-  const armies = useMemo(() => armiesQuery.data ?? [], [armiesQuery.data])
+  const armies = useMemo(() => armiesQuery.data?.items ?? [], [armiesQuery.data])
 
   const totals = useMemo(() => {
     let units = 0
@@ -103,8 +103,10 @@ export function CollectionView() {
       units += armyUnitCount(army)
       points += army.points_total
     }
-    return { armies: armies.length, units, points }
-  }, [armies])
+    // `total` for the same reason InventoryView uses it: the header states a fact
+    // about the whole collection.
+    return { armies: armiesQuery.data?.total ?? armies.length, units, points }
+  }, [armies, armiesQuery.data])
 
   const openArmy = (id: string) => navigate(`/armies/${id}`)
 
