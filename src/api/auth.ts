@@ -3,24 +3,21 @@
 
 import { apiGet, apiPost, apiPostForm } from './client'
 import type { Register_Create, Token, User_Read } from './types'
-import { parsed } from './parse'
 import * as S from './schemas.gen'
 
 /** `POST /auth/register` — create an account. The signup form's "Name" field maps
  * to `username`; the server hashes the password. → `201 User_Read`. */
 export function register(body: Register_Create): Promise<User_Read> {
-  return apiPost('/auth/register', body).then((d) => parsed(S.User_Read, d, '/auth/register'))
+  return apiPost('/auth/register', S.User_Read, body)
 }
 
 /** `POST /auth/login` — OAuth2 password form. The `identifier` (a username *or* an
  * email) is sent in the form's `username` field. → `Token`. */
 export function login(identifier: string, password: string): Promise<Token> {
-  return apiPostForm('/auth/login', { username: identifier, password }).then((d) =>
-    parsed(S.Token, d, '/auth/login'),
-  )
+  return apiPostForm('/auth/login', S.Token, { username: identifier, password })
 }
 
 /** `GET /me` — the current user, using the stored Bearer token. */
 export function getMe(): Promise<User_Read> {
-  return apiGet('/me').then((d) => parsed(S.User_Read, d, '/me'))
+  return apiGet('/me', S.User_Read)
 }

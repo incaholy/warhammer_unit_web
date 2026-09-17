@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import viteConfig from '../../vite.config'
 import { apiGet } from './client'
+import { z } from 'zod'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -34,7 +35,7 @@ async function outgoingUrl(path: string): Promise<string> {
     }),
   )
   vi.stubGlobal('fetch', fetchMock)
-  await apiGet(path)
+  await apiGet(path, z.unknown())
   return fetchMock.mock.calls[0][0] as string
 }
 

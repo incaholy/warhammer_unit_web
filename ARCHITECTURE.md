@@ -116,6 +116,8 @@ at the boundary or types generated from the real schema.
 **Status: Holds** — both paths are parsed now, against schemas GENERATED from the backend's
 openapi.json (`src/api/schemas.gen.ts`), so there is still one source of truth and CI fails if they
 drift. Objects are non-strict, so a field the backend adds is ignored rather than fatal (F11).
+Structural, not by convention: the body-returning helpers in `src/api/client.ts` require a schema,
+so a call that skips validation fails the typecheck.
 
 The **error** path does this correctly and it is a genuine improvement: `src/api/client.ts:132` parses
 the error body with a zod schema via `safeParse`, so a wrong shape degrades to the status-derived

@@ -4,7 +4,6 @@
 
 import { apiGet } from './client'
 import type { Page, Unit_Read, UnitFacets, UUID } from './types'
-import { parsed } from './parse'
 import * as S from './schemas.gen'
 
 export interface ListUnitsParams {
@@ -37,7 +36,7 @@ function toQueryString(params: ListUnitsParams): string {
 /** `GET /units` — the paged catalog. `total` (for "N of M") is in the body. */
 export function listUnits(params: ListUnitsParams = {}): Promise<Page<Unit_Read>> {
   const path = `/units${toQueryString(params)}`
-  return apiGet(path).then((d) => parsed(S.Page_Unit_Read_, d, path))
+  return apiGet(path, S.Page_Unit_Read_)
 }
 
 export interface UnitFacetsParams {
@@ -57,10 +56,10 @@ export function unitFacets(params: UnitFacetsParams = {}): Promise<UnitFacets> {
   if (params.owned) search.set('owned', 'true')
   const qs = search.toString()
   const path = `/units/facets${qs ? `?${qs}` : ''}`
-  return apiGet(path).then((d) => parsed(S.UnitFacets, d, path))
+  return apiGet(path, S.UnitFacets)
 }
 
 /** `GET /units/{id}` — a single datasheet. */
 export function getUnit(id: UUID): Promise<Unit_Read> {
-  return apiGet(`/units/${id}`).then((d) => parsed(S.Unit_Read, d, '/units/{id}'))
+  return apiGet(`/units/${id}`, S.Unit_Read)
 }

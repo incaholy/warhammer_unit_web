@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { z } from 'zod'
 import {
   ApiError,
   apiGet,
@@ -8,6 +9,7 @@ import {
   tokenStore,
   onUnauthorized,
 } from './client'
+import { ResponseShapeError } from './parse'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -31,7 +33,7 @@ describe('api client', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiGet('/me')
+    await apiGet('/me', z.unknown())
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Authorization']).toBe('Bearer tok123')
@@ -41,7 +43,7 @@ describe('api client', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiGet('/units')
+    await apiGet('/units', z.unknown())
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Authorization']).toBeUndefined()
@@ -51,7 +53,7 @@ describe('api client', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: '1' }, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiPost('/me/armies', { name: 'The Hollow Vigil' })
+    await apiPost('/me/armies', z.unknown(), { name: 'The Hollow Vigil' })
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.method).toBe('POST')
@@ -65,7 +67,7 @@ describe('api client', () => {
       .mockResolvedValue(jsonResponse({ access_token: 'a', token_type: 'bearer' }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiPostForm('/auth/login', { username: 'me@dominion.imp', password: 'pw' })
+    await apiPostForm('/auth/login', z.unknown(), { username: 'me@dominion.imp', password: 'pw' })
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
@@ -88,7 +90,7 @@ describe('api client', () => {
       )
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
+    await expect(apiPost('/auth/register', z.unknown(), {})).rejects.toMatchObject({
       name: 'ApiError',
       status: 409,
       code: 'CONFLICT',
@@ -114,7 +116,7 @@ describe('api client', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
+    await expect(apiPost('/auth/register', z.unknown(), {})).rejects.toMatchObject({
       status: 422,
       field: 'email', // top-level mirrors the first
       errors: [
@@ -132,7 +134,7 @@ describe('api client', () => {
       .mockResolvedValue(jsonResponse({ detail: [{ msg: 'bad' }] }, { status: 422 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(apiGet('/units/not-a-uuid')).rejects.toMatchObject({
+    await expect(apiGet('/units/not-a-uuid', z.unknown())).rejects.toMatchObject({
       name: 'ApiError',
       status: 422,
       code: undefined,
@@ -147,10 +149,37 @@ describe('api client', () => {
     const listener = vi.fn()
     const off = onUnauthorized(listener)
 
-    await expect(apiGet('/me')).rejects.toBeInstanceOf(ApiError)
+    await expect(apiGet('/me', z.unknown())).rejects.toBeInstanceOf(ApiError)
 
     expect(tokenStore.get()).toBeNull()
     expect(listener).toHaveBeenCalledOnce()
     off()
+  })
+
+  it('validates the body against the schema it was given', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 42 })))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    // Labelled with the real path, query string included, so the console line
+    // matches the request in the network tab.
+    const err = await apiGet('/units?q=vigil', z.object({ id: z.string() })).catch((e) => e)
+    expect(err).toBeInstanceOf(ResponseShapeError)
+    expect(err.path).toBe('/units?q=vigil')
+  })
+
+  it('will not return a body without a schema to check it against', () => {
+    // A compile-time guarantee, asserted where `tsc -b` sees it: if a wrapper ever
+    // grows a schema-less overload again, these directives become unused and the
+    // typecheck fails. The calls sit in a function that never runs, so no request
+    // is made.
+    const neverCalled = () => {
+      // @ts-expect-error -- schema is required
+      void apiGet('/me')
+      // @ts-expect-error -- schema is required
+      void apiPost('/me/armies', { name: 'x' })
+      // @ts-expect-error -- schema is required
+      void apiPostForm('/auth/login', { username: 'u', password: 'p' })
+    }
+    expect(neverCalled).toBeTypeOf('function')
   })
 })

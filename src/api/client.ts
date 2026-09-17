@@ -3,7 +3,9 @@
  * into a typed ApiError. Nothing else reads the token or hard-codes a path.
  * See SPEC.md → "HTTP client". */
 
-import { z } from 'zod'
+import { z, type ZodType } from 'zod'
+
+import { parsed } from './parse'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -111,7 +113,7 @@ interface RequestOptions {
   form?: Record<string, string>
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+async function request(path: string, options: RequestOptions = {}): Promise<ApiResponse<unknown>> {
   const headers: Record<string, string> = {}
 
   const token = tokenStore.get()
@@ -163,29 +165,55 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     throw new ApiError(res.status, message, code, field, errors, requestId)
   }
 
-  const data = res.status === 204 ? (undefined as T) : ((await res.json()) as T)
+  // `unknown`, not `T`: nothing has checked this body yet. The wrappers below are
+  // the only way out of this module, and every one that returns a body parses it.
+  const data: unknown = res.status === 204 ? undefined : await res.json()
   return { data, headers: res.headers }
 }
 
 // ---- Convenience wrappers (return just the body) ----
+//
+// Every wrapper that returns a body REQUIRES the schema to check it against
+// (ARCHITECTURE §2.2). This used to be a convention -- each resource function
+// remembered to `.then(parsed(...))` -- and a call site that forgot compiled fine
+// and handed the view a type nothing had checked. Now forgetting is a type error: there is
+// no signature that returns a body without a schema. A caller that genuinely wants
+// the raw body has to say so, visibly, with `z.unknown()`.
+//
+// The path in a ResponseShapeError is the real one requested, query string and
+// ids included, so the console line matches the request in the network tab.
 
-export async function apiGet<T>(path: string): Promise<T> {
-  return (await request<T>(path)).data
+async function requestParsed<T>(
+  path: string,
+  schema: ZodType<T>,
+  options: RequestOptions = {},
+): Promise<T> {
+  const { data } = await request(path, options)
+  return parsed(schema, data, path)
 }
 
-export async function apiPost<T>(path: string, json?: unknown): Promise<T> {
-  return (await request<T>(path, { method: 'POST', json })).data
+export function apiGet<T>(path: string, schema: ZodType<T>): Promise<T> {
+  return requestParsed(path, schema)
+}
+
+export function apiPost<T>(path: string, schema: ZodType<T>, json?: unknown): Promise<T> {
+  return requestParsed(path, schema, { method: 'POST', json })
 }
 
 /** POST a URL-encoded form — used only for `POST /auth/login` (OAuth2 password form). */
-export async function apiPostForm<T>(path: string, form: Record<string, string>): Promise<T> {
-  return (await request<T>(path, { method: 'POST', form })).data
+export function apiPostForm<T>(
+  path: string,
+  schema: ZodType<T>,
+  form: Record<string, string>,
+): Promise<T> {
+  return requestParsed(path, schema, { method: 'POST', form })
 }
 
-export async function apiPatch<T>(path: string, json?: unknown): Promise<T> {
-  return (await request<T>(path, { method: 'PATCH', json })).data
+export function apiPatch<T>(path: string, schema: ZodType<T>, json?: unknown): Promise<T> {
+  return requestParsed(path, schema, { method: 'PATCH', json })
 }
 
+/** No schema: a DELETE answers `204` with no body, so there is nothing to check. */
 export async function apiDelete(path: string): Promise<void> {
-  await request<void>(path, { method: 'DELETE' })
+  await request(path, { method: 'DELETE' })
 }
