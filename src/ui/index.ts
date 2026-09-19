@@ -6,6 +6,9 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button'
 export { Input } from './Input'
 export type { InputProps } from './Input'
 
+export { QuantityInput } from './QuantityInput'
+export type { QuantityInputProps } from './QuantityInput'
+
 export { Field } from './Field'
 export type { FieldProps } from './Field'
 

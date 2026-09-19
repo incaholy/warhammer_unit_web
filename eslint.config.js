@@ -26,12 +26,15 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // Calibration, not suppression. `Input` is this repo's control primitive, so
-      // a <label> wrapping one *is* associated; the plugin cannot see through a
-      // custom component. And a labelled scrollable area is a `region`, which is
+      // Calibration, not suppression. `Input` is this repo's control primitive (and
+      // `QuantityInput` wraps one), so a <label> wrapping either *is* associated;
+      // the plugin cannot see through a custom component. And a labelled scrollable area is a `region`, which is
       // a legitimate place for tabIndex={0} (a keyboard user must be able to
       // reach and scroll it -- WCAG 2.1.1).
-      'jsx-a11y/label-has-associated-control': ['error', { controlComponents: ['Input'] }],
+      'jsx-a11y/label-has-associated-control': [
+        'error',
+        { controlComponents: ['Input', 'QuantityInput'] },
+      ],
       'jsx-a11y/no-noninteractive-tabindex': [
         'error',
         { tags: [], roles: ['tabpanel', 'region'], allowExpressionValues: true },

@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 
-import { Button, Eyebrow, EmptyState, Input, Modal, Tag } from '../ui'
+import { Button, Eyebrow, EmptyState, Input, Modal, QuantityInput, Tag } from '../ui'
 import { ApiError } from '../api/client'
 import {
   useArmy,
@@ -272,15 +272,12 @@ function ArmyName({ army }: { army: Army_Read }) {
   )
 }
 
-/** How long to wait after the last keystroke before writing the amount. */
-const AMOUNT_DEBOUNCE_MS = 400
-
 /** Editable quantity for one unit in the army.
  *
- * Debounced so holding a key does not fire a request per keystroke, and mirrors
- * InventoryView's control rather than inventing a second interaction for the same
- * job. The backend rejects 0 (`amount: must be >= 1 (use remove_unit to remove)`),
- * so removal stays the Remove button's job. */
+ * The debounce, the `min` guard and the reset on a refused write all live in
+ * `QuantityInput`, shared with InventoryView's owned quantity -- the two were
+ * copies that had already drifted apart. Removal stays the Remove button's job:
+ * the backend refuses 0 with `amount: must be >= 1 (use remove_unit to remove)`. */
 function UnitAmount({
   armyId,
   unit,
@@ -291,39 +288,15 @@ function UnitAmount({
   amount: number
 }) {
   const setAmount = useSetArmyUnitAmount(armyId)
-  const [qty, setQty] = useState(String(amount))
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Re-sync from the server unless the user is mid-edit (a debounce is pending).
-  useEffect(() => {
-    if (timer.current === null) setQty(String(amount))
-  }, [amount])
-
-  useEffect(() => () => {
-    if (timer.current !== null) clearTimeout(timer.current)
-  }, [])
-
-  function onQtyChange(next: string) {
-    setQty(next)
-    const parsed = Number(next)
-    if (timer.current !== null) clearTimeout(timer.current)
-    if (next === '' || Number.isNaN(parsed) || parsed < 1) return
-    timer.current = setTimeout(() => {
-      timer.current = null
-      setAmount.mutate({ unitId: unit.id, amount: parsed })
-    }, AMOUNT_DEBOUNCE_MS)
-  }
 
   return (
     <label className={styles.qty}>
       <span className={styles.srOnly}>Quantity of {unit.unit_name}</span>
-      <Input
-        type="number"
-        min={1}
+      <QuantityInput
+        value={amount}
         className={styles.qtyInput}
-        aria-label={`Quantity of ${unit.unit_name}`}
-        value={qty}
-        onChange={(e) => onQtyChange(e.target.value)}
+        label={`Quantity of ${unit.unit_name}`}
+        onCommit={(next) => setAmount.mutateAsync({ unitId: unit.id, amount: next })}
       />
     </label>
   )

@@ -121,6 +121,40 @@ describe('InventoryView', () => {
     })
   })
 
+  it('never sends a quantity of 0, which the API refuses', async () => {
+    // `0` used to pass the client (`min={0}`, guard `< 0`), so the backend answered
+    // `amount: must be >= 1 (use remove_unit to remove)` and -- with invalidation
+    // only on the success path -- the field kept showing 0 while the server still
+    // held 3. Removal is the Remove button's job; QuantityInput's `min` is the guard.
+    renderView(OWNED)
+    const input = screen.getByLabelText('Owned quantity of Battle Sisters')
+    fireEvent.change(input, { target: { value: '0' } })
+
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('puts the stored quantity back when the API refuses an edit', async () => {
+    // The other half: an edit the server rejects must not stay on screen. Nothing
+    // else can restore it -- the stored value never changed, so no refetch follows.
+    fetchMock.mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({ detail: 'amount: must be >= 1', code: 'VALIDATION' }, { status: 400 }),
+        )
+      }
+      return Promise.resolve(jsonResponse(page(OWNED)))
+    })
+    renderView(OWNED)
+    const input = screen.getByLabelText('Owned quantity of Battle Sisters')
+    fireEvent.change(input, { target: { value: '9' } })
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true)
+    })
+    await waitFor(() => expect(input).toHaveValue(3))
+  })
+
   it('removes a unit via the remove mutation', async () => {
     renderView(OWNED)
     fireEvent.click(screen.getByRole('button', { name: 'Remove Siege Tank' }))

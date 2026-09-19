@@ -2,7 +2,7 @@
  * collapsible role sections with editable owned quantities. See SPEC.md →
  * "InventoryView". */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
@@ -13,11 +13,8 @@ import {
 import type { UserUnit_Read } from '../api/types'
 import { deriveRole, groupByRole } from '../lib/roles'
 import { pluralize } from '../lib/format'
-import { Button, EmptyState, Eyebrow, Input, Tag } from '../ui'
+import { Button, EmptyState, Eyebrow, Input, QuantityInput, Tag } from '../ui'
 import styles from './InventoryView.module.css'
-
-/** How long to wait after the last keystroke before persisting an amount. */
-const AMOUNT_DEBOUNCE_MS = 400
 
 export function InventoryView() {
   const navigate = useNavigate()
@@ -178,46 +175,17 @@ function InventoryRow({ entry }: InventoryRowProps) {
   const setAmount = useSetInventoryAmount()
   const remove = useRemoveInventoryUnit()
 
-  // Local, immediately-responsive quantity; persisted on a debounce.
-  const [qty, setQty] = useState(String(amount))
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Keep the field in sync when the server value changes (e.g. after refetch),
-  // but only when the user isn't mid-edit (no pending debounce).
-  useEffect(() => {
-    if (timer.current === null) setQty(String(amount))
-  }, [amount])
-
-  useEffect(() => {
-    return () => {
-      if (timer.current !== null) clearTimeout(timer.current)
-    }
-  }, [])
-
-  function onQtyChange(next: string) {
-    setQty(next)
-    const parsed = Number(next)
-    if (timer.current !== null) clearTimeout(timer.current)
-    if (next === '' || Number.isNaN(parsed) || parsed < 0) return
-    timer.current = setTimeout(() => {
-      timer.current = null
-      setAmount.mutate({ unitId: unit.id, amount: parsed })
-    }, AMOUNT_DEBOUNCE_MS)
-  }
-
   return (
     <li className={styles.row}>
       <span className={styles.unitName}>{unit.unit_name}</span>
       <Tag className={styles.roleTag}>{role}</Tag>
       <label className={styles.qty}>
         <span className={styles.qtyLabel}>Owned</span>
-        <Input
-          type="number"
-          min={0}
+        <QuantityInput
+          value={amount}
           className={styles.qtyInput}
-          aria-label={`Owned quantity of ${unit.unit_name}`}
-          value={qty}
-          onChange={(e) => onQtyChange(e.target.value)}
+          label={`Owned quantity of ${unit.unit_name}`}
+          onCommit={(next) => setAmount.mutateAsync({ unitId: unit.id, amount: next })}
         />
       </label>
       <Button
