@@ -85,6 +85,25 @@ describe('InventoryView', () => {
     expect(screen.queryByText('Nothing in your collection yet')).not.toBeInTheDocument()
   })
 
+  it('hands the user the request id when a load fails on the server', async () => {
+    // `request_id` used to surface only on writes: `messageWithReference` was called
+    // from the mutation cache alone, so a 500 on any GET -- the likeliest place to
+    // meet one -- showed a bare "Couldn't load your inventory." with nothing to quote.
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ detail: 'internal server error', code: 'INTERNAL' }, {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'X-Request-ID': 'req-abc123' },
+        }),
+      ),
+    )
+    renderView(null)
+
+    expect(
+      await screen.findByText('Couldn’t load your inventory. (ref: req-abc123)'),
+    ).toBeInTheDocument()
+  })
+
   it('renders the header meta from owned datasheets and total models', () => {
     renderView(OWNED)
     expect(screen.getByRole('heading', { name: 'Inventory' })).toBeInTheDocument()

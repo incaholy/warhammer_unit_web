@@ -19,6 +19,7 @@ import {
   useArmyShortfall,
 } from '../api/queries'
 import { groupByRole } from '../lib/roles'
+import { withReference } from '../lib/errors'
 import { formatPoints, pluralize, formatCreatedLabel } from '../lib/format'
 import type {
   Unit_Read,
@@ -72,8 +73,12 @@ export default function ArmyView() {
     // Only a genuine 404 is "not found"; anything else (500, network, …) is a
     // load failure. A 401 has already bounced to /login via the client.
     const notFound = armyQuery.error instanceof ApiError && armyQuery.error.code === 'NOT_FOUND'
+    // `withReference` appends the request id on a server fault and nothing
+    // otherwise, so a 404 stays clean.
     return (
-      <div className={styles.status}>{notFound ? 'Army not found' : "Couldn't load this army."}</div>
+      <div className={styles.status}>
+        {withReference(notFound ? 'Army not found' : "Couldn't load this army.", armyQuery.error)}
+      </div>
     )
   }
 
@@ -190,12 +195,12 @@ export default function ArmyView() {
         <ValidationPanel
           data={validationQuery.data}
           isPending={validationQuery.isPending}
-          isError={validationQuery.isError}
+          error={validationQuery.error}
         />
         <ShortfallPanel
           data={shortfallQuery.data}
           isPending={shortfallQuery.isPending}
-          isError={shortfallQuery.isError}
+          error={shortfallQuery.error}
         />
       </div>
     </div>
@@ -409,11 +414,11 @@ function PointsLimit({ army }: { army: Army_Read }) {
 function ValidationPanel({
   data,
   isPending,
-  isError,
+  error,
 }: {
   data: Validation_Read | undefined
   isPending: boolean
-  isError: boolean
+  error: unknown
 }) {
   return (
     <section className={styles.panel} aria-labelledby="legality-title">
@@ -422,8 +427,8 @@ function ValidationPanel({
       </h2>
       {isPending ? (
         <PanelSkeleton label="Checking legality" />
-      ) : isError || !data ? (
-        <p className={styles.panelStatus}>Validation unavailable</p>
+      ) : error || !data ? (
+        <p className={styles.panelStatus}>{withReference('Validation unavailable', error)}</p>
       ) : data.ok ? (
         <p className={styles.legal}>Legal — no issues found</p>
       ) : (
@@ -456,11 +461,11 @@ function IssueRow({ issue }: { issue: ValidationIssue_Read }) {
 function ShortfallPanel({
   data,
   isPending,
-  isError,
+  error,
 }: {
   data: Shortfall_Read[] | undefined
   isPending: boolean
-  isError: boolean
+  error: unknown
 }) {
   const needed = (data ?? []).filter((row) => row.need > 0)
 
@@ -471,8 +476,8 @@ function ShortfallPanel({
       </h2>
       {isPending ? (
         <PanelSkeleton label="Checking your collection" />
-      ) : isError || !data ? (
-        <p className={styles.panelStatus}>Shortfall unavailable</p>
+      ) : error || !data ? (
+        <p className={styles.panelStatus}>{withReference('Shortfall unavailable', error)}</p>
       ) : needed.length === 0 ? (
         <p className={styles.legal}>Nothing needed — your collection covers it</p>
       ) : (

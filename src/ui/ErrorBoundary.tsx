@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { withReference } from '../lib/errors'
 
 interface Props {
   children: ReactNode
@@ -6,15 +7,16 @@ interface Props {
 
 interface State {
   hasError: boolean
+  error: unknown
 }
 
 /** Catches render/lifecycle errors in the tree below it and shows a fallback
  * instead of a blank white screen. Wrapped near the app root. */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false }
+  state: State = { hasError: false, error: null }
 
-  static getDerivedStateFromError(): State {
-    return { hasError: true }
+  static getDerivedStateFromError(error: unknown): State {
+    return { hasError: true, error }
   }
 
   componentDidCatch(error: unknown): void {
@@ -39,7 +41,9 @@ export class ErrorBoundary extends Component<Props, State> {
               marginTop: 12,
             }}
           >
-            An unexpected error occurred
+            {/* Keeps the caught error rather than discarding it: when it carries a
+                request id, this is the one string that finds the log line. */}
+            {withReference('An unexpected error occurred', this.state.error)}
           </p>
           <button
             onClick={() => window.location.reload()}

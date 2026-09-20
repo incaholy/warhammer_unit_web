@@ -11,6 +11,7 @@ import {
 import { useArmies, useFactions } from '../api/queries'
 import type { Army_Read } from '../api/types'
 import { formatArmiesMeta, formatPoints, pluralize } from '../lib/format'
+import { withReference } from '../lib/errors'
 import { NewArmyModal } from './NewArmyModal'
 import styles from './CollectionView.module.css'
 
@@ -148,7 +149,7 @@ export function CollectionView() {
       ) : armiesQuery.isError ? (
         <EmptyState
           message="Could not load your armies."
-          sub="Please try again"
+          sub={withReference('Please try again', armiesQuery.error)}
         />
       ) : armies.length === 0 ? (
         <EmptyState

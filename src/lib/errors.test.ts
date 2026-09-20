@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { ApiError } from '../api/client'
-import { CODE_MESSAGES, fieldErrors, messageForError } from './errors'
+import { CODE_MESSAGES, fieldErrors, messageForError, withReference } from './errors'
 
 describe('messageForError', () => {
   it('prefers the ApiError message (the backend detail)', () => {
@@ -56,5 +56,28 @@ describe('fieldErrors', () => {
     ])
     expect(fieldErrors(err)).toEqual({})
     expect(fieldErrors(new Error('boom'))).toEqual({})
+  })
+})
+
+describe('withReference', () => {
+  it('appends the reference to the caller\'s own copy on a server fault', () => {
+    // The read paths keep their wording -- "internal server error" is worse copy
+    // than "Couldn\u2019t load your inventory." -- and still hand over the id.
+    const fault = new ApiError(500, 'internal server error', 'INTERNAL', undefined, undefined, 'req-abc123')
+    expect(withReference('Couldn\u2019t load your inventory.', fault)).toBe(
+      'Couldn\u2019t load your inventory. (ref: req-abc123)',
+    )
+  })
+
+  it('adds nothing to a 404, which the user can act on', () => {
+    const missing = new ApiError(404, 'army not found', 'NOT_FOUND', undefined, undefined, 'req-abc123')
+    expect(withReference('Army not found', missing)).toBe('Army not found')
+  })
+
+  it('adds nothing when there is no id, or the value is not an ApiError', () => {
+    const noId = new ApiError(503, 'unavailable', 'INTERNAL')
+    expect(withReference('Army not found', noId)).toBe('Army not found')
+    expect(withReference('Something went wrong', new Error('boom'))).toBe('Something went wrong')
+    expect(withReference('Something went wrong', null)).toBe('Something went wrong')
   })
 })

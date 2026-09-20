@@ -13,12 +13,13 @@ import {
 import type { UserUnit_Read } from '../api/types'
 import { deriveRole, groupByRole } from '../lib/roles'
 import { pluralize } from '../lib/format'
+import { withReference } from '../lib/errors'
 import { Button, EmptyState, Eyebrow, Input, QuantityInput, Tag } from '../ui'
 import styles from './InventoryView.module.css'
 
 export function InventoryView() {
   const navigate = useNavigate()
-  const { data: inventory, isLoading, isError } = useInventory()
+  const { data: inventory, isLoading, isError, error } = useInventory()
   const [query, setQuery] = useState('')
 
   const owned = useMemo(() => inventory?.items ?? [], [inventory])
@@ -71,7 +72,7 @@ export function InventoryView() {
       {isLoading ? (
         <InventorySkeleton />
       ) : isError ? (
-        <p className={styles.status}>Couldn’t load your inventory.</p>
+        <p className={styles.status}>{withReference('Couldn’t load your inventory.', error)}</p>
       ) : owned.length === 0 ? (
         <EmptyState
           message="Nothing in your collection yet"

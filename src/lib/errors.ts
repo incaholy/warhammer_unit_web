@@ -45,6 +45,22 @@ export function messageForError(err: unknown, fallback: string = GENERIC): strin
   return err.code ? CODE_MESSAGES[err.code] : fallback
 }
 
+/** Append the quotable reference to copy the CALLER owns.
+ *
+ * For the read paths, where the view's own wording ("Couldn’t load your
+ * inventory.") is better copy than the backend’s `detail` for a 500 ("internal
+ * server error"), but the reference is just as necessary. Reads are queries, so
+ * they never reach the mutation cache that appends it for writes -- which left the
+ * id populated on every error and surfaced on none of the GETs.
+ *
+ * Only for server faults (5xx): a 404 or a 409 is the user’s to act on, and an
+ * opaque id on "Army not found" is noise. Returns the message unchanged when there
+ * is nothing to add, so callers can wrap unconditionally. */
+export function withReference(message: string, err: unknown): string {
+  if (!(err instanceof ApiError) || err.status < 500 || !err.requestId) return message
+  return `${message} (ref: ${err.requestId})`
+}
+
 /** A reference a user can quote, for failures they would need to report.
  *
  * Only for server faults (5xx). A 409 or a 422 is something the user can act on
@@ -54,9 +70,7 @@ export function messageForError(err: unknown, fallback: string = GENERIC): strin
  *
  * Returns the message unchanged when there is nothing to add. */
 export function messageWithReference(err: unknown, fallback: string = GENERIC): string {
-  const message = messageForError(err, fallback)
-  if (!(err instanceof ApiError) || err.status < 500 || !err.requestId) return message
-  return `${message} (ref: ${err.requestId})`
+  return withReference(messageForError(err, fallback), err)
 }
 
 /** Map of backend field name → message, from an error's `errors[]` array — so a
