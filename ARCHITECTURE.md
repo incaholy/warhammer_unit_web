@@ -58,7 +58,7 @@ proxy test.
 
 The payoff is the same one the backend gets from `API → service → DB`: when the transport changes,
 few places change. The `roadmap` branch is the evidence. Moving every route under `/api/v1` touched
-**one line of application code** (`src/api/client.ts:14`), because no view, hook, or resource module
+**one line of application code** (`API_PREFIX` in `src/api/client.ts`), because no view, hook, or resource module
 knows a path prefix exists. It also touched `vite.config.ts`, where an eight-entry proxy list
 collapsed to one, and the resource tests that assert outgoing URLs. That the app layer was a
 one-line change is the win; that the proxy had to change separately is the subject of §2.5.
@@ -69,13 +69,13 @@ one-line change is the win; that the proxy had to change separately is the subje
 `src/auth/`. (Bare `fetch` only, not `window.fetch`.)
 
 The rule holds in the code today, and I checked rather than assumed: there is **exactly one `fetch`
-call site** in non-test source (`src/api/client.ts:114`), no view or UI component calls `fetch`, and
+call site** in non-test source (`request` in `src/api/client.ts`), no view or UI component calls `fetch`, and
 no view imports a resource module directly. The only `src/api/` imports in `src/views/` are types and
 the `ApiError` class, which are not data access.
 
 *(Historic, now closed by F3.)* What kept it from `Holds` was that **nothing enforced it**. ESLint had no import-boundary rule
 (`eslint.config.js` extends the recommended presets and nothing else), so a view could import
-`apiGet` directly, or call `fetch`, and lint, build, and all 156 tests would stay green.
+`apiGet` directly, or call `fetch`, and lint, build, and the whole suite would stay green.
 
 This is worth comparing to the backend, which had the identical situation and closed it: the layering
 rule there is now a machine-checked contract that fails CI when broken. The frontend has a direct
@@ -94,10 +94,9 @@ A single module owns the base URL, the `/api/v1` prefix, the `Authorization` hea
 encoding, 204 handling, and turning a non-2xx response into a typed `ApiError`. Nothing else reads
 the token or hard-codes a path prefix.
 
-The `tokenStore` object (`src/api/client.ts:19`) is the only code that touches `localStorage` **for
+The `tokenStore` object (`src/api/client.ts`) is the only code that touches `localStorage` **for
 the token**, so the session-storage decision has one place to change if it ever becomes an httpOnly
-cookie. Note that `localStorage` itself is not confined to this module: `src/views/CollectionView.tsx:29`
-and `:86` read and write a layout preference directly. That is benign data and a defensible use, but
+cookie. Note that `localStorage` itself is not confined to this module: `src/views/CollectionView.tsx` reads and writes a layout preference (`LAYOUT_KEY`) directly. That is benign data and a defensible use, but
 it means the confinement rule as usually stated ("only the client touches storage") is already not
 true, and any enforcement has to be written for the token specifically.
 
@@ -119,7 +118,7 @@ drift. Objects are non-strict, so a field the backend adds is ignored rather tha
 Structural, not by convention: the body-returning helpers in `src/api/client.ts` require a schema,
 so a call that skips validation fails the typecheck.
 
-The **error** path does this correctly and it is a genuine improvement: `src/api/client.ts:132` parses
+The **error** path does this correctly and it is a genuine improvement: `request`'s non-2xx branch in `src/api/client.ts` parses
 the error body with a zod schema via `safeParse`, so a wrong shape degrades to the status-derived
 message instead of propagating a lie. The `code` field uses `.catch(undefined)` so an unknown future
 error code from the backend degrades gracefully rather than failing the whole parse. That is a
@@ -167,7 +166,7 @@ message is copy, and copy changes.
 
 **Status: Holds**, for the completeness half, which is the part that is enforced.
 
-`src/lib/errors.ts:10` declares `CODE_MESSAGES` as `Record<ErrorCode, string>`. Because `ErrorCode` is
+`src/lib/errors.ts` declares `CODE_MESSAGES` as `Record<ErrorCode, string>`. Because `ErrorCode` is
 a union of the known codes, **adding a code to the union without adding a message fails the
 typecheck**, and the typecheck gates `npm run build`. Verified rather than assumed: adding a code
 without a message makes the build exit 2 with `TS2741`. That is a real structural guarantee,
@@ -175,7 +174,7 @@ not a convention, and it is the pattern worth copying into the rest of the codeb
 this is the only `Holds` in the document.
 
 Two honest caveats that do not change the marker but are worth knowing. The `ErrorCode` union
-(`src/api/client.ts:46`, over the `ERROR_CODES` array at `:37`) is hand-mirrored from the backend's
+(`ErrorCode`, over the `ERROR_CODES` array in `src/api/client.ts`) is hand-mirrored from the backend's
 enum rather than derived from the
 generated schema, so it is a second place backend knowledge lives (see F2). And nothing forces a view
 to branch on `code` rather than `message`; that half remains convention.
@@ -195,9 +194,9 @@ worth naming, because it means the dev proxy is the fragile half and the half no
 **Status: Holds** — `src/api/devProxy.test.ts` reads the proxy patterns from `vite.config.ts` and the
 URL the client actually emits, and asserts the agreement. Verified by changing the proxy key alone.
 
-The two agree today: `vite.config.ts` forwards `/api` and `src/api/client.ts:14`
+The two agree today: `vite.config.ts` forwards `/api` and `API_PREFIX`
 sends `/api/v1`. Half of that is genuinely enforced, since the resource tests assert the exact
-outgoing URL (for example `src/api/inventory.test.ts:21` expects `/api/v1/me/inventory`), so changing
+outgoing URL (for example `src/api/inventory.test.ts` expects `/api/v1/me/inventory`), so changing
 the client's prefix breaks the suite.
 
 *(Historic, now closed.)* The **agreement** was not enforced: nothing read `vite.config.ts`, and `API_PREFIX` is referenced
@@ -332,10 +331,13 @@ than on a mock's return value. Stubbing at the transport boundary (`fetch`) rath
 modules under test is deliberate and correct: it means a test proves the app sends the request it
 claims to send.
 
-**Status: Partial.** 34 test files and 186 tests pass, spanning the client, every resource module,
-auth, routing, the UI kit, and every view. One thin spot is worth naming rather than glossing: four UI
-primitives (`Eyebrow`, `Field`, `Input`, `Toast`) have no test file. Coverage now has a threshold
-floor (`vite.config.ts`, §8), so a module shipping untested fails the build.
+**Status: Partial.** The suite spans the client, every resource module, auth, routing, the UI kit,
+and every view. Deliberately no test counts here: they were wrong within a commit of being written
+twice, and a number nobody can trust is worse than no number. `npm test` prints the real one, and
+coverage has a threshold floor (`vite.config.ts`, §8) that fails the build when a module ships
+untested — an enforced floor is the claim worth making in a document. The thin spot worth naming is
+that the two primitives with no behaviour of their own (`Eyebrow`, `Input`) have no test file; the
+ones that do — including `Field`, `Toast` and the shared `QuantityInput` — are covered.
 
 The structural gap is what transport stubbing cannot see. **A stub answers whatever the test author
 expected, so a test suite mocking `fetch` can be fully green against a contract the real backend does
@@ -347,8 +349,9 @@ The generated schema (§2.3) is the missing half of the answer, and a contract c
 suite against the real OpenAPI document is the other. See
 [ROADMAP F4](ROADMAP.md#f4-test-against-the-real-contract).
 
-Also absent: any coverage threshold, and any end-to-end test. `SPEC.md` already lists a Playwright
-smoke test as deferred, so that is a known gap rather than an oversight.
+Also absent: any end-to-end test. `SPEC.md` already lists a Playwright smoke test as deferred, so
+that is a known gap rather than an oversight. (The coverage threshold this sentence used to call
+absent landed in F8 — see §8.)
 
 ---
 
