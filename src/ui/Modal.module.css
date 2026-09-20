@@ -59,3 +59,11 @@
 .body {
   padding: 22px;
 }
+
+/* The dialog's `aria-describedby` target. Styled like the confirm copy it
+   replaces, so nothing moves visually. */
+.description {
+  margin: 0 0 20px;
+  color: var(--faint);
+  line-height: 1.6;
+}

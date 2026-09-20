@@ -139,12 +139,6 @@
   margin-top: 12px;
 }
 
-.confirmBody {
-  margin: 0 0 20px;
-  color: var(--faint);
-  line-height: 1.6;
-}
-
 .confirmActions {
   display: flex;
   justify-content: flex-end;

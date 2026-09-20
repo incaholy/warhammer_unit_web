@@ -74,6 +74,34 @@ describe('Modal', () => {
     )
   })
 
+  it('describes the dialog with its description, so the consequence is announced', () => {
+    // A confirm dialog used to announce only its title and buttons; the sentence
+    // saying what would be removed was body text nothing pointed at.
+    render(
+      <Modal
+        open
+        onClose={() => {}}
+        title="Delete this army?"
+        description="Vigil Host and its order of battle will be removed. This cannot be undone."
+      >
+        <button>Delete</button>
+      </Modal>,
+    )
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleDescription(
+      'Vigil Host and its order of battle will be removed. This cannot be undone.',
+    )
+  })
+
+  it('has no description when none is given, so a form body is not read as one', () => {
+    render(
+      <Modal open onClose={() => {}} title="New army">
+        <input aria-label="Name" />
+      </Modal>,
+    )
+    expect(screen.getByRole('dialog')).not.toHaveAttribute('aria-describedby')
+  })
+
   it('moves focus to the first focusable element on open', () => {
     render(
       <Modal open onClose={() => {}} title="New Army">

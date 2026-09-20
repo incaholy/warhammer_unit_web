@@ -184,6 +184,18 @@ describe('ArmyView', () => {
     await waitFor(() => expect(deleted.some((u) => u.endsWith('/me/armies/a1'))).toBe(true))
   })
 
+  it('announces what deleting removes, with the dialog', async () => {
+    stubFetch(ARMY)
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Army' }))
+
+    expect(screen.getByRole('dialog', { name: /Delete this army/i })).toHaveAccessibleDescription(
+      /Vigil Host and its order of battle will be removed\. This cannot be undone\./,
+    )
+  })
+
   it('keeps the army when the confirmation is dismissed', async () => {
     const deleted: string[] = []
     stubFetch(ARMY, { onDelete: (url) => deleted.push(url) })

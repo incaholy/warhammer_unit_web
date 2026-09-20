@@ -123,15 +123,17 @@ export default function ArmyView() {
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
         title="Delete this army?"
+        // Passed as the dialog's description rather than rendered as body copy, so
+        // `aria-describedby` reaches it: the consequence is read with the title
+        // instead of being text a screen-reader user has to go looking for.
+        description={`${army.name} and its order of battle will be removed. This cannot be undone.`}
       >
-        <p className={styles.confirmBody}>
-          {army.name} and its order of battle will be removed. This cannot be undone.
-        </p>
         <div className={styles.confirmActions}>
           <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
             Cancel
           </Button>
           <Button
+            variant="danger"
             onClick={() => deleteArmy.mutate(army.id, { onSuccess: () => navigate('/') })}
             disabled={deleteArmy.isPending}
           >

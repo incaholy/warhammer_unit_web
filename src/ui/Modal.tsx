@@ -6,6 +6,14 @@ export interface ModalProps {
   open: boolean
   onClose: () => void
   title?: ReactNode
+  /** The consequence or explanation a screen reader should hear with the title.
+   *
+   *  Rendered above the body and wired to `aria-describedby`, which the dialog
+   *  previously had none of: a confirm dialog announced "Delete this army?" and its
+   *  buttons, while the sentence saying what that removes -- and that it cannot be
+   *  undone -- was just text in the body that nothing pointed at. Optional, because
+   *  pointing it at a form body would read the inputs as a description. */
+  description?: ReactNode
   children?: ReactNode
 }
 
@@ -23,10 +31,11 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
  *  dialog, moves focus to the first focusable element in the body (falling back
  *  to the card) on open, and restores focus to the previously-focused element on
  *  close. */
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, description, children }: ModalProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  const descriptionId = useId()
 
   // Escape to close.
   useEffect(() => {
@@ -119,6 +128,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : 'Dialog'}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
       >
         {title && (
@@ -137,6 +147,11 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
           </div>
         )}
         <div ref={bodyRef} className={styles.body}>
+          {description && (
+            <p id={descriptionId} className={styles.description}>
+              {description}
+            </p>
+          )}
           {children}
         </div>
       </div>
