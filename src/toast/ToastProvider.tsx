@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Toast } from '../ui'
-import { emitToast, onToast, type ToastTone } from './toastBus'
+import { emitToast, onToast, type ToastEvent, type ToastTone } from './toastBus'
 
 interface ToastApi {
   showToast: (message: string, tone?: ToastTone) => void
@@ -19,14 +19,17 @@ const TOAST_MS = 3200
 /** Subscribes to the toast bus, shows one transient message at a time (the latest
  * wins), and renders the UI-kit Toast. Mounted once near the app root. */
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [message, setMessage] = useState<string | null>(null)
+  // The whole event, not just its message: the tone travelled all the way from
+  // `emitToast(msg, 'error')` and used to be dropped here, so a failed delete
+  // rendered the same pill as "Army created".
+  const [toast, setToast] = useState<ToastEvent | null>(null)
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const off = onToast((event) => {
-      setMessage(event.message)
+      setToast(event)
       clearTimeout(timer)
-      timer = setTimeout(() => setMessage(null), TOAST_MS)
+      timer = setTimeout(() => setToast(null), TOAST_MS)
     })
     return () => {
       off()
@@ -39,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <Toast message={message ?? ''} visible={message !== null} />
+      <Toast message={toast?.message ?? ''} visible={toast !== null} tone={toast?.tone} />
     </ToastContext.Provider>
   )
 }
