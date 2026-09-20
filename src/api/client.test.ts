@@ -11,7 +11,13 @@ import {
 } from './client'
 import { ResponseShapeError } from './parse'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+/** Deliberately UNTYPED, unlike `src/test/fixtures.ts`'s `jsonResponse`, and named
+ *  differently so the difference is visible at each call site. This file tests the
+ *  client itself: most of its bodies are error shapes the generated schema never
+ *  describes, or malformed on purpose (`{ id: 42 }` against a string schema). The
+ *  typed fixture exists to stop a stub faking a real response shape; here the point
+ *  IS to hand over something the API would not send. */
+function rawResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -30,7 +36,7 @@ describe('api client', () => {
 
   it('attaches a Bearer token when one is stored', async () => {
     tokenStore.set('tok123')
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 
     await apiGet('/me', z.unknown())
@@ -40,7 +46,7 @@ describe('api client', () => {
   })
 
   it('omits Authorization when no token is stored', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({}))
     vi.stubGlobal('fetch', fetchMock)
 
     await apiGet('/units', z.unknown())
@@ -50,7 +56,7 @@ describe('api client', () => {
   })
 
   it('sends a JSON body with the JSON content-type on POST', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: '1' }, { status: 201 }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ id: '1' }, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await apiPost('/me/armies', z.unknown(), { name: 'The Hollow Vigil' })
@@ -64,7 +70,7 @@ describe('api client', () => {
   it('form-encodes the login body (OAuth2 password form)', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ access_token: 'a', token_type: 'bearer' }))
+      .mockResolvedValue(rawResponse({ access_token: 'a', token_type: 'bearer' }))
     vi.stubGlobal('fetch', fetchMock)
 
     await apiPostForm('/auth/login', z.unknown(), { username: 'me@dominion.imp', password: 'pw' })
@@ -86,7 +92,7 @@ describe('api client', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        jsonResponse({ detail: 'email already taken', code: 'CONFLICT', field: 'email' }, { status: 409 }),
+        rawResponse({ detail: 'email already taken', code: 'CONFLICT', field: 'email' }, { status: 409 }),
       )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -101,7 +107,7 @@ describe('api client', () => {
 
   it('carries the full errors[] array for a multi-field validation (R9/C)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse(
+      rawResponse(
         {
           detail: 'value is not a valid email address',
           code: 'REQUEST_VALIDATION',
@@ -131,7 +137,7 @@ describe('api client', () => {
     // status-derived string message (never "[object Object]") and no code.
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ detail: [{ msg: 'bad' }] }, { status: 422 }))
+      .mockResolvedValue(rawResponse({ detail: [{ msg: 'bad' }] }, { status: 422 }))
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(apiGet('/units/not-a-uuid', z.unknown())).rejects.toMatchObject({
@@ -144,7 +150,7 @@ describe('api client', () => {
 
   it('clears the token and notifies listeners on 401', async () => {
     tokenStore.set('stale')
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'unauthorized' }, { status: 401 }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ detail: 'unauthorized' }, { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)
     const listener = vi.fn()
     const off = onUnauthorized(listener)
@@ -157,7 +163,7 @@ describe('api client', () => {
   })
 
   it('validates the body against the schema it was given', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ id: 42 })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(rawResponse({ id: 42 })))
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Labelled with the real path, query string included, so the console line
