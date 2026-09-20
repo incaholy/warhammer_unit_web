@@ -49,10 +49,6 @@ export interface Page<T> {
   offset: number
 }
 
-/** Inventory and army rows are both a catalog unit plus an amount — the same
- * shape from either list. */
-export type UnitEntry_Read = UserUnit_Read
-
 /** `POST …/units` and `POST /me/inventory` bodies. The backend has one schema per
  * endpoint (ArmyUnitAdd / InventoryAdd), identical in shape. */
 export interface UnitAdd {

@@ -1,18 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Toast } from '../ui'
-import { emitToast, onToast, type ToastEvent, type ToastTone } from './toastBus'
-
-interface ToastApi {
-  showToast: (message: string, tone?: ToastTone) => void
-}
-
-const ToastContext = createContext<ToastApi>({ showToast: emitToast })
-
-/** Imperative toast access for components (e.g. a view firing its own message). */
-// eslint-disable-next-line react-refresh/only-export-components
-export function useToast(): ToastApi {
-  return useContext(ToastContext)
-}
+import { onToast, type ToastEvent } from './toastBus'
 
 const TOAST_MS = 3200
 
@@ -37,12 +25,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const showToast = useCallback((msg: string, tone?: ToastTone) => emitToast(msg, tone), [])
-
+  // No context and no `useToast`: there is nothing to provide. A component that
+  // wants to raise its own toast calls `emitToast` from the bus, which is how the
+  // mutation cache does it and needs no React at all. The hook that used to live
+  // here had zero call sites and an `eslint-disable` keeping it lintable.
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <>
       {children}
       <Toast message={toast?.message ?? ''} visible={toast !== null} tone={toast?.tone} />
-    </ToastContext.Provider>
+    </>
   )
 }

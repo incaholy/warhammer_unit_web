@@ -100,11 +100,6 @@ export class ApiError extends Error {
   }
 }
 
-export interface ApiResponse<T> {
-  data: T
-  headers: Headers
-}
-
 interface RequestOptions {
   method?: string
   /** JSON request body (default encoding). */
@@ -113,7 +108,7 @@ interface RequestOptions {
   form?: Record<string, string>
 }
 
-async function request(path: string, options: RequestOptions = {}): Promise<ApiResponse<unknown>> {
+async function request(path: string, options: RequestOptions = {}): Promise<unknown> {
   const headers: Record<string, string> = {}
 
   const token = tokenStore.get()
@@ -167,8 +162,9 @@ async function request(path: string, options: RequestOptions = {}): Promise<ApiR
 
   // `unknown`, not `T`: nothing has checked this body yet. The wrappers below are
   // the only way out of this module, and every one that returns a body parses it.
-  const data: unknown = res.status === 204 ? undefined : await res.json()
-  return { data, headers: res.headers }
+  // Just the body: the `{ data, headers }` envelope this used to return existed for
+  // a `total` that now travels in the body (R4), and no caller read `headers`.
+  return res.status === 204 ? undefined : await res.json()
 }
 
 // ---- Convenience wrappers (return just the body) ----
@@ -188,8 +184,7 @@ async function requestParsed<T>(
   schema: ZodType<T>,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { data } = await request(path, options)
-  return parsed(schema, data, path)
+  return parsed(schema, await request(path, options), path)
 }
 
 export function apiGet<T>(path: string, schema: ZodType<T>): Promise<T> {

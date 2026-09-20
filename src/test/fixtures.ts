@@ -138,30 +138,6 @@ export function makeFacets(over: Partial<UnitFacets> = {}): UnitFacets {
   return { total: 0, by_faction: {}, ...over }
 }
 
-export function makeWeapon(over: Partial<Weapon_Read> = {}): Weapon_Read {
-  return {
-    id: 'w1',
-    name: 'Bolt rifle',
-    category: 'range',
-    keywords: [],
-    range_inches: 24,
-    attacks: '2',
-    weapon_skill: 3,
-    strength: 4,
-    armor_piercing: 1,
-    damage: '1',
-    ...over,
-  }
-}
-
-export function makeAbility(over: Partial<Ability_Read> = {}): Ability_Read {
-  return { id: 'ab1', name: 'Oath of Moment', description: 'reroll', ...over }
-}
-
-export function makeShortfall(over: Partial<Shortfall_Read> = {}): Shortfall_Read {
-  return { unit: makeUnit(), in_list: 1, owned: 0, need: 1, ...over }
-}
-
 export function makeValidation(over: Partial<Validation_Read> = {}): Validation_Read {
   return { ok: true, points_total: 0, points_limit: null, issues: [], ...over }
 }
