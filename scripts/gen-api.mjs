@@ -197,5 +197,38 @@ const body = emitted
   .map((name) => `export const ${name} = ${zodFor(schemas[name])}\n`)
   .join('\n')
 
-writeFileSync(ZOD_OUT, `${header}\n${body}`)
-console.log(`Generating ${ZOD_OUT} from the same document (${emitted.length} response schemas)`)
+/* The backend's cap on `limit`, read from the document rather than copied.
+ *
+ * `src/api/paging.ts` walks a collection at the largest page the API allows, and
+ * that number was hand-mirrored from the backend's `MAX_LIMIT`. A silent drift
+ * there means every walk 422s (if the cap dropped) or does more requests than it
+ * needs (if it rose) -- and the value is published, so mirroring it by hand was the
+ * one thing this script exists to avoid. Every paged operation declares the same
+ * parameter; disagreement means the assumption is wrong, so it fails loudly here
+ * rather than picking one silently. */
+const limitMaxima = new Set()
+for (const methods of Object.values(doc.paths ?? {})) {
+  for (const op of Object.values(methods)) {
+    for (const param of op?.parameters ?? []) {
+      if (param?.name === 'limit' && param?.schema?.maximum !== undefined) {
+        limitMaxima.add(param.schema.maximum)
+      }
+    }
+  }
+}
+if (limitMaxima.size !== 1) {
+  console.error(
+    `\nExpected one \`limit\` maximum across the document, found ${limitMaxima.size}: ` +
+      `${[...limitMaxima].join(', ')}. src/api/paging.ts assumes one cap for every list.\n`,
+  )
+  process.exit(1)
+}
+const [limitMax] = limitMaxima
+const constants = `/** The largest \`limit\` any list endpoint accepts (the backend's \`MAX_LIMIT\`). */
+export const PAGE_LIMIT_MAX = ${limitMax}
+`
+
+writeFileSync(ZOD_OUT, `${header}\n${constants}\n${body}`)
+console.log(
+  `Generating ${ZOD_OUT} from the same document (${emitted.length} response schemas, PAGE_LIMIT_MAX=${limitMax})`,
+)

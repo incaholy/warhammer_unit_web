@@ -7,6 +7,9 @@
 
 import { z } from 'zod'
 
+/** The largest `limit` any list endpoint accepts (the backend's `MAX_LIMIT`). */
+export const PAGE_LIMIT_MAX = 200
+
 export const User_Read = z.object({
     "id": z.string(),
     "username": z.string(),

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fetchAllPages, toQueryString } from './paging'
+import { fetchAllPages, IncompleteCollectionError, toQueryString } from './paging'
+import { PAGE_LIMIT_MAX } from './schemas.gen'
 import { makeUserUnit, makeUnit, page } from '../test/fixtures'
 import type { Page, UserUnit_Read } from './types'
 
@@ -36,20 +37,39 @@ describe('fetchAllPages', () => {
     expect(new Set(result.items.map((e) => e.unit.id)).size).toBe(437) // no repeats
   })
 
-  it('stops instead of looping when a page comes back empty', async () => {
+  it('stops instead of looping when a page comes back empty, and reports what it holds', async () => {
     // Defensive: a collection shrinking mid-walk would otherwise never reach
     // `total` and spin to the request cap. Two calls, not one -- the first is the
-    // initial fetch, the second is the iteration that sees empty and breaks.
+    // initial fetch, the second is the iteration that sees empty and breaks. The
+    // `total` returned is what we actually have: the server's 999 is already stale,
+    // and a count nothing adds up to is the defect this module exists to prevent.
     const fetchPage = vi.fn(async () => page<UserUnit_Read>([], { total: 999 }))
     const result = await fetchAllPages(fetchPage)
     expect(result.items).toHaveLength(0)
+    expect(result.total).toBe(0)
     expect(fetchPage).toHaveBeenCalledTimes(2)
   })
 
-  it('requests the backend cap, not the server default', async () => {
+  it('throws rather than returning a short collection with the full total', async () => {
+    // The request ceiling used to return quietly: 20,000 rows of a claimed 25,000,
+    // and every aggregate over them silently wrong -- the same "count disagrees with
+    // rows in hand" shape as the original bug, three orders of magnitude out.
+    const { fetchPage } = endpoint(PAGE_LIMIT_MAX * 100 + 1)
+
+    await expect(fetchAllPages(fetchPage)).rejects.toBeInstanceOf(IncompleteCollectionError)
+    await expect(fetchAllPages(fetchPage)).rejects.toMatchObject({
+      total: PAGE_LIMIT_MAX * 100 + 1,
+      fetched: PAGE_LIMIT_MAX * 100,
+    })
+  })
+
+  it('requests the cap published by the API, not a hand-copied number', async () => {
+    // PAGE_LIMIT_MAX is generated from openapi.json (the `limit` parameter's
+    // maximum), so a backend cap change reaches this without anyone editing it.
     const { fetchPage } = endpoint(5)
     await fetchAllPages(fetchPage)
-    expect(fetchPage).toHaveBeenCalledWith({ limit: 200, offset: 0 })
+    expect(fetchPage).toHaveBeenCalledWith({ limit: PAGE_LIMIT_MAX, offset: 0 })
+    expect(PAGE_LIMIT_MAX).toBe(200)
   })
 })
 
