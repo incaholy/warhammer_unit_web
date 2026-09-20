@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { queryKeys, useUnits, useCreateArmy } from './queries'
-import { jsonResponse, makeArmy, makeUnit, page } from '../test/fixtures'
+import { queryKeys, useUnits, useCreateArmy, useAddInventoryUnit } from './queries'
+import { jsonResponse, makeArmy, makeUnit, makeUserUnit, page } from '../test/fixtures'
 
 
 function makeWrapper() {
@@ -98,15 +98,26 @@ describe('invalidation covers the edges F10 added', () => {
     // inventory membership, so what the user owns became an INPUT to those
     // queries. That edge went into the data graph without going into the
     // invalidation graph.
-    const { client } = makeWrapper()
+    //
+    // Driven through the real mutation hook, not by invalidating a prefix by hand:
+    // what is under test is that `invalidateInventory` names the right prefixes.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(makeUserUnit())))
+    const { client, wrapper } = makeWrapper()
     client.setQueryData(queryKeys.units({ owned: true }), page([makeUnit()]))
     client.setQueryData(queryKeys.unitFacets({ owned: true }), { total: 1, by_faction: {} })
+    client.setQueryData(queryKeys.unit('u1'), makeUnit({ id: 'u1' }))
     client.setQueryData(queryKeys.inventory, page([]))
 
-    await client.invalidateQueries({ queryKey: queryKeys.allUnits })
+    const { result } = renderHook(() => useAddInventoryUnit(), { wrapper })
+    result.current.mutate({ unit_id: 'u1' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(client.getQueryState(queryKeys.units({ owned: true }))?.isInvalidated).toBe(true)
     expect(client.getQueryState(queryKeys.unitFacets({ owned: true }))?.isInvalidated).toBe(true)
+    expect(client.getQueryState(queryKeys.inventory)?.isInvalidated).toBe(true)
+    // …but a datasheet owes nothing to the inventory, so it is left alone. This is
+    // what invalidating all of `['units']` could not express.
+    expect(client.getQueryState(queryKeys.unit('u1'))?.isInvalidated).toBe(false)
   })
 })
 

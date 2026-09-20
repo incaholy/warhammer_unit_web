@@ -52,12 +52,14 @@ import type {
 export const queryKeys = {
   /** Prefix matching every armies query — the list, every detail, and their children. */
   allArmies: ['armies'] as const,
-  /** Prefix matching every units query — lists, details, and the facets rail. */
-  allUnits: ['units'] as const,
   armies: ['armies', 'list'] as const,
   army: (id: UUID) => ['armies', 'detail', id] as const,
   armyShortfall: (id: UUID) => ['armies', 'detail', id, 'shortfall'] as const,
   armyValidation: (id: UUID) => ['armies', 'detail', id, 'validate'] as const,
+  /** Prefix matching every unit LIST, whatever its filters. */
+  allUnitLists: ['units', 'list'] as const,
+  /** Prefix matching every facets query, whatever its filters. */
+  allUnitFacets: ['units', 'facets'] as const,
   units: (filters: ListUnitsParams = {}) => ['units', 'list', filters] as const,
   unitFacets: (filters: UnitFacetsParams = {}) => ['units', 'facets', filters] as const,
   unit: (id: UUID) => ['units', 'detail', id] as const,
@@ -249,7 +251,13 @@ function invalidateInventory(qc: ReturnType<typeof useQueryClient>): void {
   // added to the invalidation graph. Invisible today only because `staleTime` is
   // 0 and everything refetches on mount -- it becomes a stale render the moment
   // anyone sets one.
-  qc.invalidateQueries({ queryKey: queryKeys.allUnits })
+  //
+  // Lists and facets, not all of `['units']`: a unit's DETAIL (`['units','detail',
+  // id]`) is the datasheet, which owes nothing to the inventory. Filters live inside
+  // each key, so these two prefixes are as narrow as the shape allows -- an
+  // unfiltered list refetching too is the cost of that, not an oversight.
+  qc.invalidateQueries({ queryKey: queryKeys.allUnitLists })
+  qc.invalidateQueries({ queryKey: queryKeys.allUnitFacets })
 }
 
 export function useAddInventoryUnit(): UseMutationResult<UserUnit_Read, Error, UnitAdd> {
