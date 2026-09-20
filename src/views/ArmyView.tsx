@@ -229,9 +229,15 @@ function ArmyName({ army }: { army: Army_Read }) {
   }, [editing])
 
   function save() {
+    // Guarded here rather than only on the Save button: Enter reaches this directly,
+    // so three quick presses used to send three PATCHes and raise three toasts.
+    // Harmless (the write is idempotent) but noise, and the button already refused.
+    if (updateArmy.isPending) return
     const name = draft.trim()
-    // An unchanged or empty name is not a request worth making; the backend
-    // rejects empty with a 400, and this keeps the toast for real failures.
+    // An unchanged or empty name is not a request worth making. Note the client is
+    // what enforces non-empty: `Army_Update.name` carries no length constraint and
+    // `update_army` only rejects an explicit null, so an empty string WOULD be
+    // written. Do not rely on a server check that is not there.
     if (!name || name === army.name) return setEditing(false)
     updateArmy.mutate({ name }, { onSuccess: () => setEditing(false) })
   }
