@@ -98,9 +98,10 @@ export default defineConfig([
                 '**/api/factions',
                 '**/api/inventory',
                 '**/api/auth',
+                '**/api/killTeam',
               ],
               message:
-                'Views and UI use a hook from src/api/queries.ts, not a resource module directly -- otherwise the call escapes the cache and its invalidation.',
+                'Views and UI use a hook from a queries module (src/api/queries.ts, src/api/killTeamQueries.ts), not a resource module directly -- otherwise the call escapes the cache and its invalidation.',
             },
             {
               group: ['@tanstack/react-query'],

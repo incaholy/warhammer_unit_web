@@ -35,6 +35,21 @@ export type Army_Create = Schemas['Army_Create']
 export type Army_Update = Schemas['Army_Update']
 export type AmountSet = Schemas['AmountSet']
 
+// Kill Team (ROADMAP KF2+). Re-exports like the rest -- the catalog's shapes are
+// generated, so a backend change to a datacard cannot pass typecheck here.
+export type KTFaction_Read = Schemas['KTFaction_Read']
+export type KillTeam_Read = Schemas['KillTeam_Read']
+export type KillTeam_Detail = Schemas['KillTeam_Detail']
+export type KillTeamRule_Read = Schemas['KillTeamRule_Read']
+export type KTPloy_Read = Schemas['KTPloy_Read']
+export type KTEquipment_Read = Schemas['KTEquipment_Read']
+export type KTWeapon_Read = Schemas['KTWeapon_Read']
+export type KTAbility_Read = Schemas['KTAbility_Read']
+export type KTOperative_Read = Schemas['KTOperative_Read']
+export type KTOperative_ListRead = Schemas['KTOperative_ListRead']
+export type KTSelectionRule_Read = Schemas['KTSelectionRule_Read']
+export type Universal_Read = Schemas['Universal_Read']
+
 // ---- Client-side conveniences (no single backend schema to re-export) ----
 
 export type UUID = string
