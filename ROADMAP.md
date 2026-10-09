@@ -543,3 +543,287 @@ narrower risk. Weigh it as such.
 
 **Concepts:** parse, don't validate; runtime validation versus static types and what each actually
 guarantees; `zod-to-openapi` and OpenAPI-to-zod generators; bundle cost per dependency.
+
+---
+
+# Kill Team
+
+The design lives in [`KILLTEAM.md` in the API repo](https://github.com/incaholy/Warhammer-unit/blob/main/KILLTEAM.md) as 66 numbered decisions; this is
+the **build order** for the frontend half. Entries are cited by decision number (`#44`) throughout,
+because the reasoning is there and duplicating it here is how two documents start to disagree.
+
+The backend shipped `K1`–`K7` (catalog, rosters, games, the withdrawn-row flag) and merged them to
+`main` in [Warhammer-unit#5](https://github.com/incaholy/Warhammer-unit/pull/5). Its roadmap's Kill
+Team preamble says *"Frontend views (warhammer_web) follow each step"* — these are those steps. `K7`
+states its own gating condition in frontend terms ("before a client consumes the catalog as a
+picker"), and `KF2` is where that condition is finally met.
+
+**Item IDs are stable labels.** Unlike the `F` items above there is no priority table, because this
+is a build order rather than a value order: each slice needs only the one before it. That is the same
+reason the backend's `K` series has no `Effort` column.
+
+**Baseline.** Measured on `kill-team-ui` (branched from `roadmap`) on 2026-10-08, after
+`npm run gen:api` picked up the backend's Kill Team contract:
+
+| | |
+|---|---|
+| Tests | **37 files, 223 cases**, all passing |
+| Routes in `src/App.tsx` | 7 |
+| Views | 7 |
+| `src/ui` exports | 24 |
+| API resource modules | 5 |
+| `src/api/queries.ts` | 292 lines |
+| Published API paths | **49** (28 before the merge), of which **21** are Kill Team |
+| Generated Kill Team zod schemas | 23 |
+
+**Evidence.** Reproduced against the running code, not read off a doc — which is the specific failure
+these numbers are replacing. Four of the six root docs still assert "144 tests"; the real figure has
+been three different values since. `npm run gen:api`, `npm run lint`, `npm run build` and the full
+Vitest suite were each run to completion for the table above. Where something below is a judgement
+call rather than a fact, it says so.
+
+**Two CI gates shape every slice**, and they are the reason each one has to be genuinely thin:
+
+- **Coverage floor** (`vite.config.ts`): statements 88, branches 82, functions 87, lines 90. A new
+  module without tests fails the build. Intentional — "a floor, not a target".
+- **Bundle budget** (`scripts/check-bundle-size.mjs`): entry chunk ≤ 108,000 B gzip / 347,000 B raw,
+  **and at most 2% growth against the PR's base branch**. Every view below must be `React.lazy`-
+  imported or it lands in the entry chunk and trips this.
+
+A third constraint is structural rather than a gate: `eslint.config.js` restricts resource-module
+imports **by name**, so a new `src/api/killTeam.ts` is exempt from the rule that protects every other
+resource until it is added to that list. `KF2` adds it.
+
+## Where Kill Team sits against the other roadmaps
+
+The `F` items above are architecture-hardening — a different axis. These `KF` items are feature
+build, the axis [`SPEC.md`](SPEC.md)'s steps 1–12 occupied. Nothing is renumbered.
+
+One reconciliation is not cosmetic: **`SPEC.md`'s "Out of scope" section currently says game and
+match tracking are "all out of scope on the backend too".** That is now false in both repos — the
+backend has shipped a complete Kill Team tracker. `KF1` corrects it, rather than leaving a document
+that contradicts the feature being built against it.
+
+**Three decisions were settled when this was written**, so the slices below assume them:
+
+- **The `/army-list` move is `KF1`**, not deferred. `KILLTEAM.md` #11 ties it to the first Kill Team
+  view, and doing it later means more live bookmarks to redirect.
+- **Paging follows the existing split**: the shared catalog stays paged, user-scoped collections are
+  fetched whole with `fetchAllPages()`. The rule is about ownership, not size — 48 teams would fit in
+  one request at `PAGE_LIMIT_MAX`, and the team list is paged anyway.
+- **The four free-form fields are settled per slice**, not up front. `victory_points`, `choices`,
+  `markers` and `tokens` are deliberately shapeless in the API; the backend left the call to whoever
+  builds the screen, so each is decided against a real layout in `KF4` or `KF5`.
+
+---
+
+## KF1. Put the two sections side by side
+
+**Status: Not started.** No Kill Team code in this slice, deliberately — it restructures what is
+already here so the second section has somewhere to go. `KILLTEAM.md` #11 splits the app into
+`/kill-team/...` and `/army-list/...`, and ties the move to the first Kill Team view.
+
+| Today | After |
+|---|---|
+| `/` | `/army-list` |
+| `/catalog` | `/army-list/catalog` |
+| `/inventory` | `/army-list/inventory` |
+| `/armies/:armyId` | `/army-list/armies/:armyId` |
+| `/armies/:armyId/catalog` | `/army-list/armies/:armyId/catalog` |
+
+Every old path keeps a redirect, so bookmarks survive. `*` currently redirects to `/`; it needs to
+keep doing something sensible once `/` is itself a redirect rather than a view.
+
+**Shape of the work.** `src/App.tsx` owns the whole route table, the lazy imports, and
+`crumbsForPath` — a hand-written path switch that string-splits the pathname. A new section needs its
+own branch there or it silently renders a single crumb. `src/ui/Header.tsx` gains the two-section
+nav. The one pathless `<Route element={<RequireAuth><AppLayout/></RequireAuth>}>` stays as the only
+layout nesting level; the Kill Team catalog is the exception that will have to sit outside it (`KF2`).
+
+**Docs change in the same PR**, per `ARCHITECTURE.md` §6. This slice invalidates the routing tables
+in `SPEC.md`, the views table in `MVP.md`, `README.md`'s layout block and 40k-only framing, and
+`ARCHITECTURE.md` §1's examples — plus the "Out of scope" claim above. That is most of the
+long-standing doc drift closing as a side effect rather than as its own chore.
+
+**Still deferred:** entity-name breadcrumbs, already deferred in `App.tsx` and not made worse here.
+
+---
+
+## KF2. Browse the Kill Team catalog, without an account
+
+**Status: Not started.** Six reads, and **all six are public** — no `Authorization` header, no
+session. So this slice ships before any auth work touches it, and a team page is linkable and
+shareable. It is also where `K7`'s gating condition is finally met: the frontend becomes a client
+that consumes the catalog as a picker.
+
+| Route | Serves |
+|---|---|
+| `/kill-team` | the team list, groupable by faction (#12 — factions are a flat list of their own) |
+| `/kill-team/teams/:id` | one team whole — its datacards, rules, ploys, equipment (16–46 KB, median 24, per #47) |
+| `/kill-team/teams/:id/composition` | the printed composition, as text (#44) |
+
+**The display rules are not the frontend's to invent, and three of them are counter-intuitive.**
+Everything carries `position` and is read in that order (#25) — sorting by name is wrong three ways:
+the page prints the leader first in 46 of 48 teams, Strategy ploys before Firefight, and a rule beside
+the rule that refers to it. Ties break on `id` (#53). Composition is **text**: one row per
+`{position, depth, kind, text}`, rendered in `position` order and indented by `depth`, with footnote
+bodies as their own `kind = 'note'` rows (#45, #30). Nothing is derived — no budget, no model count,
+no caps, no entry resolved to a datacard (#44).
+
+**What this slice must not do.** Offer any catalog editing (#21 — no path under `/api/v1/kill-team`
+declares a method but `get`, by #49). Enforce legality of any kind (#28). A weapon rule keeps its
+printed footnote marker, and whether `Torrent 0"` and `Torrent 0"*` are one chip or two is explicitly
+the frontend's call (#56).
+
+**Shape of the work.** `src/api/killTeam.ts` (one function per endpoint, each passing a generated zod
+schema), hooks in a new `src/api/killTeamQueries.ts` — lint permits it, and `queries.ts` is already
+292 lines holding every hook for every resource. Kill Team re-exports in `src/api/types.ts`. Fixture
+builders in `src/test/fixtures.ts` plus new members in its `ApiBody` union, or a fixture that does not
+match a real response shape will not fail typecheck. And `**/api/killTeam` added to the
+`no-restricted-imports` list in `eslint.config.js`.
+
+Teams and the cross-team operative listing stay **paged**, like `/catalog`. `/kill-team/universal` is
+one route for the rows no team owns and is meant to be fetched once and kept for the session (#48).
+Names are resolved from ids client-side (#46), the same `Map<UUID, string>` move `CatalogView` already
+makes against `/factions`.
+
+**A missing primitive blocks this immediately:** there is no `Select` in `src/ui/`. The faction filter
+either builds one or copies `NewArmyModal`'s raw `<select>` + `useId()` + manual `<label htmlFor>`
+pattern. Worth deciding once, here, because `KF3` and `KF4` both need it too.
+
+**Still deferred:** no reader for a single selection rule — the backend's own `K3` carve-out, and
+nothing here needs one.
+
+---
+
+## KF3. Build a roster
+
+**Status: Not started.** Eight endpoints, all authenticated, at `/kill-team/rosters` and
+`/kill-team/rosters/:id`. A roster read carries the whole pool a game will choose from — operatives
+with their datacards, the team's rules and ploys, the universal ploys, and both equipment lists
+(24–42 KB, median 31, per #52).
+
+**A roster row is one operative** (#50). No `amount`, no uniqueness on `(roster_id, operative_id)`,
+and adding the same datacard twice **appends a second row** rather than answering 409 — because the
+question a player asks is "which of my two Warriors is on 4 wounds?". Each row is addressed by its own
+id. `position` is a sort hint, not a contiguous sequence: `move_operative` sets it absolutely and
+shifts nothing, so every reader orders by `(position, id)` (#53).
+
+**Availability informs; it never refuses** (#20, #51). An `in_battle` datacard greys out in the picker
+rather than being rejected on save, and composition is shown beside the roster as description, never
+as a gate (#28).
+
+**Two 409s need real copy, and the generic message is wrong for both.** `CODE_MESSAGES` maps each
+`ErrorCode` to one string, so both of these currently render as "That already exists.":
+
+- A roster name is unique **per owner**, with the 409 naming the `name` field (#64).
+- Deleting a roster a game was played from is **refused**, with a 409 that counts the games (#60).
+
+`fieldErrors(err)` already flattens `errors[]` into `Record<field, message>`, and `AuthView` is the
+only existing consumer — this slice is the second, and the point where field-aware conflict copy stops
+being optional.
+
+Rosters are **fetched whole** (`fetchAllPages`), like armies and inventory.
+
+**A withdrawn catalog row behaves asymmetrically here, on purpose** (#55): a row already on a roster
+still resolves and renders, so a roster built last month still works, while a *new* pick of a withdrawn
+row is a 404. The picker never offers one, so the 404 is a race, not a normal path — but it is
+reachable from a stale page and needs a message.
+
+---
+
+## KF4. Run a battle: the state half
+
+**Status: Not started.** Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
+This is the screen the feature exists for, and `KILLTEAM.md`'s own Frontend section specifies it:
+**phone-first**, for use at the table. Large touch targets, one card per operative, and turning point,
+CP and VP always visible.
+
+**Two levels of detail**, both required: a compact list showing the whole team at a glance (name,
+wounds, order, whether it has activated), and any card opening to the full datacard as printed, for
+mid-activation lookups.
+
+**The game read needs no catalog call, ever** (#22, #24). It carries the whole snapshot — every
+datacard, the team's rules, its ploys and the universal ones, the text of each piece of equipment
+taken — and the snapshot never invalidates, because it is static for the game's life. So the detail
+query is fetch-once and the screen reads the snapshot, not the catalog API.
+
+**Three state rules the UI derives rather than reads:**
+
+- **"Has it activated?" is a comparison**, not a flag: `activated_in_turning_point` against the game's
+  own `turning_point`. `advance` clears nothing (#61).
+- **`initiative: null` renders "not rolled"**, never as the opponent's. `advance` resets it to null
+  each turning point (#62).
+- **Every write is an absolute value**, never a delta — `wounds: 7`, not `-2` — for retry safety (#7).
+
+`activate` and `transform` are their own `POST` routes; the operative `PATCH` carries only what a
+client genuinely sets: wounds, order, tokens, actions used (#63). The opponent's VP is entered by hand,
+and VP is stored by source (#5).
+
+**The 409 mechanism is net-new, with nothing in this repo to mirror.** There are no optimistic
+updates, no `onMutate`, no ETag and no version concept anywhere in `src/`; `'CONFLICT'` is one of seven
+error codes with a generic string. But #9 means **every** game mutation moves the version — including a
+write to a child row, which is the part that makes this unavoidable — and a stale write is a 409. The
+realistic scenario is not two browser tabs; it is a phone and a laptop on the same table. Three shapes
+to think through, in increasing cost:
+
+- Re-read on 409 and let the player retry, with the conflict surfaced plainly.
+- Send `expected_version`, which the service honours purely to give a better message.
+- Optimistic update with rollback on conflict — the most work, and the only one that needs a
+  `setQueryData` path that does not exist today.
+
+**Service-enforced bookkeeping arrives as 400 `VALIDATION`, and is not rules enforcement** (#1): wounds
+within `0..max` with 0 ⇄ incapacitated in both directions, an incapacitated operative cannot activate,
+one activation per operative per turning point, CP never negative, no turning point past four. Each
+needs copy that reads as bookkeeping rather than as the app refusing a play.
+
+**Open, and closed here:** the shapes of `tokens[]` (named chips on an operative), `markers[]`
+(team-level, on the game) and `victory_points{}` (by source, per #5). The API leaves all three
+shapeless on purpose.
+
+**Watch the bundle.** This is the heaviest view in the app and the 2%-growth check measures against the
+base branch, so it must be lazy and may need splitting internally.
+
+---
+
+## KF5. Run a battle: the reference and the log
+
+**Status: Not started.** Roughly six endpoints, completing the game screen. `KILLTEAM.md` describes a
+**team tab** holding the rest of the reference: the kill team's rules, its ploys with CP costs, and the
+equipment picked for this battle — read-only, from the snapshot, with current state shown beside the
+stats it started with. "A reference sheet and a status sheet at once."
+
+**Equipment is per game, not per roster** (#17), revealed during play with
+`PATCH .../equipment/{row_id}`. The game read carries `equipment_limit` beside the pieces taken — the
+same shape as `Army_Read`'s `points_limit` beside `points_total` — and **the fifth piece is accepted**
+(#57). The allowance is displayed, never enforced: *"a frontend that had to hard-code 4 to warn a
+player would be holding a rule of the game."*
+
+**Revealing equipment does not add the operatives it grants.** The client reveals the piece, then adds
+the datacards — four generic calls, not one special one. Settled, not pending.
+
+**Spending a ploy is one operation** (#65): `POST .../ploys` with a name. The server reads `cp_cost`
+from the game's own snapshot and deducts it in the same event, so one undo restores both the CP and the
+log entry. The client must not send a cost. A ploy the snapshot does not list is refused, and so is one
+the CP will not cover. How often a ploy may be used is shown, not counted.
+
+**Transform happens in place** (#19): same row id, same tokens, order and board status; the catalog
+pointer moves and the datacard is re-snapshotted. It is the same miniature on the table, so the screen
+needs nothing new — and because both `add` and `transform` are event-logged, the log can show what a
+model used to be (#18).
+
+**Undo, and no redo** (#8). An event payload names the fields it touched with their `before` and
+`after`; `undo` writes the `before` values back, appends a compensating event, and marks the original
+`undone_by` — so the log stays append-only and each further undo walks back to the newest
+not-yet-undone event (#58). The UI can therefore render the log and identify what has already been
+reverted.
+
+**A finished game is closed to edits but fully readable, and `undo` is the way back out** (#66). There
+is no `reopen` route: undoing the event that finished the game reopens it. Deleting a finished game is
+allowed. A write to one answers 400 on the `status` field.
+
+**Open, and closed here:** the shape of `choices{}` — the per-game picks the rules leave to the
+players, a chosen Tac Op beside the Accursed Gift, free-form by #59.
+
+**Still deferred:** no redo, by #58. No Tac Ops or archetype gating, by #59 — gating a choice by
+archetype would be applying a rule, which #1 puts out of scope.
