@@ -266,8 +266,10 @@ export function makeKillTeamDetail(over: Partial<KillTeam_Detail> = {}): KillTea
     // `KTOperative_ListRead` is `KTOperative_Read` plus `kill_team_id`, so one
     // builder serves both reads; the extra field is harmless here.
     operatives: [
-      makeKTOperative({ id: 'kto1', name: 'Ravener Leader', position: 0 }),
-      makeKTOperative({ id: 'kto2', name: 'Ravener Warrior', position: 1 }),
+      // Printed first but alphabetically second, which is the whole point: the page
+      // prints the leader first (#25) and "Ravener Prime" sorts after "Hormagaunt".
+      makeKTOperative({ id: 'kto1', name: 'Ravener Prime', position: 0 }),
+      makeKTOperative({ id: 'kto2', name: 'Hormagaunt', position: 1 }),
     ],
     // A heading, an indented line and its note — the three `kind`s a composition
     // actually renders differently (#44, #45, #30).

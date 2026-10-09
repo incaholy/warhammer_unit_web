@@ -20,6 +20,7 @@ const AuthView = lazy(() => import('./views/AuthView').then((m) => ({ default: m
 const SectionView = lazy(() => import('./views/SectionView'))
 const CollectionView = lazy(() => import('./views/CollectionView'))
 const KillTeamCatalogView = lazy(() => import('./views/KillTeamCatalogView'))
+const KillTeamView = lazy(() => import('./views/KillTeamView'))
 const CatalogView = lazy(() => import('./views/CatalogView'))
 const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
 const ArmyView = lazy(() => import('./views/ArmyView'))
@@ -137,6 +138,7 @@ export default function App() {
         * or a game is user-owned and arrives behind the guard in KF3/KF4. */}
       <Route element={<AppLayout />}>
         <Route path="/kill-team" element={<KillTeamCatalogView />} />
+        <Route path="/kill-team/teams/:killTeamId" element={<KillTeamView />} />
       </Route>
 
       <Route
