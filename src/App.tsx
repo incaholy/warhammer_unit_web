@@ -19,6 +19,7 @@ import { RequireAuth } from './auth/RequireAuth'
 const AuthView = lazy(() => import('./views/AuthView').then((m) => ({ default: m.AuthView })))
 const SectionView = lazy(() => import('./views/SectionView'))
 const CollectionView = lazy(() => import('./views/CollectionView'))
+const KillTeamCatalogView = lazy(() => import('./views/KillTeamCatalogView'))
 const CatalogView = lazy(() => import('./views/CatalogView'))
 const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
 const ArmyView = lazy(() => import('./views/ArmyView'))
@@ -52,6 +53,14 @@ function crumbsForPath(pathname: string): Crumb[] {
   const parts = pathname.split('/').filter(Boolean)
   if (parts.length === 0) return []
 
+  if (parts[0] === 'kill-team') {
+    const home: Crumb = { label: 'Kill Team', to: '/kill-team' }
+    const rest = parts.slice(1)
+    if (rest.length === 0) return []
+    if (rest[0] === 'teams') return [home, { label: 'Kill Team' }]
+    return [home]
+  }
+
   if (parts[0] === 'army-list') {
     const home: Crumb = { label: 'Army List', to: '/army-list' }
     const rest = parts.slice(1)
@@ -72,8 +81,13 @@ function crumbsForPath(pathname: string): Crumb[] {
 }
 
 /** Authenticated shell: sticky Header + breadcrumbs + the matched route's view. */
+/** Header + breadcrumbs + the matched route's view.
+ *
+ * Used by BOTH route branches. The Kill Team catalog is public (every read under
+ * `/api/v1/kill-team` needs no token), so this shell renders with no user at all —
+ * which is why it tells the Header whether there is one rather than assuming. */
 function AppLayout() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const crumbs = crumbsForPath(pathname)
@@ -81,6 +95,7 @@ function AppLayout() {
     <>
       <Header
         pathname={pathname}
+        signedIn={Boolean(user)}
         onLogout={() => {
           logout()
           navigate('/login', { replace: true })
@@ -115,6 +130,14 @@ export default function App() {
           </Suspense>
         }
       />
+
+      {/* Public, inside the same shell. The Kill Team CATALOG is reference data and
+        * every one of its reads is open (KILLTEAM.md #21, #49), so a visitor can
+        * follow a shared team link without an account. Only the catalog: a roster
+        * or a game is user-owned and arrives behind the guard in KF3/KF4. */}
+      <Route element={<AppLayout />}>
+        <Route path="/kill-team" element={<KillTeamCatalogView />} />
+      </Route>
 
       <Route
         element={

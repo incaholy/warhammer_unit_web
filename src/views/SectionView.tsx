@@ -37,15 +37,14 @@ export default function SectionView() {
           </Link>
         </li>
         <li>
-          {/* Not a Link. See the note at the top of this file. */}
-          <div className={[styles.card, styles.cardPending].join(' ')} aria-disabled="true">
+          <Link to="/kill-team" className={styles.card}>
             <span className={styles.cardEyebrow}>Kill Team 2024</span>
             <span className={styles.cardTitle}>Kill Team</span>
             <span className={styles.cardBody}>
               Browse the kill teams, build a roster, and track a battle turn by turn.
             </span>
-            <span className={styles.cardNote}>Not here yet</span>
-          </div>
+            <span className={styles.cardNote}>Catalog ready · no account needed</span>
+          </Link>
         </li>
       </ul>
     </main>

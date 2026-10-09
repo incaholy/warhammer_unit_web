@@ -88,15 +88,27 @@
   color: var(--paper);
 }
 
-.navPending {
-  /* Shown so the bar keeps its shape when the section lands (KF2), but not a
-     destination: no hover response, and it is not in the tab order. */
-  color: var(--rule);
-  cursor: not-allowed;
+/* Sits where the Log Out button does, for a visitor with no session. Matched to
+   Button's ghost variant rather than styled afresh, so the bar does not shift. */
+.signIn {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 8px 10px;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
 
-.navPending:hover {
-  color: var(--rule);
+.signIn:hover {
+  color: var(--ink);
+}
+
+.signIn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  color: var(--ink);
 }
 
 .subBar {

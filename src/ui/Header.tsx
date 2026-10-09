@@ -7,6 +7,10 @@ export interface HeaderProps {
    *  Passed in rather than read from the router here, because this component is
    *  presentational and its tests render it without a route match. */
   pathname?: string
+  /** Whether anyone is signed in. Defaults to FALSE, which is the safe default: the
+   *  Kill Team catalog is public, so this bar renders for visitors, and a default of
+   *  `true` would offer "Log Out" to someone who was never logged in. */
+  signedIn?: boolean
   onLogout?: () => void
 }
 
@@ -14,33 +18,52 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
   return [styles.navLink, isActive ? styles.navActive : ''].filter(Boolean).join(' ')
 }
 
-/** The pages inside each section. Keyed by the section's path prefix, which is also
- *  what decides whether the second row renders at all — `/` is the chooser and has
- *  no pages of its own. Kill Team's entries arrive with the section (KF2). */
-const SECTION_PAGES: Record<string, { to: string; label: string; end?: boolean }[]> = {
-  '/army-list': [
-    { to: '/army-list', label: 'Armies', end: true },
-    { to: '/army-list/inventory', label: 'Inventory' },
-  ],
+interface Section {
+  prefix: string
+  label: string
+  pages: { to: string; label: string; end?: boolean }[]
 }
 
-function sectionFor(pathname: string): string | undefined {
-  return Object.keys(SECTION_PAGES).find(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+/** The two sections and the pages inside each (KILLTEAM.md #11).
+ *
+ *  One list, read by both rows: the top row maps it to section links and the second
+ *  renders the matched section's `pages`. They were separate, which meant adding a
+ *  section in two places and let the second row's accessible name drift — it said
+ *  "Army List pages" whichever section you were in. */
+const SECTIONS: Section[] = [
+  {
+    prefix: '/army-list',
+    label: 'Army List',
+    pages: [
+      { to: '/army-list', label: 'Armies', end: true },
+      { to: '/army-list/inventory', label: 'Inventory' },
+    ],
+  },
+  {
+    prefix: '/kill-team',
+    label: 'Kill Team',
+    // Rosters and Games join this in KF3 and KF4.
+    pages: [{ to: '/kill-team', label: 'Catalog', end: true }],
+  },
+]
+
+function sectionFor(pathname: string): Section | undefined {
+  return SECTIONS.find(
+    ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
 }
 
 /** Sticky translucent app bar. Two rows, per KILLTEAM.md decision #11: the top row
- *  switches SECTION (Army List / Kill Team), the second shows the pages inside the
- *  section you are in. The rows are separate because they are different kinds of
- *  thing — a flat `Armies | Inventory | Kill Team` would put two pages and a whole
- *  section side by side, and would have nowhere to grow once Kill Team gains its own
- *  rosters and games.
+ *  switches SECTION, the second shows the pages inside the section you are in. The
+ *  rows are separate because they are different kinds of thing — a flat
+ *  `Armies | Inventory | Kill Team` would put two pages and a whole section side by
+ *  side, and would have nowhere to grow as Kill Team gains rosters and games.
+ *
+ *  `/` is the chooser: it matches no section, so the second row is absent there.
  *
  *  Presentational — nav targets are routes; log-out is the `onLogout` prop. */
-export function Header({ pathname = '/', onLogout }: HeaderProps) {
+export function Header({ pathname = '/', signedIn = false, onLogout }: HeaderProps) {
   const section = sectionFor(pathname)
-  const pages = section ? SECTION_PAGES[section] : undefined
 
   return (
     <header className={styles.header}>
@@ -51,25 +74,29 @@ export function Header({ pathname = '/', onLogout }: HeaderProps) {
           <span className={styles.subtitle}>Collection Index</span>
         </Link>
         <nav className={styles.nav} aria-label="Sections">
-          <NavLink to="/army-list" className={navLinkClass}>
-            Army List
-          </NavLink>
-          {/* Kill Team has no route until KF2. Rendered as plain text rather than
-           * omitted, so the bar does not change shape when the section lands, and
-           * rather than as a link, which would bounce off the catch-all. */}
-          <span className={[styles.navLink, styles.navPending].join(' ')} aria-disabled="true">
-            Kill Team
-          </span>
+          {SECTIONS.map(({ prefix, label }) => (
+            <NavLink key={prefix} to={prefix} className={navLinkClass}>
+              {label}
+            </NavLink>
+          ))}
         </nav>
-        <Button variant="ghost" size="sm" onClick={onLogout}>
-          Log Out
-        </Button>
+        {/* A visitor browsing the public catalog gets a way in rather than an empty
+          * slot; the bar keeps its shape either way. */}
+        {signedIn ? (
+          <Button variant="ghost" size="sm" onClick={onLogout}>
+            Log Out
+          </Button>
+        ) : (
+          <Link to="/login" className={styles.signIn}>
+            Sign in
+          </Link>
+        )}
       </div>
 
-      {pages && (
+      {section && (
         <div className={styles.subBar}>
-          <nav className={styles.subInner} aria-label="Army List pages">
-            {pages.map((page) => (
+          <nav className={styles.subInner} aria-label={`${section.label} pages`}>
+            {section.pages.map((page) => (
               <NavLink key={page.to} to={page.to} end={page.end} className={navLinkClass}>
                 {page.label}
               </NavLink>

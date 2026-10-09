@@ -56,18 +56,6 @@
   transform: translateY(-2px);
 }
 
-.cardPending {
-  /* Shown, but not a destination. No hover lift, and the cursor says so. */
-  cursor: not-allowed;
-  background: transparent;
-}
-
-.cardPending:hover,
-.cardPending:focus-visible {
-  border-color: var(--rule);
-  transform: none;
-}
-
 .cardEyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -95,10 +83,5 @@
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
-}
-
-.cardPending .cardTitle,
-.cardPending .cardEyebrow {
   color: var(--muted);
 }

@@ -64,7 +64,7 @@ describe('App routing', () => {
     expect(await screen.findByText('Welcome back')).toBeInTheDocument()
   })
 
-  it('offers both sections at the root, and only one of them is a destination', async () => {
+  it('offers both sections at the root', async () => {
     signedIn()
 
     renderAt('/')
@@ -78,10 +78,7 @@ describe('App routing', () => {
     // `/` is a chooser, not either section's index (KILLTEAM.md #11), so neither
     // game is the app's implicit default.
     expect(chooser.getByRole('link', { name: /Army List/ })).toHaveAttribute('href', '/army-list')
-    // Kill Team is shown so the shape of the app is honest about what is coming,
-    // but it is not a link until KF2 — a live one would bounce off the catch-all.
-    expect(chooser.queryByRole('link', { name: /Kill Team/ })).not.toBeInTheDocument()
-    expect(chooser.getByText('Not here yet')).toBeInTheDocument()
+    expect(chooser.getByRole('link', { name: /Kill Team/ })).toHaveAttribute('href', '/kill-team')
     // A chooser is not inside a section, so it carries no breadcrumbs.
     expect(screen.queryByLabelText('Breadcrumb')).not.toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent('/')

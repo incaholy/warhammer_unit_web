@@ -1,0 +1,189 @@
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+
+.head {
+  max-width: 54ch;
+  margin-bottom: 32px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 42px;
+  line-height: 1;
+  margin: 6px 0 12px;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.controls > :first-child {
+  min-width: 220px;
+}
+
+.count,
+.warning,
+.error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.count {
+  color: var(--muted);
+}
+
+.warning {
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.error {
+  color: var(--danger);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 13px;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+.rowLink {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 20px;
+  padding: 16px 4px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.rowLink:hover .teamName,
+.rowLink:focus-visible .teamName {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowLink:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.teamName {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---- Loading ---- */
+
+.skeleton {
+  min-height: 40vh;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 4px;
+}
+
+.skeletonRow + .skeletonRow {
+  border-top: 1px solid var(--rule);
+}
+
+/* The keyframe is declared HERE, not borrowed. CSS Modules scopes keyframe names
+   per file, so `animation: shimmer` would have referenced the one in
+   UnitView.module.css by a name that does not exist in this file's output -- the
+   animation would silently not run, with no error and no visible clue. */
+@keyframes skeletonShimmer {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+}
+
+.skeletonBlock {
+  display: block;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--rule-light) 0%, var(--panel) 50%, var(--rule-light) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonName {
+  width: 38%;
+  height: 20px;
+}
+
+.skeletonMeta {
+  width: 14%;
+  height: 11px;
+}
+
+.pager {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 640px) {
+  .view {
+    padding: 32px 20px 64px;
+  }
+}
