@@ -170,10 +170,10 @@ warhammer_web/
     views/
       AuthView.tsx        # /login  (login + signup tabs)
       CollectionView.tsx  # /        (armies list/grid)
-      ArmyView.tsx        # /armies/:armyId
-      CatalogView.tsx     # /catalog and /armies/:armyId/catalog
-      InventoryView.tsx   # /inventory
-      UnitView.tsx        # /units/:unitId
+      ArmyView.tsx        # /army-list/armies/:armyId
+      CatalogView.tsx     # /army-list/catalog and /army-list/armies/:armyId/catalog
+      InventoryView.tsx   # /army-list/inventory
+      UnitView.tsx        # /army-list/units/:unitId
 ```
 
 ## Development
@@ -296,12 +296,13 @@ match, reproducing the design's crumb bar.
 | Route | View | Backend calls |
 |---|---|---|
 | `/login` | `AuthView` | `POST /auth/register`, `POST /auth/login` |
-| `/` | `CollectionView` | `GET /me/armies` |
-| `/armies/:armyId` | `ArmyView` | `GET /me/armies/{id}` (+ `remove_unit`, later `validate`/`shortfall`) |
-| `/armies/:armyId/catalog` | `CatalogView` (army target) | `GET /factions`, `GET /units`, `POST /me/armies/{id}/units` |
-| `/catalog` | `CatalogView` (inventory target) | `GET /factions`, `GET /units`, `POST /me/inventory` |
-| `/inventory` | `InventoryView` | `GET /me/inventory`, `PATCH`/`DELETE /me/inventory/{unit_id}` |
-| `/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
+| `/` | `SectionView` | — (a chooser between the two sections; KILLTEAM.md #11) |
+| `/army-list` | `CollectionView` | `GET /me/armies` |
+| `/army-list/armies/:armyId` | `ArmyView` | `GET /me/armies/{id}` (+ `remove_unit`, later `validate`/`shortfall`) |
+| `/army-list/armies/:armyId/catalog` | `CatalogView` (army target) | `GET /factions`, `GET /units`, `POST /me/armies/{id}/units` |
+| `/army-list/catalog` | `CatalogView` (inventory target) | `GET /factions`, `GET /units`, `POST /me/inventory` |
+| `/army-list/inventory` | `InventoryView` | `GET /me/inventory`, `PATCH`/`DELETE /me/inventory/{unit_id}` |
+| `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
 
 **Header** — sticky; logo/wordmark returns Home, a segmented `Armies | Inventory`
 nav, and Log Out. Present on every authenticated route.
@@ -491,7 +492,12 @@ backend); the remaining polish items are called out per step.
 
 - Admin/catalog authoring (units/weapons/abilities CRUD) — the catalog is
   admin-curated on the backend; the app is read-only against it.
-- Datasheet versioning, wargear/loadout modelling, list sharing/export, and
-  game/match tracking — all out of scope on the backend too.
+- Datasheet versioning, wargear/loadout modelling, and list sharing/export —
+  all out of scope on the backend too.
+- **Game tracking is no longer out of scope.** It was, on both sides, when this
+  was written. The backend has since shipped a Kill Team tracker (its `K1`–`K7`),
+  and the frontend half is [`ROADMAP.md`](ROADMAP.md)'s `KF1`–`KF5`. 40k match
+  tracking remains out of scope; Kill Team is its own section, not an addition to
+  the army-list builder (KILLTEAM.md #11).
 - Offline support / PWA, i18n, and a design-system theming layer beyond the single
   imported look.

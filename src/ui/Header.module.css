@@ -88,6 +88,44 @@
   color: var(--paper);
 }
 
+.navPending {
+  /* Shown so the bar keeps its shape when the section lands (KF2), but not a
+     destination: no hover response, and it is not in the tab order. */
+  color: var(--rule);
+  cursor: not-allowed;
+}
+
+.navPending:hover {
+  color: var(--rule);
+}
+
+.subBar {
+  border-top: 1px solid var(--rule);
+}
+
+.subInner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 48px;
+  display: flex;
+  gap: 0;
+}
+
+.subInner .navLink {
+  padding: 9px 0;
+  margin-right: 22px;
+  border-left: none;
+  border-bottom: 1px solid transparent;
+}
+
+/* The second row marks the current page with a rule under it rather than a filled
+   block, so it cannot be mistaken for the section switch above it. */
+.subInner .navActive {
+  background: transparent;
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
 /* ---- Responsive: condense on narrow screens ---- */
 @media (max-width: 640px) {
   .inner {
@@ -123,5 +161,11 @@
   .divider,
   .subtitle {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .subInner {
+    padding: 0 20px;
   }
 }

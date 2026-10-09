@@ -61,11 +61,12 @@ deferred niceties (see below).
 | View | Route | Backing endpoints | Status |
 |---|---|---|---|
 | Auth (login / signup) | `/login` | `POST /auth/register`, `POST /auth/login` | ✅ |
-| Collection (armies list/grid) | `/` | `GET /me/armies` | ✅ |
-| Army detail (order of battle + validation + shortfall) | `/armies/:id` | `GET /me/armies/{id}`, add/remove units, `/validate`, `/shortfall` | ✅ |
-| Catalog (browse + add) | `/catalog`, `/armies/:id/catalog` | `GET /factions`, `GET /units`, `POST …/units` / `POST /me/inventory` | ✅ |
-| Inventory (owned units) | `/inventory` | `GET/POST/PATCH/DELETE /me/inventory` | ✅ |
-| Unit datasheet | `/units/:id` | `GET /units/{id}` | ✅ |
+| Section chooser | `/` | — | ✅ |
+| Collection (armies list/grid) | `/army-list` | `GET /me/armies` | ✅ |
+| Army detail (order of battle + validation + shortfall) | `/army-list/armies/:id` | `GET /me/armies/{id}`, add/remove units, `/validate`, `/shortfall` | ✅ |
+| Catalog (browse + add) | `/army-list/catalog`, `/army-list/armies/:id/catalog` | `GET /factions`, `GET /units`, `POST …/units` / `POST /me/inventory` | ✅ |
+| Inventory (owned units) | `/army-list/inventory` | `GET/POST/PATCH/DELETE /me/inventory` | ✅ |
+| Unit datasheet | `/army-list/units/:id` | `GET /units/{id}` | ✅ |
 | New Army modal (name, faction, subfaction, description, points-limit) | (overlay) | `POST /me/armies` | ✅ |
 
 ## Feature checklist
@@ -139,6 +140,9 @@ deferred niceties (see below).
 ## Out of scope (not MVP)
 - Admin / catalog authoring (units, weapons, abilities, factions) — the app is
   read-only against the admin-curated catalog.
-- Datasheet **versioning**, **wargear/loadout** modelling, list **sharing/export**,
-  game/match tracking — out of scope on the backend too.
+- Datasheet **versioning**, **wargear/loadout** modelling, list **sharing/export** —
+  out of scope on the backend too.
+- Game tracking **is** in scope now, as its own section: the backend shipped a Kill
+  Team tracker and the frontend half is `KF1`–`KF5` in [`ROADMAP.md`](ROADMAP.md).
+  40k match tracking stays out.
 - Offline/PWA, i18n, refresh-token flow, and multi-theme support.

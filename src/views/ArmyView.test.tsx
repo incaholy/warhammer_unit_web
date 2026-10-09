@@ -266,7 +266,7 @@ describe('ArmyView', () => {
 
     // Each unit row links to its datasheet and shows quantity when > 1.
     const link = screen.getByRole('link', { name: 'Intercessors' })
-    expect(link).toHaveAttribute('href', '/units/u-int')
+    expect(link).toHaveAttribute('href', '/army-list/units/u-int')
     // The quantity is an editable field now, not a "×3" label.
     expect(screen.getByLabelText('Quantity of Intercessors')).toHaveValue(3)
   })

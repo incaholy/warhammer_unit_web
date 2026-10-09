@@ -95,7 +95,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
         onSuccess: (army) => {
           reset()
           onClose()
-          navigate(`/armies/${army.id}`)
+          navigate(`/army-list/armies/${army.id}`)
         },
         onError: (err) => {
           setError(messageForError(err, 'Could not create the army.'))

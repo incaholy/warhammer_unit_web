@@ -109,7 +109,7 @@ export function CollectionView() {
     return { armies: armiesQuery.data?.total ?? armies.length, units, points }
   }, [armies, armiesQuery.data])
 
-  const openArmy = (id: string) => navigate(`/armies/${id}`)
+  const openArmy = (id: string) => navigate(`/army-list/armies/${id}`)
 
   return (
     <main className={styles.page}>

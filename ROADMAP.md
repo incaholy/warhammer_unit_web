@@ -619,9 +619,24 @@ that contradicts the feature being built against it.
 
 ## KF1. Put the two sections side by side
 
-**Status: Not started.** No Kill Team code in this slice, deliberately — it restructures what is
+**Status: ✅ Done.** No Kill Team code in this slice, deliberately — it restructured what was
 already here so the second section has somewhere to go. `KILLTEAM.md` #11 splits the app into
 `/kill-team/...` and `/army-list/...`, and ties the move to the first Kill Team view.
+
+Two things were settled while building it. **`/` is a chooser**, not either section's index, so
+neither game is the implicit default — it used to render the armies index, which made the 40k builder
+the whole app. **The Header is two rows**, the top switching section and the second showing that
+section's own pages, because a flat `Armies | Inventory | Kill Team` puts two pages and a whole
+section side by side and has nowhere to grow. The Kill Team card and nav entry are shown but are not
+links until `KF2`: omitting them hides half the app, and a live link bounces off the catch-all.
+
+The redirects are built from the current pathname rather than a per-route `to` string, which is what
+keeps a route parameter intact — `/armies/abc123` carries its id across, and the query string with
+it. Checked against the mutant: a static `/army-list` target fails seven tests. The entry chunk
+shrank 18.16 kB gzip (−17.42%) against the base, because `SectionView` importing the `ui` barrel
+alongside the other lazy views made Vite hoist `ui.js` into a shared chunk.
+
+The original scope, kept because the reasoning is the reusable part:
 
 | Today | After |
 |---|---|
@@ -641,9 +656,13 @@ nav. The one pathless `<Route element={<RequireAuth><AppLayout/></RequireAuth>}>
 layout nesting level; the Kill Team catalog is the exception that will have to sit outside it (`KF2`).
 
 **Docs change in the same PR**, per `ARCHITECTURE.md` §6. This slice invalidates the routing tables
-in `SPEC.md`, the views table in `MVP.md`, `README.md`'s layout block and 40k-only framing, and
-`ARCHITECTURE.md` §1's examples — plus the "Out of scope" claim above. That is most of the
+in `SPEC.md`, the views table in `MVP.md`, and `README.md`'s layout block and 40k-only framing —
+plus the "Out of scope" claim above, which both `SPEC.md` and `MVP.md` carried. That is most of the
 long-standing doc drift closing as a side effect rather than as its own chore.
+
+`ARCHITECTURE.md` needed nothing, against expectation: its only path references are API paths
+(`/api/v1/me/inventory`), which have not moved, and §4 covers route *protection*, which `KF2` changes
+rather than this.
 
 **Still deferred:** entity-name breadcrumbs, already deferred in `App.tsx` and not made worse here.
 

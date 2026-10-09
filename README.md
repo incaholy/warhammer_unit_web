@@ -1,8 +1,12 @@
 # Warhammer Web — frontend
 
-The web frontend for **Muster**, a Warhammer 40k army-list builder. Browse the
-unit catalog, keep an inventory of the models you own, and assemble armies with
-live points totals and validation. It's a single-page app that talks to the
+The web frontend for **Muster**, which covers two games in two sections.
+**Army List** (`/army-list`) is the Warhammer 40,000 builder: browse the unit
+catalog, keep an inventory of the models you own, and assemble armies with live
+points totals and validation. **Kill Team** (`/kill-team`) is a Kill Team 2024
+tracker — a catalog, rosters, and a battle screen — and is being built now; see
+`KF1`–`KF5` in [`ROADMAP.md`](ROADMAP.md). Neither section's routes or views leak
+into the other. It's a single-page app that talks to the
 `warhammer_unit` backend API.
 
 **Stack:** React · TypeScript (strict) · Vite · React Query (`@tanstack/react-query`)
@@ -61,7 +65,7 @@ src/
   api/       one module per backend resource (units, armies, inventory, factions, auth),
              plus client.ts (fetch wrapper + zod error parsing), queries.ts (React Query
              hooks), and types.ts (the API contract types)
-  views/     route-level screens (Catalog, Collection, Army, Auth) with CSS modules
+  views/     route-level screens (Section chooser, Catalog, Collection, Army, Auth) with CSS modules
   ui/        the shared design-system components (Button, Input, Tag, …)
   lib/       framework-free helpers (errors, formatting, keyword→role derivation)
   auth/      auth context / token handling

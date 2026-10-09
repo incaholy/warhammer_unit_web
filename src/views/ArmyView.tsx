@@ -134,7 +134,7 @@ export default function ArmyView() {
           </Button>
           <Button
             variant="danger"
-            onClick={() => deleteArmy.mutate(army.id, { onSuccess: () => navigate('/') })}
+            onClick={() => deleteArmy.mutate(army.id, { onSuccess: () => navigate('/army-list') })}
             disabled={deleteArmy.isPending}
           >
             {deleteArmy.isPending ? 'Deleting…' : 'Delete'}
@@ -147,7 +147,7 @@ export default function ArmyView() {
           <h2 className={styles.sectionTitle}>Order of Battle</h2>
           <Button
             variant="secondary"
-            onClick={() => navigate(`/armies/${army.id}/catalog`)}
+            onClick={() => navigate(`/army-list/armies/${army.id}/catalog`)}
           >
             + Add From Catalog
           </Button>
@@ -158,7 +158,7 @@ export default function ArmyView() {
             message="No units mustered yet"
             sub="Add datasheets from the catalog to build your order of battle."
           >
-            <Button onClick={() => navigate(`/armies/${army.id}/catalog`)}>
+            <Button onClick={() => navigate(`/army-list/armies/${army.id}/catalog`)}>
               + Add From Catalog
             </Button>
           </EmptyState>
@@ -169,7 +169,7 @@ export default function ArmyView() {
               {group.units.map(({ unit, amount }) => (
                 <div key={unit.id} className={styles.row}>
                   <div className={styles.rowMain}>
-                    <Link to={`/units/${unit.id}`} className={styles.unitLink}>
+                    <Link to={`/army-list/units/${unit.id}`} className={styles.unitLink}>
                       {unit.unit_name}
                     </Link>
                   </div>

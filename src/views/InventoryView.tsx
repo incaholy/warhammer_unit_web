@@ -54,7 +54,7 @@ export function InventoryView() {
           <h1 className={styles.title}>Inventory</h1>
           <p className={styles.meta}>{meta}</p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/catalog')}>
+        <Button variant="primary" onClick={() => navigate('/army-list/catalog')}>
           + Add to Inventory
         </Button>
       </header>
@@ -78,7 +78,7 @@ export function InventoryView() {
           message="Nothing in your collection yet"
           sub="Record what you own from the catalog"
         >
-          <Button variant="secondary" onClick={() => navigate('/catalog')}>
+          <Button variant="secondary" onClick={() => navigate('/army-list/catalog')}>
             + Add to Inventory
           </Button>
         </EmptyState>

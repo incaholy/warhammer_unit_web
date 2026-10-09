@@ -189,7 +189,7 @@ describe('NewArmyModal', () => {
       points_limit: 1500,
     })
 
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/armies/a-1'))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/army-list/armies/a-1'))
   })
 
   it('omits the optional fields when left blank', async () => {
