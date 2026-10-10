@@ -6,18 +6,32 @@
  * here, and keeping Kill Team's keys beside its hooks is what stops the monolith
  * growing a fifth resource's worth of keys.
  *
- * Read-only throughout. The catalog has no write routes (KILLTEAM.md #21), so there
- * are no mutations here and nothing to invalidate. */
+ * Two halves, which is why the file is worth keeping together. The CATALOG hooks
+ * are read-only and always will be: no path under `/api/v1/kill-team` declares a
+ * method other than `get` (KILLTEAM.md #21, #49), so there is nothing to invalidate
+ * and no mutation to review. The ROSTER hooks below are the half a player writes. */
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query'
 
 import * as killTeamApi from './killTeam'
+import * as rostersApi from './killTeamRosters'
 import type { ListKillTeamsParams, ListKTOperativesParams } from './killTeam'
 import type {
   KillTeam_Detail,
   KillTeam_Read,
   KTFaction_Read,
   KTOperative_ListRead,
+  KTRoster_Create,
+  KTRoster_ListRead,
+  KTRoster_Read,
+  KTRoster_Update,
+  KTRosterOperative_Read,
   Page,
   Universal_Read,
   UUID,
@@ -39,6 +53,10 @@ export const killTeamKeys = {
   operatives: (filters: ListKTOperativesParams = {}) =>
     ['killTeam', 'operatives', 'list', filters] as const,
   universal: ['killTeam', 'universal'] as const,
+  /** Prefix matching every roster query — the list and every detail. */
+  allRosters: ['killTeam', 'rosters'] as const,
+  rosters: ['killTeam', 'rosters', 'list'] as const,
+  roster: (id: UUID) => ['killTeam', 'rosters', 'detail', id] as const,
 }
 
 /** The Kill Team factions, fetched COMPLETE.
@@ -91,5 +109,122 @@ export function useUniversal(): UseQueryResult<Universal_Read> {
     queryKey: killTeamKeys.universal,
     queryFn: () => killTeamApi.getUniversal(),
     staleTime: Infinity,
+  })
+}
+
+// ---- Rosters: the half a player writes (ROADMAP KF3) ----
+
+/** The caller's rosters, fetched COMPLETE.
+ *
+ * User-scoped, so whole rather than paged — the split `paging.ts` draws, and a
+ * player has a handful. */
+export function useRosters(): UseQueryResult<Page<KTRoster_ListRead>> {
+  return useQuery({
+    queryKey: killTeamKeys.rosters,
+    queryFn: () => fetchAllPages(rostersApi.listRosters),
+  })
+}
+
+/** One roster whole: its rows with their datacards, plus the team's reference and
+ *  both universal lists (#52). One request for the entire screen. */
+export function useRoster(rosterId: UUID): UseQueryResult<KTRoster_Read> {
+  return useQuery({
+    queryKey: killTeamKeys.roster(rosterId),
+    queryFn: () => rostersApi.getRoster(rosterId),
+    enabled: Boolean(rosterId),
+  })
+}
+
+export function useCreateRoster(): UseMutationResult<KTRoster_Read, Error, KTRoster_Create> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: KTRoster_Create) => rostersApi.createRoster(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: killTeamKeys.rosters })
+    },
+    meta: { successMessage: 'Roster created' },
+  })
+}
+
+export function useUpdateRoster(
+  rosterId: UUID,
+): UseMutationResult<KTRoster_Read, Error, KTRoster_Update> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: KTRoster_Update) => rostersApi.updateRoster(rosterId, body),
+    onSuccess: () => {
+      // Both: a rename changes the detail AND the row in the list.
+      qc.invalidateQueries({ queryKey: killTeamKeys.allRosters })
+    },
+    meta: { successMessage: 'Roster saved' },
+  })
+}
+
+export function useDeleteRoster(): UseMutationResult<void, Error, UUID> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rosterId: UUID) => rostersApi.deleteRoster(rosterId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: killTeamKeys.allRosters })
+    },
+    meta: { successMessage: 'Roster deleted' },
+    // No `onError`: a 409 here means a game was played from it (#60), and the
+    // backend's message counts the games and carries no id, so the central toast
+    // shows it verbatim. Nothing to word here.
+  })
+}
+
+export function useAddRosterOperative(
+  rosterId: UUID,
+): UseMutationResult<KTRosterOperative_Read, Error, UUID> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (operativeId: UUID) => rostersApi.addRosterOperative(rosterId, operativeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: killTeamKeys.roster(rosterId) })
+    },
+    meta: { successMessage: 'Operative added' },
+  })
+}
+
+export function useRemoveRosterOperative(
+  rosterId: UUID,
+): UseMutationResult<void, Error, UUID> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (rowId: UUID) => rostersApi.removeRosterOperative(rosterId, rowId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: killTeamKeys.roster(rosterId) })
+    },
+    meta: { successMessage: 'Operative removed' },
+  })
+}
+
+/** Swap two rows' positions, which is how a roster is reordered.
+ *
+ * A SWAP rather than one nudge, because `PATCH position` sets the value absolutely
+ * and shifts nothing (#53). Giving a row its neighbour's position alone would leave
+ * the two tied, and a tie is broken by `id` — so the player would see an order they
+ * did not choose, about half the time. Swapping leaves no tie to break.
+ *
+ * Two requests, sequential and not concurrent: both write `position` on the same
+ * roster, and the second has to read the first's target value, which the caller has
+ * already computed. Invalidated on `onSettled` rather than `onSuccess` precisely
+ * because of the partial failure — if the second PATCH fails the two rows really do
+ * share a position, and the screen must show that rather than the order it hoped for.
+ */
+export function useMoveRosterOperative(
+  rosterId: UUID,
+): UseMutationResult<void, Error, { row: KTRosterOperative_Read; swapWith: KTRosterOperative_Read }> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ row, swapWith }) => {
+      await rostersApi.moveRosterOperative(rosterId, row.id, swapWith.position)
+      await rostersApi.moveRosterOperative(rosterId, swapWith.id, row.position)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: killTeamKeys.roster(rosterId) })
+    },
+    meta: { successMessage: 'Order saved' },
   })
 }

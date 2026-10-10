@@ -50,6 +50,13 @@ export type KTOperative_ListRead = Schemas['KTOperative_ListRead']
 export type KTSelectionRule_Read = Schemas['KTSelectionRule_Read']
 export type Universal_Read = Schemas['Universal_Read']
 
+// Kill Team rosters (ROADMAP KF3) — the half a player writes.
+export type KTRoster_ListRead = Schemas['KTRoster_ListRead']
+export type KTRoster_Read = Schemas['KTRoster_Read']
+export type KTRoster_Create = Schemas['KTRoster_Create']
+export type KTRoster_Update = Schemas['KTRoster_Update']
+export type KTRosterOperative_Read = Schemas['KTRosterOperative_Read']
+
 // ---- Client-side conveniences (no single backend schema to re-export) ----
 
 export type UUID = string

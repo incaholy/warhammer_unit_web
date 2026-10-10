@@ -28,6 +28,9 @@ import type {
   KTFaction_Read,
   KTOperative_ListRead,
   KTPloy_Read,
+  KTRoster_ListRead,
+  KTRoster_Read,
+  KTRosterOperative_Read,
   KTSelectionRule_Read,
   KTWeapon_Read,
   Page,
@@ -84,9 +87,13 @@ type ApiBody =
   | Page<Army_Read>
   | Page<Faction_Read>
   | Page<UserUnit_Read>
+  | KTRoster_ListRead
+  | KTRoster_Read
+  | KTRosterOperative_Read
   | Page<KTFaction_Read>
   | Page<KillTeam_Read>
   | Page<KTOperative_ListRead>
+  | Page<KTRoster_ListRead>
 
 /** A JSON `Response` whose body must be a shape the API can really return. */
 export function jsonResponse<T extends ApiBody>(body: T, init: ResponseInit = {}): Response {
@@ -286,6 +293,67 @@ export function makeUniversal(over: Partial<Universal_Read> = {}): Universal_Rea
   return {
     ploys: [makeKTPloy({ id: 'ktp-u', name: 'Command Re-roll' })],
     equipment: [makeKTEquipment({ id: 'kte-u', name: 'Frag Grenade' })],
+    ...over,
+  }
+}
+
+export function makeKTRosterListRow(over: Partial<KTRoster_ListRead> = {}): KTRoster_ListRead {
+  return {
+    id: 'ktr-1',
+    name: 'My Raveners',
+    description: null,
+    created_at: '2026-01-01T00:00:00Z',
+    kill_team_id: 'kt1',
+    // The LIST row carries both names outright, unlike the catalog's
+    // `KillTeam_Read`, which carries only `faction_id` -- so a roster listing needs
+    // no name lookup.
+    kill_team_name: 'Raveners',
+    faction_name: 'Tyranids',
+    ...over,
+  }
+}
+
+export function makeKTRosterOperative(
+  over: Partial<KTRosterOperative_Read> = {},
+): KTRosterOperative_Read {
+  return { id: 'ktro-1', position: 0, operative: makeKTOperative(), ...over }
+}
+
+export function makeKTRoster(over: Partial<KTRoster_Read> = {}): KTRoster_Read {
+  return {
+    id: 'ktr-1',
+    name: 'My Raveners',
+    description: null,
+    created_at: '2026-01-01T00:00:00Z',
+    kill_team_id: 'kt1',
+    kill_team_name: 'Raveners',
+    faction_name: 'Tyranids',
+    // TWO rows holding the SAME datacard, which is the roster's defining property
+    // (#50): a row is one operative, add appends, and each row is addressed by its
+    // own id. A fixture with one row per datacard could not fail a test about that.
+    // Positions ascend but the names do not, so an ordering assertion is falsifiable.
+    operatives: [
+      makeKTRosterOperative({
+        id: 'ktro-1',
+        position: 0,
+        operative: makeKTOperative({ id: 'kto1', name: 'Ravener Prime' }),
+      }),
+      makeKTRosterOperative({
+        id: 'ktro-2',
+        position: 1,
+        operative: makeKTOperative({ id: 'kto2', name: 'Hormagaunt' }),
+      }),
+      makeKTRosterOperative({
+        id: 'ktro-3',
+        position: 2,
+        operative: makeKTOperative({ id: 'kto2', name: 'Hormagaunt' }),
+      }),
+    ],
+    rules: [makeKillTeamRule({ id: 'ktr-r1', name: 'Tunnel', position: 0 })],
+    ploys: [makeKTPloy({ id: 'ktr-p1', name: 'Predatory Instincts', position: 0 })],
+    equipment: [makeKTEquipment({ id: 'ktr-e1', name: 'Grisly Trophy', position: 0 })],
+    universal_ploys: [makeKTPloy({ id: 'ktr-up1', name: 'Command Re-roll', position: 0 })],
+    universal_equipment: [makeKTEquipment({ id: 'ktr-ue1', name: 'Frag Grenade', position: 0 })],
     ...over,
   }
 }

@@ -99,6 +99,7 @@ export default defineConfig([
                 '**/api/inventory',
                 '**/api/auth',
                 '**/api/killTeam',
+                '**/api/killTeamRosters',
               ],
               message:
                 'Views and UI use a hook from a queries module (src/api/queries.ts, src/api/killTeamQueries.ts), not a resource module directly -- otherwise the call escapes the cache and its invalidation.',
