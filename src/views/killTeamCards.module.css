@@ -203,11 +203,10 @@
   margin: 0;
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 20px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Followed `.cards` out of KillTeamView.module.css. The extraction moved the class
+   and left this override behind, so the datacard grid stayed three-up on a phone. */
+@media (max-width: 640px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
 }

@@ -35,9 +35,9 @@ has been verified end-to-end against the live backend.
 ## Status at a glance
 
 **Built.** The full SPEC roadmap (steps 1–12) is complete plus post-roadmap
-hardening (toasts, error boundary, code-splitting, CI). **144 tests pass**, lint
+hardening (toasts, error boundary, code-splitting, CI). **335 tests pass**, lint
 + build clean, and the frontend↔backend contract is verified against a running,
-seeded backend (1,332 units). Remaining work is deploy-time config and a few
+seeded backend (~1,331 units). Remaining work is deploy-time config and a few
 deferred niceties (see below).
 
 ## Parts of the system
@@ -52,9 +52,9 @@ deferred niceties (see below).
 | Auth/session — context, guard, login/signup | `src/auth/` | ✅ |
 | Toasts — bus + provider, wired to mutation outcomes | `src/toast/` | ✅ |
 | UI kit — buttons, inputs, tags, modal, toast, header, breadcrumbs, error boundary | `src/ui/` | ✅ |
-| Views — collection, army, catalog, inventory, unit, auth | `src/views/` | ✅ |
+| Views — section chooser, and per section: 40k (collection, army, catalog, inventory, unit), Kill Team (catalog, team, rosters, roster), plus auth | `src/views/` | ✅ |
 | Dev proxy — Vite → `:8000` | `vite.config.ts` | ✅ |
-| CI — GitHub Actions (lint + build + test) | `.github/workflows/ci.yml` | ✅ |
+| CI — GitHub Actions (lint, build, generated-types freshness, bundle budget, coverage) | `.github/workflows/ci.yml` | ✅ |
 
 ## Views
 
@@ -112,7 +112,7 @@ deferred niceties (see below).
 - [x] **Error boundary** — render-error fallback instead of a blank screen.
 - [x] **Route-level code splitting** — `React.lazy` per view.
 - [x] **Tests** — Vitest + React Testing Library (client, roles, all views, auth,
-  routing, toasts, error boundary) — 144 tests.
+  routing, toasts, error boundary) — 335 tests.
 - [x] **CI** — GitHub Actions: lint + build + test on push/PR to `main`.
 
 ### To add / harden ⚙️ (deferred)

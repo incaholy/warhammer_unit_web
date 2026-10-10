@@ -127,9 +127,9 @@ function Datacards({ operatives }: { operatives: KTOperative_Read[] }) {
   return (
     <ul className={cards.cards}>
       {operatives.map((operative) => (
-        <li key={operative.id} className={styles.card}>
-          <div className={styles.cardHead}>
-            <h2 className={styles.cardName}>{operative.name}</h2>
+        <li key={operative.id} className={cards.card}>
+          <div className={cards.cardHead}>
+            <h2 className={cards.cardName}>{operative.name}</h2>
             {/* `in_battle` means the model is granted during a game rather than
               * rostered (#20). Shown as a marker, never as a refusal (#51). */}
             {operative.availability === 'in_battle' && <Tag>In battle only</Tag>}

@@ -11,7 +11,9 @@ status codes), the backend is the source of truth and this document mirrors it.
 
 ## What it is
 
-A single-page app with six views hung off a persistent header. The core user
+A single-page app in two sections — a Warhammer 40,000 army-list builder under
+`/army-list` and a Kill Team 2024 tracker under `/kill-team` — hung off a persistent
+header. The core user
 journey — the same "core loop" the backend defines — is:
 
 ```
@@ -84,9 +86,11 @@ Rules (the frontend analogues of the backend's layering rules):
 | API types | **`openapi-typescript`** from `/openapi.json` | Keeps `Unit_Read`/`Army_Read` in lockstep with `models.py` |
 
 This stack is fully in place and building (see MVP.md "Feature checklist"). One
-deviation from the table: `types.ts` is **hand-written** and verified against the
-live `/openapi.json` rather than generated — the `openapi-typescript` migration is
-deferred (see Roadmap step 12).
+note on the table: `types.ts` is a thin **re-export layer** over generated code.
+`scripts/gen-api.mjs` fetches the backend's published `openapi.json` and writes
+`schema.d.ts` (static types) and `schemas.gen.ts` (zod response schemas); CI fails on
+any diff against a fresh run. This said "hand-written, generation deferred" until F2
+shipped it.
 
 ## Design language
 
@@ -144,21 +148,32 @@ warhammer_web/
       global.css          # reset, base element styles, keyframes, utilities
     api/
       client.ts           # fetch wrapper: base + /api/v1, JWT, JSON, ApiError
-      schema.d.ts         # generated from the backend's openapi.json (do not edit)
+      parse.ts            # zod parse + ResponseShapeError
+      paging.ts           # PageParams, toQueryString, fetchAllPages
+      schema.d.ts         # GENERATED from the backend's openapi.json (do not edit)
+      schemas.gen.ts      # GENERATED zod response schemas + PAGE_LIMIT_MAX
       types.ts            # thin re-exports of schema.d.ts + client-side helpers
       auth.ts             # register, login, getMe
-      units.ts            # listUnits, getUnit  (+ list weapons/abilities if needed)
+      units.ts            # listUnits, getUnit, facets
       factions.ts         # listFactions (subfactions come nested, with ids)
       armies.ts           # CRUD + units + shortfall + validate
       inventory.ts        # list/add/setAmount/remove
-      queries.ts          # TanStack Query keys + hooks wrapping the above
+      killTeam.ts         # the six public catalog reads
+      killTeamRosters.ts  # the eight roster reads and writes
+      queries.ts          # TanStack Query keys + hooks for the 40k half
+      killTeamQueries.ts  # the same for Kill Team, catalog and rosters
     auth/
       AuthContext.tsx     # token in localStorage, current user, login/register/logout
       RequireAuth.tsx     # route guard → redirects to /login
     toast/
       ToastProvider.tsx   # renders the toast stack
       toastBus.ts         # enqueue transient messages from outside React
-    ui/                   # design-system primitives (see "UI kit")
+    test/
+      setup.ts            # jest-dom matchers
+      fixtures.ts         # typed builders + the ApiBody union that gates them
+    ui/                 # design-system primitives, barrel-exported from index.ts
+                        # Button, Input, Select, Field, Tabs, Modal, Tag, Toast,
+                        # QuantityInput, SegmentedToggle, Header, Breadcrumbs
       Button.tsx  Input.tsx  Field.tsx  Tag.tsx  SegmentedToggle.tsx
       Modal.tsx   Toast.tsx  Header.tsx  Breadcrumbs.tsx  Eyebrow.tsx  EmptyState.tsx
       ErrorBoundary.tsx   # render-error fallback instead of a blank screen
@@ -181,6 +196,7 @@ warhammer_web/
       KillTeamRosterView.tsx   # /kill-team/rosters/:rosterId
       NewRosterModal.tsx       # the create-roster overlay
       killTeamCards.tsx        # datacard pieces shared by the team and roster screens
+      NewArmyModal.tsx         # the create-army overlay
 ```
 
 ## Development
@@ -214,16 +230,13 @@ build-time `VITE_API_BASE_URL`. Nothing else is configurable at runtime.
 so `fetch("/units")` from the browser reaches the API on one origin:
 
 ```ts
-server: {
-  proxy: Object.fromEntries(
-    ["/auth", "/me", "/units", "/factions", "/weapons", "/abilities", "/health"]
-      .map((p) => [p, { target: "http://localhost:8000", changeOrigin: true }])
-  ),
-}
+// vite.config.ts — one entry, because every backend route is under /api/v1
+server: { proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: true } } }
 ```
 
-(The backend mounts routes at the root, not under `/api`, so the proxy lists the
-prefixes explicitly rather than a single `/api`.)
+(The backend mounts every route under `/api/v1`, so the proxy is a single `/api`
+entry. It used to list each prefix; `src/api/devProxy.test.ts` now reads the patterns
+out of `vite.config.ts` and asserts they agree with the client's prefix.)
 
 ## HTTP client (`src/api/client.ts`)
 
@@ -243,7 +256,7 @@ One `request()` helper backs every resource function:
   the total travels **in the body**. It used to be an `X-Total-Count` header, which
   a browser cannot read cross-origin unless the server names it in
   `expose_headers` — that silence is what capped the deployed catalog at 25 units.
-- **Errors** — any non-2xx becomes a thrown `ApiError { status, message, field? }`,
+- **Errors** — any non-2xx becomes a thrown `ApiError { status, message, code?, field?, errors[], requestId? }` — `code` is the enum `src/lib/errors.ts` maps to copy,
   built from the backend's `{ "detail": message, "field"? }` body. A **401**
   additionally clears the stored token and signals the auth layer to bounce to
   `/login`. This mirrors the backend's error contract:
@@ -291,11 +304,16 @@ relies on (from the backend routers):
 - **Current user** — `GET /me` with the Bearer token hydrates `AuthContext` on
   load; a 401 means the token is stale → clear it and show `/login`.
 - **Log out** — drop the token from `localStorage`, reset Query cache, redirect.
-- **Guarding** — `RequireAuth` wraps every non-auth route; unauthenticated access
-  redirects to `/login`. There is no refresh-token flow (out of scope — a single
+- **Guarding** — `RequireAuth` wraps every route except `/login` **and the public Kill
+  Team catalog** (`/kill-team`, `/kill-team/teams/:killTeamId`), whose reads need no
+  token; unauthenticated access to a guarded route redirects to `/login`. There is no refresh-token flow (out of scope — a single
   access token expiring per `ACCESS_TOKEN_EXPIRE_MINUTES`; expiry → re-login).
 
 ## Routing & views
+
+Decision numbers below (`#11`, `#21`, …) refer to
+[`KILLTEAM.md` in the API repo](https://github.com/incaholy/Warhammer-unit/blob/main/KILLTEAM.md),
+which is where the Kill Team design lives.
 
 `react-router` with TWO branches: a public one and an authenticated one. Almost
 everything is guarded, but the Kill Team **catalog** is reference data whose reads
@@ -316,10 +334,19 @@ crumb bar, and are rooted at the SECTION — `/` is a chooser and carries none.
 | `/kill-team/teams/:killTeamId` | `KillTeamView` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — **public** |
 | `/kill-team/rosters` | `KillTeamRostersView` | `GET`/`POST /me/kill-team/rosters` |
 | `/kill-team/rosters/:rosterId` | `KillTeamRosterView` | `GET`/`PATCH`/`DELETE /me/kill-team/rosters/{id}`, the three `/operatives` routes, `GET /kill-team/operatives` |
+
+Plus the **pre-section redirects**, kept so bookmarks from before the two sections
+survive: `/inventory`, `/catalog`, `/armies/*` and `/units/*` each resolve to their
+`/army-list` equivalent, built from the current pathname so a route parameter and the
+query string both carry across. `*` falls through to `/`.
+
 | `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
 
-**Header** — sticky; logo/wordmark returns Home, a segmented `Armies | Inventory`
-nav, and Log Out. Present on every authenticated route.
+**Header** — sticky; the wordmark returns to the section chooser at `/`. **Two
+rows**: the top switches SECTION (Army List / Kill Team), the second shows that
+section's own pages. Log Out when signed in, **Sign in** when not, because the Kill
+Team catalog is public and the bar renders for visitors. Present on every route
+but `/login`.
 
 ### AuthView (`/login`)
 Login/Sign-Up segmented tabs. Login = email + password; Sign Up = name + email +
@@ -451,8 +478,7 @@ never refuses (#51). A refused delete (#60) closes the dialog so the toast is re
 ### New Army modal
 Overlay + paper card. Fields: **Army Name** and a **Faction** select populated
 from `GET /factions`. **Create** → `POST /me/armies` then navigate to the new
-army. (Subfaction, description, and points-limit are backend-supported and can be
-added to the modal later — see Roadmap.)
+army. Subfaction, description and points-limit are all sent (roadmap step 11).
 
 ### Toast
 Global transient confirmations ("Added to inventory", "Army created", "Removed").
@@ -460,9 +486,14 @@ Enqueued from mutation `onSuccess`; auto-dismisses.
 
 ## State management
 
-- **Server state → TanStack Query.** One query key per resource
-  (`["armies"]`, `["army", id]`, `["units", filters]`, `["unit", id]`,
-  `["factions"]`, `["inventory"]`, `["me"]`). Mutations (create army, add/remove
+- **Server state → TanStack Query.** Keys are `[resource, kind, ...]`, which is what
+  lets a prefix invalidate in both directions — `['armies']` matches the list and
+  every detail. `src/api/queries.ts` owns the 40k factory (`['armies','list']`,
+  `['armies','detail',id]`, `['units','list',filters]`, `['units','facets',filters]`,
+  `['factions','list']`, `['inventory','list']`); `src/api/killTeamQueries.ts` owns a
+  second factory for Kill Team. There is no `me` key — F9 deleted it. This described
+  the old flat shape (`["army", id]`, `["units", filters]`) until F5 reshaped them.
+  Mutations (create army, add/remove
   unit, set amount, add-to-inventory) invalidate the affected keys so views
   refresh without manual refetching. Upserts (add-to-army / add-to-inventory) key
   off the backend's 201-vs-200 to word the toast ("added" vs "increased").
@@ -513,7 +544,8 @@ where it and the real API must be reconciled, and how:
 - **Component/unit tests** — **Vitest + React Testing Library**: the `roles.ts`
   derivation, the `client.ts` error/`204`/form-encoding behavior, and key view
   interactions (add-to-army updates the list, amount edit persists) against a
-  **mocked API** (MSW — Mock Service Worker), so tests need no live backend.
+  **stubbed `fetch`**, so tests need no live backend. MSW was considered and not
+  adopted — see the note at the end of this section.
 - **Type-level** — `tsc -b` in `npm run build` is a test: generated API types make
   a backend contract change fail the build.
 - **Manual/e2e** — against a seeded local backend, walk the core loop. A Playwright
@@ -522,11 +554,13 @@ where it and the real API must be reconciled, and how:
 ## Build & deployment
 
 - `npm run build` → static `dist/` (typecheck then Vite build).
-- **Prod topology** (from the backend SPEC's "Frontend integration"): a reverse
-  proxy (Caddy/nginx) serves `dist/` and forwards API paths to the `api` service —
-  **one origin, no CORS**. If the frontend is ever hosted cross-origin, the backend
-  enables `CORSMiddleware` via its `ALLOWED_ORIGINS` allow-list and the frontend
-  sets `VITE_API_BASE_URL` to the API origin.
+- **Prod topology**: **Firebase Hosting** serves `dist/` and the app calls the API
+  **cross-origin** at `VITE_API_BASE_URL` (`firebase.json` is committed). Two
+  origins, so CORS matters: the backend enables `CORSMiddleware` via its
+  `ALLOWED_ORIGINS` allow-list, and ARCHITECTURE §2.3's argument for keeping `total`
+  in the body rather than a response header rests on exactly this. A same-origin
+  reverse proxy (Caddy/nginx) was the earlier plan, taken from the backend SPEC's
+  "Frontend integration"; it is not what ships.
 - The frontend is **stateless and secret-free**: the only runtime input is the API
   base URL; the JWT lives in the browser.
 
@@ -539,7 +573,7 @@ where it and the real API must be reconciled, and how:
 
 Ordered easiest-first, mirroring the backend SPEC's style. Steps 1–8 are the MVP
 port; 9+ surface backend capabilities the base design omitted. **Steps 1–12 are
-complete** (144 tests, lint + build clean, contract verified against the live
+complete** (lint + build clean, contract verified against the live
 backend); the remaining polish items are called out per step.
 
 1. ✅ **Scaffold** — `react-router-dom`, TanStack Query; `theme.css` /

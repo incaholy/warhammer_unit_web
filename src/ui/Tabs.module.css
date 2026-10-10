@@ -36,3 +36,9 @@
   border-bottom-color: var(--ink);
 }
 
+/* Followed `.tabs` out of KillTeamView.module.css for the same reason. */
+@media (max-width: 640px) {
+  .tabs {
+    gap: 18px;
+  }
+}

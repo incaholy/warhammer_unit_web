@@ -4,8 +4,9 @@ The target architecture for the frontend. This document is **normative**: it sta
 meant to be built and why, not how it happens to be built today. [`ROADMAP.md`](ROADMAP.md) carries
 the delta between the two.
 
-**Baseline.** Every status below is measured against the `roadmap` branch (the "consume the hardened
-API" work), not `main`. That branch is where the repo is heading, and describing `main` would make
+**Baseline.** Every status below is measured against the `kill-team-ui` branch — the "consume the
+hardened API" work on `roadmap`, plus the three Kill Team slices (`KF1`–`KF3`) on top of it — not
+`main`. That branch is where the repo is heading, and describing `main` would make
 this stale the day it merges. Where `roadmap` changed something material, it says so.
 
 **Relationship to the other docs.** [`SPEC.md`](SPEC.md) is the design and feature specification: what
@@ -39,7 +40,7 @@ would still be true after the next contributor, or the next you, forgets the rul
 
 **Exactly one principle reached `Holds`** when this was written (§2.4), and it is worth studying
 because it shows what turning a convention into a guarantee actually costs: one type annotation. That
-ratio was the finding. It is now five (§1, §2.4, §2.5, §3, §4), closed by F3's lint rules and F4's
+ratio was the finding. It is now eight (§1, §2.2, §2.3, §2.4, §2.5, §3, §4, §9), closed by F3's lint rules and F4's
 proxy test.
 
 ---
@@ -291,8 +292,10 @@ correct roles and ARIA state; modals trap focus and restore it; async regions an
 
 **Status: Partial.**
 
-The accessibility work is real and better than most projects at this stage: 29 `aria-label`
-attributes across non-test components plus 3 `aria-labelledby`, `aria-pressed` on toggles,
+The accessibility work is real and better than most projects at this stage. No count here, for the reason
+this document gives elsewhere about test counts: it said 29 `aria-label` attributes and the figure was
+wrong within three slices, and a reader can run the grep. What matters is the shape —
+`aria-label` on every icon-only control, `aria-labelledby` tying each panel to its tab, `aria-pressed` on toggles,
 `aria-busy` on loading regions, `aria-invalid` on fields,
 `aria-modal` with a focus trap on the modal, and `role="status"` / `role="alert"` live regions. None
 of that is accidental.
@@ -305,8 +308,9 @@ closes only on a click of the backdrop itself, which also deleted a `stopPropaga
 scrolling weapon table is a labelled `region` rather than a `group`. Treat the linter as a floor:
 it catches missing semantics and never catches a bad focus order or an unusable flow.
 
-**Status stays Partial for the styling half.** Two known exceptions: `src/ui/ErrorBoundary.tsx` and
-`src/App.tsx` style with inline objects rather than a module, and nothing prevents a third.
+**Status stays Partial for the styling half.** Four known exceptions style with inline objects rather
+than a module: `src/ui/ErrorBoundary.tsx`, `src/App.tsx`, `src/views/ArmyView.tsx` and
+`src/views/KillTeamView.tsx`. Nothing prevents a fifth.
 
 ---
 
@@ -346,7 +350,7 @@ and every view. Deliberately no test counts here: they were wrong within a commi
 twice, and a number nobody can trust is worse than no number. `npm test` prints the real one, and
 coverage has a threshold floor (`vite.config.ts`, §8) that fails the build when a module ships
 untested — an enforced floor is the claim worth making in a document. The thin spot worth naming is
-that the two primitives with no behaviour of their own (`Eyebrow`, `Input`) have no test file; the
+that a few files have no test file of their own: the two primitives with no behaviour (`Eyebrow`, `Input`), `SectionView`, `NewRosterModal`, `killTeamCards` and `toastBus`. The last four are covered indirectly, through the views and modals that render them; the
 ones that do — including `Field`, `Toast` and the shared `QuantityInput` — are covered.
 
 The structural gap is what transport stubbing cannot see. **A stub answers whatever the test author
@@ -370,7 +374,7 @@ absent landed in F8 — see §8.)
 CI runs lint, type check, build, and tests on every push and pull request, on every branch. The
 production bundle has a size budget, because a dependency added for one call site is easy to add and invisible afterwards.
 
-**Status: Partial.** Three of the five gaps below are closed (F8): CI now runs on a PR into any
+**Status: Partial.** Four of the five gaps below are closed (F8): CI now runs on a PR into any
 branch, the entry chunk has a budget enforced in CI (`npm run check:size`), and coverage has a
 threshold floor. The deploy step is still missing, and it needs a credential this repo does not hold.
 

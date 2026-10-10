@@ -56,17 +56,21 @@ See `.env.example`.
 | `npm test` | Run the Vitest suite once. |
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run lint` | Lint with ESLint. |
+| `npm run test:coverage` | the suite with coverage, against the floor CI enforces |
+| `npm run check:size` | the entry-chunk budget, and growth against a base branch |
 | `npm run gen:api` | Regenerate `src/api/schema.d.ts` from the backend's published `openapi.json`. Set `OPENAPI_REF` to target a backend branch. CI verifies it is fresh. |
 
 ## Layout
 
 ```
 src/
-  api/       one module per backend resource (units, armies, inventory, factions, auth),
-             plus client.ts (fetch wrapper + zod error parsing), queries.ts (React Query
-             hooks), and types.ts (the API contract types)
-  views/     route-level screens (Section chooser, Army List: Catalog/Collection/Army,
-             Kill Team: catalog/team, Auth) with CSS modules
+  api/       one module per backend resource (units, armies, inventory, factions, auth, killTeam, killTeamRosters),
+             plus client.ts (fetch wrapper + zod error parsing), queries.ts and
+             killTeamQueries.ts (React Query hooks), paging.ts, parse.ts, and
+             types.ts over the generated schema.d.ts / schemas.gen.ts
+  views/     route-level screens: section chooser; Army List (collection, army,
+             catalog, inventory, unit datasheet); Kill Team (catalog, team, rosters,
+             roster); auth. Each with a sibling CSS module
   ui/        the shared design-system components (Button, Input, Tag, …)
   lib/       framework-free helpers (errors, formatting, keyword→role derivation)
   auth/      auth context / token handling
@@ -89,7 +93,7 @@ shape; `src/lib/errors.ts` turns those into user-facing messages.
 - [`SPEC.md`](SPEC.md): the frontend specification. Routing, views, the design
   language, and the build roadmap.
 - [`MVP.md`](MVP.md): what the minimal product is and what's built.
-- [`CODE-REVIEW.md`](CODE-REVIEW.md): a correctness review of both repos.
+- [`CODE-REVIEW.md`](CODE-REVIEW.md): a correctness review of this repo (the backend keeps its own).
 
 Backend and deployment docs live in the
 [`Warhammer-unit`](https://github.com/incaholy/Warhammer-unit) repo, which keeps

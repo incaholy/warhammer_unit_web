@@ -8,12 +8,14 @@ implementations: the shape and the reasoning are here, the code is yours.
 with value weighted more heavily than effort, so a `Small` item can outrank a `Trivial` one when it
 protects more. The sections that follow are in ID order so links stay put as priorities change.
 
-**Baseline.** Measured against the `roadmap` branch, not `main`. See
+**Baseline.** The F items were measured against the `roadmap` branch, not `main`; the KF items
+against `kill-team-ui`, three slices past it. See
 [`ARCHITECTURE.md`](ARCHITECTURE.md) for why.
 
 **Evidence.** Every claim was reproduced against the running code rather than read off a commit
 message or a doc. `npm ci`, `npm run lint` (clean), `npm run build` (clean), `npm test` (**29 files,
-156 tests, all passing**), plus throwaway probes for the cache leak, the type-generation path, and the
+156 tests, all passing** — the figure when the F items were written; it is 46 files and 335 tests
+now), plus throwaway probes for the cache leak, the type-generation path, and the
 bundle measurement, all deleted afterwards. Where something is a latent risk rather than a live
 defect, it says so.
 
@@ -53,11 +55,11 @@ should be closed rather than contradicted.
 | 3 | [F7](#f7-lock-in-the-accessibility-work-with-a-linter) | ✅ Lock in the accessibility work | §5 | Trivial |
 | 4 | [F6](#f6-return-users-to-the-page-they-asked-for) | ✅ Return users to the page they asked for | §4 | Trivial |
 | 5 | [F3](#f3-enforce-the-layering-rule-with-lint) | ✅ Enforce the layering rule with lint | §1, §2.1 | Small |
-| 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | Clear the doc and dead-code drift | §6 | Trivial |
+| 6 | [F9](#f9-clear-the-doc-and-dead-code-drift) | ✅ Clear the doc and dead-code drift | §6 | Trivial |
 | 7 | [F5](#f5-make-query-keys-consistently-hierarchical) | ✅ Make query keys consistently hierarchical | §3 | Small |
-| 8 | [F4](#f4-test-against-the-real-contract) | Test against the real contract | §7 | Focused |
+| 8 | [F4](#f4-test-against-the-real-contract) | ◐ Test against the real contract | §7 | Focused |
 | 9 | [F8](#f8-harden-ci-and-add-a-bundle-budget) | ◐ Harden CI, add a bundle budget | §8 | Small |
-| 10 | [F10](#f10-move-the-owned-filter-to-the-server) | Move the "owned" filter to the server | §9 | Moderate, cross-repo |
+| 10 | [F10](#f10-move-the-owned-filter-to-the-server) | ✅ Move the "owned" filter to the server | §9 | Moderate, cross-repo |
 | 11 | [F11](#f11-decide-what-zod-is-for) | ✅ Decide what zod is for | §2.2 | Decision first |
 
 F10 changes a contract the backend owns. Land both sides together, or the gap becomes a mismatch you
@@ -469,7 +471,17 @@ planned rather than abandoned, a comment saying so costs one line and answers th
 
 ## F10. Move the "owned" filter to the server
 
-**Satisfies:** §9 (cross-repo). **Cannot be completed in this repo alone.**
+**Satisfies:** §9 (cross-repo). **✅ Done.**
+
+Both halves are server-side. `GET /units` and `GET /units/facets` each accept `owned`
+([`openapi.json`](https://github.com/incaholy/Warhammer-unit/blob/main/openapi.json)), `src/api/units.ts`
+sends it, and `CatalogView` takes its page, its total and its faction rail from one predicate, so
+"N of M" cannot disagree with itself. [`ARCHITECTURE.md`](ARCHITECTURE.md) §9 reads `Holds`.
+
+The original finding is kept below because the reasoning is the reusable part — but note its central
+claim became false: it said the backend "exposes no `owned` filter", which was true when written and
+is not now. A doc audit caught the contradiction between this entry and §9; this entry was the wrong
+one.
 
 **What is missing.** Filtering and pagination have to happen on the same side. If the server
 paginates and the client filters, the filter only ever sees the current page.
@@ -565,20 +577,25 @@ reason the backend's `K` series has no `Effort` column.
 **Baseline.** Measured on `kill-team-ui` (branched from `roadmap`) on 2026-10-08, after
 `npm run gen:api` picked up the backend's Kill Team contract:
 
-| | |
-|---|---|
-| Tests | **37 files, 223 cases**, all passing |
-| Routes in `src/App.tsx` | 7 |
-| Views | 7 |
-| `src/ui` exports | 24 |
-| API resource modules | 5 |
-| `src/api/queries.ts` | 292 lines |
-| Published API paths | **49** (28 before the merge), of which **21** are Kill Team |
-| Generated Kill Team zod schemas | 23 |
+| | At the branch point (2026-10-08) | After KF1–KF3 |
+|---|---|---|
+| Tests | **37 files, 223 cases** | **46 files, 335 cases** |
+| Paths in `src/App.tsx` | 7 | 17 (12 views, 4 redirects, 1 catch-all) |
+| Route-level views | 7 | 11 |
+| `src/ui` exports | 24 | 28 |
+| API resource modules | 5 | 8 |
+| `src/api/queries.ts` | 292 lines | 292 lines (Kill Team got its own module) |
+| Published API paths | **49** (28 before the merge), of which **21** are Kill Team | unchanged |
+| Generated Kill Team zod schemas | 23 | unchanged |
+
+Both columns, because the left one is what the slices were planned against and the right one is what
+they produced — a single column would have gone stale the moment `KF1` landed, which is how the
+"144 tests" claim in three other docs got to be wrong four times over — those three now carry no
+count at all, which is the only version that cannot rot.
 
 **Evidence.** Reproduced against the running code, not read off a doc — which is the specific failure
-these numbers are replacing. Four of the six root docs still assert "144 tests"; the real figure has
-been three different values since. `npm run gen:api`, `npm run lint`, `npm run build` and the full
+these numbers are replacing. Three of the six root docs asserted "144 tests" when this was written; the real figure had been
+four different values by then, so the claim was dropped from all three rather than updated. `npm run gen:api`, `npm run lint`, `npm run build` and the full
 Vitest suite were each run to completion for the table above. Where something below is a judgement
 call rather than a fact, it says so.
 

@@ -1,14 +1,31 @@
-# Code review, frontend (`warhammer_unit_web`)
+# Code review, frontend (`warhammer_web`)
 
 The companion to [`CODE-REVIEW.md` in the API repo](https://github.com/incaholy/Warhammer-unit/blob/main/CODE-REVIEW.md), which covers the backend findings.
 
-**Status: this is good code.** 144 tests pass, lint is clean, the build produces properly code-split chunks. The structure is right: one HTTP client that owns the token and error shape, TanStack Query with hierarchical keys and precise invalidation, route-level lazy loading, an error boundary, real accessibility work (progress bars with `aria-valuetext`, skeletons as polite `status` regions, labelled controls). No `any` in application code, no `dangerouslySetInnerHTML`, and only three `eslint-disable` lines, each with a stated reason.
+**Status: this is good code.** 335 tests pass, lint is clean, the build produces properly code-split chunks. The structure is right: one HTTP client that owns the token and error shape, TanStack Query with hierarchical keys and precise invalidation, route-level lazy loading, an error boundary, real accessibility work (progress bars with `aria-valuetext`, skeletons as polite `status` regions, labelled controls). No `any` in application code, no `dangerouslySetInnerHTML`, and only two `eslint-disable` directives, each with a stated reason.
 
 **And the tests are honest.** They stub `fetch` and assert what the client actually sent, rather than mocking the API layer and asserting on the mock's own value. That distinction matters more than it sounds, and finding 1 below is the exception that proves where even good tests of this shape have a blind spot.
 
 There is **one live bug**, one design bug, and a few small things.
 
-**Verified by:** `npm test` (144 passed), `npm run lint`, `npm run build`, reading the views and the client, plus a probe against the real backend to confirm finding 1.
+**Verified by:** `npm test` (335 passed), `npm run lint`, `npm run build`, reading the views and the client, plus a probe against the real backend to confirm finding 1.
+
+---
+
+## Status, re-verified after the Kill Team work (KF1–KF3)
+
+A **dated snapshot**, re-checked against the code. Findings **1, 2, 3 and 5c are fixed**;
+**4, 5a and 5b are still live**. So the "suggested fix order" at the end is stale: the live
+order is **4, then 5a/5b**. Each finding below carries its own verdict.
+
+- **4** — `src/api/client.ts` fires the unauthorized listeners on *any* 401, including a
+  wrong password at `POST /auth/login`. Harmless today, because the only listener nulls an
+  already-null user; a trap for whoever adds a redirecting or toasting one.
+- **5a** — one in-flight mutation disables every row's button (`ArmyView`, `CatalogView`).
+  Worth noting the Kill Team roster screen does this *deliberately* for reorder and says
+  why — a move is two writes across two rows. The 40k views have no such reason.
+- **5b** — `register()` can leave an account created but signed out, with no compensation
+  and no distinct message.
 
 ---
 
