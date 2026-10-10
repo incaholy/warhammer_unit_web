@@ -21,6 +21,7 @@ const SectionView = lazy(() => import('./views/SectionView'))
 const CollectionView = lazy(() => import('./views/CollectionView'))
 const KillTeamCatalogView = lazy(() => import('./views/KillTeamCatalogView'))
 const KillTeamView = lazy(() => import('./views/KillTeamView'))
+const KillTeamRostersView = lazy(() => import('./views/KillTeamRostersView'))
 const CatalogView = lazy(() => import('./views/CatalogView'))
 const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
 const ArmyView = lazy(() => import('./views/ArmyView'))
@@ -59,6 +60,7 @@ function crumbsForPath(pathname: string): Crumb[] {
     const rest = parts.slice(1)
     if (rest.length === 0) return []
     if (rest[0] === 'teams') return [home, { label: 'Kill Team' }]
+    if (rest[0] === 'rosters') return [home, { label: 'Rosters' }]
     return [home]
   }
 
@@ -157,6 +159,10 @@ export default function App() {
         <Route path="/army-list/armies/:armyId" element={<ArmyView />} />
         <Route path="/army-list/armies/:armyId/catalog" element={<ArmyCatalog />} />
         <Route path="/army-list/units/:unitId" element={<UnitView />} />
+
+        {/* Kill Team's user-owned half. The catalog above is public; a roster is
+          * not, so these are inside the guard. */}
+        <Route path="/kill-team/rosters" element={<KillTeamRostersView />} />
 
         {/* Pre-section paths, kept so existing bookmarks resolve. The splats cover
          * the nested army and unit routes without repeating their parameters. */}

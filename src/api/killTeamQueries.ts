@@ -47,6 +47,7 @@ export const killTeamKeys = {
   /** Prefix matching every team LIST, whatever its filters. */
   allTeamLists: ['killTeam', 'teams', 'list'] as const,
   teams: (filters: ListKillTeamsParams = {}) => ['killTeam', 'teams', 'list', filters] as const,
+  allTeams: ['killTeam', 'teams', 'list', 'all'] as const,
   team: (id: UUID) => ['killTeam', 'teams', 'detail', id] as const,
   /** Prefix matching every operative LIST, whatever its filters. */
   allOperativeLists: ['killTeam', 'operatives', 'list'] as const,
@@ -64,10 +65,11 @@ export const killTeamKeys = {
  * Fetched whole rather than paged, like the 40k factions: the list is bounded (22
  * rows) and its consumer is a filter and a `Map<UUID, string>` for resolving a
  * team's faction name (#46), both of which need the whole set to be correct. */
-export function useKTFactions(): UseQueryResult<Page<KTFaction_Read>> {
+export function useKTFactions(enabled = true): UseQueryResult<Page<KTFaction_Read>> {
   return useQuery({
     queryKey: killTeamKeys.factions,
     queryFn: () => fetchAllPages(killTeamApi.listKTFactions),
+    enabled,
   })
 }
 
@@ -81,6 +83,26 @@ export function useKillTeams(params: ListKillTeamsParams = {}): UseQueryResult<P
   return useQuery({
     queryKey: killTeamKeys.teams(params),
     queryFn: () => killTeamApi.listKillTeams(params),
+  })
+}
+
+/** EVERY kill team, fetched complete — for a picker rather than for browsing.
+ *
+ * The browse list above is paged, which is the right shape for a page of rows the
+ * reader scrolls. A picker is the other case: a dropdown that offered the first 25
+ * of 48 teams would simply be missing half of them, and the player cannot page a
+ * `<select>`. So this is the one catalog read that goes whole, and it is a separate
+ * hook rather than a flag so that the two intents keep their own cache entries.
+ */
+export function useAllKillTeams(enabled = true): UseQueryResult<Page<KillTeam_Read>> {
+  return useQuery({
+    queryKey: killTeamKeys.allTeams,
+    queryFn: () => fetchAllPages(killTeamApi.listKillTeams),
+    // `enabled` because a picker's data belongs to a dialog: `Modal` stays MOUNTED
+    // while closed so it can restore focus, so its hooks run on every render of the
+    // page behind it. Without this the roster list fetched 48 teams and 22 factions
+    // for a dialog the player may never open.
+    enabled,
   })
 }
 
