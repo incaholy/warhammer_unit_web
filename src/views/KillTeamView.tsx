@@ -12,35 +12,25 @@
  * be wrong three different ways, and a weapon that appears as both a ranged and a
  * melee profile would be split.
  *
- * Tab semantics rather than the house's `SegmentedToggle`, which is a toggle group
- * (`role="group"` + `aria-pressed`) and right for a display mode like List/Grid.
- * These panels hold genuinely different content, so they are a `tablist` with
- * associated `tabpanel`s — `eslint.config.js` already allows `tabIndex` on a
- * tabpanel, which is where that expectation came from. Kept local to this view per
- * the house rule that only a genuinely cross-feature piece is promoted to `src/ui/`;
- * KF4's game screen needs a team tab too, and that is when to promote it. */
+ * The tabs come from `src/ui/Tabs`, promoted out of this file in KF3 when the roster
+ * screen became the second caller. Real tab semantics rather than
+ * `SegmentedToggle`, and the reasoning lives there now. */
 
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { useKillTeam, useKTFactions, useUniversal } from '../api/killTeamQueries'
 import { ApiError } from '../api/client'
-import type {
-  KillTeamRule_Read,
-  KTAbility_Read,
-  KTEquipment_Read,
-  KTOperative_Read,
-  KTPloy_Read,
-  KTSelectionRule_Read,
-  KTWeapon_Read,
-} from '../api/types'
+import type { KTOperative_Read, KTSelectionRule_Read } from '../api/types'
 import { withReference } from '../lib/errors'
-import { Eyebrow, Tag } from '../ui'
+import { Eyebrow, TabPanel, Tabs, Tag, type Tab } from '../ui'
+import { Abilities, Keywords, Reference, StatLine, Weapons } from './killTeamCards'
+import cards from './killTeamCards.module.css'
 import styles from './KillTeamView.module.css'
 
 type TabId = 'datacards' | 'composition' | 'reference'
 
-const TABS: { id: TabId; label: string }[] = [
+const TABS: Tab<TabId>[] = [
   { id: 'datacards', label: 'Datacards' },
   { id: 'composition', label: 'Composition' },
   { id: 'reference', label: 'Rules & Ploys' },
@@ -103,37 +93,22 @@ export default function KillTeamView() {
         <h1 className={styles.title}>{team.name}</h1>
       </header>
 
-      <div className={styles.tabs} role="tablist" aria-label="Team sections">
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`tab-${id}`}
-            aria-selected={tab === id}
-            aria-controls={`panel-${id}`}
-            className={[styles.tab, tab === id ? styles.tabActive : ''].filter(Boolean).join(' ')}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={TABS} value={tab} onChange={setTab} aria-label="Team sections" idPrefix="team" />
 
       {tab === 'datacards' && (
-        <div role="tabpanel" id="panel-datacards" aria-labelledby="tab-datacards">
+        <TabPanel id="datacards" idPrefix="team">
           <Datacards operatives={team.operatives} />
-        </div>
+        </TabPanel>
       )}
 
       {tab === 'composition' && (
-        <div role="tabpanel" id="panel-composition" aria-labelledby="tab-composition">
+        <TabPanel id="composition" idPrefix="team">
           <Composition rules={team.selection_rules} />
-        </div>
+        </TabPanel>
       )}
 
       {tab === 'reference' && (
-        <div role="tabpanel" id="panel-reference" aria-labelledby="tab-reference">
+        <TabPanel id="reference" idPrefix="team">
           <Reference
             rules={team.rules}
             ploys={team.ploys}
@@ -141,7 +116,7 @@ export default function KillTeamView() {
             universalPloys={universalQuery.data?.ploys}
             universalEquipment={universalQuery.data?.equipment}
           />
-        </div>
+        </TabPanel>
       )}
     </section>
   )
@@ -150,7 +125,7 @@ export default function KillTeamView() {
 function Datacards({ operatives }: { operatives: KTOperative_Read[] }) {
   if (operatives.length === 0) return <p className={styles.quiet}>No datacards.</p>
   return (
-    <ul className={styles.cards}>
+    <ul className={cards.cards}>
       {operatives.map((operative) => (
         <li key={operative.id} className={styles.card}>
           <div className={styles.cardHead}>
@@ -160,96 +135,15 @@ function Datacards({ operatives }: { operatives: KTOperative_Read[] }) {
             {operative.availability === 'in_battle' && <Tag>In battle only</Tag>}
           </div>
 
-          <dl className={styles.stats}>
-            <Stat label="APL" value={operative.apl} />
-            <Stat label="Move" value={`${operative.move}"`} />
-            <Stat label="Save" value={`${operative.save}+`} />
-            <Stat label="Wounds" value={operative.wounds} />
-          </dl>
-
+          <StatLine operative={operative} />
           {operative.weapons.length > 0 && <Weapons weapons={operative.weapons} />}
           {operative.abilities.length > 0 && <Abilities abilities={operative.abilities} />}
-
-          {operative.keywords.length > 0 && (
-            <p className={styles.keywords}>{operative.keywords.join(' · ')}</p>
-          )}
+          <Keywords keywords={operative.keywords} />
         </li>
       ))}
     </ul>
   )
 }
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className={styles.stat}>
-      <dt className={styles.statLabel}>{label}</dt>
-      <dd className={styles.statValue}>{value}</dd>
-    </div>
-  )
-}
-
-function Weapons({ weapons }: { weapons: KTWeapon_Read[] }) {
-  return (
-    <table className={styles.weapons}>
-      <thead>
-        <tr>
-          <th scope="col">Weapon</th>
-          <th scope="col">A</th>
-          <th scope="col">Hit</th>
-          <th scope="col">Dmg</th>
-          <th scope="col">Rules</th>
-        </tr>
-      </thead>
-      <tbody>
-        {weapons.map((weapon) => (
-          <tr key={weapon.id}>
-            <th scope="row" className={styles.weaponName}>
-              {weapon.name}
-              <span className={styles.weaponCategory}>
-                {weapon.category === 'melee' ? 'melee' : `${weapon.range}"`}
-              </span>
-            </th>
-            <td>{weapon.attacks}</td>
-            <td>{weapon.hit}+</td>
-            <td>
-              {weapon.normal_damage}/{weapon.crit_damage}
-            </td>
-            <td className={styles.weaponRules}>
-              {/* Printed verbatim, footnote markers included: `Torrent 0"` and
-                * `Torrent 0"*` are different printed strings and #56 leaves it to the
-                * frontend whether they are one chip or two. One chip per string is
-                * the honest rendering -- collapsing them would drop the marker. */}
-              {weapon.weapon_rules.length > 0 ? weapon.weapon_rules.join(', ') : '—'}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-function Abilities({ abilities }: { abilities: KTAbility_Read[] }) {
-  return (
-    <dl className={styles.abilities}>
-      {abilities.map((ability) => (
-        <div key={ability.id} className={styles.ability}>
-          <dt className={styles.abilityName}>{ability.name}</dt>
-          <dd className={styles.abilityText}>{ability.description}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** The composition, as the page prints it.
- *
- * One row per `{position, depth, kind, text}` (#44, #45): read in `position` order,
- * indented by `depth`, and the section is back. Nothing is derived — no budget, no
- * model count, no caps, and no entry resolved to a datacard, because composition is
- * DESCRIPTION and the app never decides legality (#28).
- *
- * A footnote's body is its own `kind = 'note'` row rather than text appended to the
- * bullet above it (#30), so notes render as rows. */
 function Composition({ rules }: { rules: KTSelectionRule_Read[] }) {
   if (rules.length === 0) return <p className={styles.quiet}>No composition printed.</p>
   return (
@@ -269,101 +163,3 @@ function Composition({ rules }: { rules: KTSelectionRule_Read[] }) {
   )
 }
 
-function Reference({
-  rules,
-  ploys,
-  equipment,
-  universalPloys,
-  universalEquipment,
-}: {
-  rules: KillTeamRule_Read[]
-  ploys: KTPloy_Read[]
-  equipment: KTEquipment_Read[]
-  universalPloys?: KTPloy_Read[]
-  universalEquipment?: KTEquipment_Read[]
-}) {
-  return (
-    <div className={styles.reference}>
-      <Block title="Team rules">
-        {rules.length === 0 ? (
-          <p className={styles.quiet}>None printed.</p>
-        ) : (
-          <dl className={styles.abilities}>
-            {rules.map((rule) => (
-              <div key={rule.id} className={styles.ability}>
-                <dt className={styles.abilityName}>
-                  {rule.name}
-                  {/* A rule's group is printed beside it when it has one. */}
-                  {rule.group && <span className={styles.group}>{rule.group}</span>}
-                </dt>
-                <dd className={styles.abilityText}>{rule.description}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </Block>
-
-      <Block title="Ploys">
-        <Ploys ploys={ploys} />
-        {universalPloys && universalPloys.length > 0 && (
-          <>
-            <p className={styles.subhead}>Universal — every team may use these</p>
-            <Ploys ploys={universalPloys} />
-          </>
-        )}
-      </Block>
-
-      <Block title="Equipment">
-        <EquipmentList items={equipment} />
-        {universalEquipment && universalEquipment.length > 0 && (
-          <>
-            <p className={styles.subhead}>Universal</p>
-            <EquipmentList items={universalEquipment} />
-          </>
-        )}
-      </Block>
-    </div>
-  )
-}
-
-function Ploys({ ploys }: { ploys: KTPloy_Read[] }) {
-  if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
-  return (
-    <dl className={styles.abilities}>
-      {ploys.map((ploy) => (
-        <div key={ploy.id} className={styles.ability}>
-          <dt className={styles.abilityName}>
-            {ploy.name}
-            <span className={styles.ployMeta}>
-              {ploy.kind} · {ploy.cp_cost} CP
-            </span>
-          </dt>
-          <dd className={styles.abilityText}>{ploy.description}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-function EquipmentList({ items }: { items: KTEquipment_Read[] }) {
-  if (items.length === 0) return <p className={styles.quiet}>None printed.</p>
-  return (
-    <dl className={styles.abilities}>
-      {items.map((item) => (
-        <div key={item.id} className={styles.ability}>
-          <dt className={styles.abilityName}>{item.name}</dt>
-          <dd className={styles.abilityText}>{item.description}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className={styles.block}>
-      <h2 className={styles.blockTitle}>{title}</h2>
-      {children}
-    </section>
-  )
-}

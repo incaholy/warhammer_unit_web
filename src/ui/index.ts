@@ -21,6 +21,9 @@ export type { TagProps } from './Tag'
 export { SegmentedToggle } from './SegmentedToggle'
 export type { SegmentedToggleProps, SegmentedOption } from './SegmentedToggle'
 
+export { Tabs, TabPanel } from './Tabs'
+export type { Tab, TabsProps, TabPanelProps } from './Tabs'
+
 export { Eyebrow } from './Eyebrow'
 export type { EyebrowProps } from './Eyebrow'
 

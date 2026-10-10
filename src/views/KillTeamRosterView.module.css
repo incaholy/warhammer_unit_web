@@ -1,0 +1,183 @@
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+
+.head {
+  margin-bottom: 26px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 42px;
+  line-height: 1;
+  margin: 6px 0 10px;
+}
+
+.desc {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0 0 10px;
+  max-width: 68ch;
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.teamLink {
+  color: var(--muted);
+}
+
+.teamLink:hover {
+  color: var(--ink);
+}
+
+.back {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.error {
+  font-size: 15px;
+  color: var(--danger);
+  margin: 0 0 16px;
+}
+
+.quiet {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0;
+}
+
+/* ---- The rows ---- */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 760px;
+}
+
+.row {
+  padding: 18px 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ordinal {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  min-width: 1.4em;
+}
+
+.rowName {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.profile {
+  margin-top: 12px;
+}
+
+.summary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.summary:hover {
+  color: var(--ink);
+}
+
+.summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.profile[open] .summary {
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+/* ---- Loading ---- */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes rosterShimmer {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+}
+
+.skeletonBlock {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--rule-light) 0%, var(--panel) 50%, var(--rule-light) 100%);
+  background-size: 200% 100%;
+  animation: rosterShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonTitle {
+  width: 40%;
+  height: 40px;
+  margin-bottom: 24px;
+}
+
+.skeletonLine {
+  width: 100%;
+  height: 110px;
+}
+
+@media (max-width: 640px) {
+  .view {
+    padding: 32px 20px 64px;
+  }
+}

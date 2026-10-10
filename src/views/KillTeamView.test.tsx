@@ -285,9 +285,12 @@ describe('KillTeamView', () => {
       expect(tabs.map((t) => t.textContent)).toEqual(['Datacards', 'Composition', 'Rules & Ploys'])
       expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
 
+      // Asserted as a RELATIONSHIP rather than against literal ids: `Tabs` prefixes
+      // them so two tabbed screens on one page cannot collide, and a test pinned to
+      // the unprefixed string would break on that without anything being wrong.
       const panel = screen.getByRole('tabpanel')
-      expect(panel).toHaveAttribute('aria-labelledby', 'tab-datacards')
       expect(tabs[0]).toHaveAttribute('aria-controls', panel.id)
+      expect(panel).toHaveAttribute('aria-labelledby', tabs[0].id)
     })
 
     it('shows one panel at a time', async () => {
