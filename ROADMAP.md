@@ -741,10 +741,44 @@ nothing here needs one.
 
 ## KF3. Build a roster
 
-**Status: Not started.** Eight endpoints, all authenticated, at `/kill-team/rosters` and
+**Status: ✅ Done.** Eight endpoints, all authenticated, at `/kill-team/rosters` and
 `/kill-team/rosters/:id`. A roster read carries the whole pool a game will choose from — operatives
 with their datacards, the team's rules and ploys, the universal ploys, and both equipment lists
 (24–42 KB, median 31, per #52).
+
+Shipped in five reviewed commits: the data layer with no UI, the list and create flow, the detail
+read-only, the five writes, and these docs. `src/ui/Tabs` was promoted out of `KillTeamView` here,
+exactly when the roster screen became its second caller, and `src/views/killTeamCards.tsx` took the
+datacard pieces both screens render — a deliberate departure from the house rule, which covers
+"feature-specific stays in the view" and "cross-feature goes to `src/ui/`" but not two views in the
+SAME feature rendering the same thing.
+
+Three decisions were settled while building it. **Reordering swaps two positions** in two PATCHes,
+because `PATCH position` sets the value and shifts nothing (#53) — a single nudge leaves the pair
+tied and a tie is broken by `id`, so the player would see an order they did not choose. **The picker
+is inline**, not a route like the 40k catalog's: the pool is one team's dozen datacards where the
+40k catalog is over a thousand units. **The reference is a tab**, because the roster read already
+carries it (#52), which is also where the promoted tabs earned their place.
+
+Four things were settled by reading the backend rather than guessing, and each is the kind of thing
+that would otherwise have been invented: an `in_battle` datacard IS addable to a roster, since
+`add_operative` refuses only a cross-team or withdrawn card, so availability informs and never
+refuses (#51); both roster 409s arrive as id-free prose written for a person, so no client copy was
+needed and two tests pin that contract; `KTRoster_Update.name` is server-constrained where
+`Army_Update.name` is not, which reverses why the rename guards; and a roster LIST row carries
+`kill_team_name` and `faction_name` where the catalog's team row carries only `faction_id`.
+
+Four defects the tests found, none of which reading the code would have caught. An always-mounted
+`Modal` fetched 48 teams and 22 factions for a dialog nobody opened. A stub routed a POST to a page
+fixture, so a create's success path was never exercised while its body assertion passed. The move
+buttons carried ambiguous accessible names where two rows hold the same datacard, which a keyboard
+user could not have resolved. And a closed `<details>` still exposes its children to queries in
+jsdom, so an assertion about a collapsed card passed either way.
+
+Two mutants survived and both were right to: `total` versus `rosters.length` on a whole-fetched
+collection, which cannot differ. Recorded as equivalent rather than forced into a test.
+
+The original scope, kept because the reasoning is the reusable part:
 
 **A roster row is one operative** (#50). No `amount`, no uniqueness on `(roster_id, operative_id)`,
 and adding the same datacard twice **appends a second row** rather than answering 409 — because the
@@ -756,15 +790,13 @@ shifts nothing, so every reader orders by `(position, id)` (#53).
 rather than being rejected on save, and composition is shown beside the roster as description, never
 as a gate (#28).
 
-**Two 409s need real copy, and the generic message is wrong for both.** `CODE_MESSAGES` maps each
-`ErrorCode` to one string, so both of these currently render as "That already exists.":
-
-- A roster name is unique **per owner**, with the 409 naming the `name` field (#64).
-- Deleting a roster a game was played from is **refused**, with a 409 that counts the games (#60).
-
-`fieldErrors(err)` already flattens `errors[]` into `Record<field, message>`, and `AuthView` is the
-only existing consumer — this slice is the second, and the point where field-aware conflict copy stops
-being optional.
+**Two 409s, and neither needed copy — this entry was wrong about that.** It said
+`CODE_MESSAGES` would render both as "That already exists." and that this is where field-aware
+conflict copy stops being optional. It is not: `messageForError` prefers the backend's `detail`
+unless it embeds a UUID, and both messages are id-free and written for a person —
+`"a roster called 'X' already exists"` (#64) and
+`"roster 'X' is played by 1 game and cannot be deleted"` (#60). They reach the central toast
+verbatim. Two tests pin that, so a backend reword cannot silently fall back to the generic string.
 
 Rosters are **fetched whole** (`fetchAllPages`), like armies and inventory.
 

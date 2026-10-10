@@ -177,6 +177,10 @@ warhammer_web/
       SectionView.tsx     # / (the section chooser)
       KillTeamCatalogView.tsx  # /kill-team
       KillTeamView.tsx    # /kill-team/teams/:killTeamId
+      KillTeamRostersView.tsx  # /kill-team/rosters
+      KillTeamRosterView.tsx   # /kill-team/rosters/:rosterId
+      NewRosterModal.tsx       # the create-roster overlay
+      killTeamCards.tsx        # datacard pieces shared by the team and roster screens
 ```
 
 ## Development
@@ -310,6 +314,8 @@ crumb bar, and are rooted at the SECTION — `/` is a chooser and carries none.
 | `/army-list/inventory` | `InventoryView` | `GET /me/inventory`, `PATCH`/`DELETE /me/inventory/{unit_id}` |
 | `/kill-team` | `KillTeamCatalogView` | `GET /kill-team/teams`, `GET /kill-team/factions` — **public** |
 | `/kill-team/teams/:killTeamId` | `KillTeamView` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — **public** |
+| `/kill-team/rosters` | `KillTeamRostersView` | `GET`/`POST /me/kill-team/rosters` |
+| `/kill-team/rosters/:rosterId` | `KillTeamRosterView` | `GET`/`PATCH`/`DELETE /me/kill-team/rosters/{id}`, the three `/operatives` routes, `GET /kill-team/operatives` |
 | `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
 
 **Header** — sticky; logo/wordmark returns Home, a segmented `Armies | Inventory`
@@ -402,6 +408,45 @@ own, plus these" reads as such.
 Real `tablist`/`tabpanel` semantics rather than `SegmentedToggle`, which is a toggle
 group and belongs on a display mode like List/Grid. Nothing in this view sorts
 (#25).
+
+### KillTeamRostersView (`/kill-team/rosters`)
+The player's own rosters, **fetched whole** — a handful, and the count states a fact
+about all of them. No faction lookup: a roster LIST row carries `kill_team_name` and
+`faction_name` outright, where the catalog's team row carries only `faction_id`. Each
+row links to its own page and shows its description when it has one. Two entry points
+to **+ New Roster**, header and empty state, because an empty list is when the header
+button is easiest to miss.
+
+### New Roster modal
+Roster Name, a **`Select` of every kill team** labelled `"Raveners — Tyranids"`, and an
+optional Description. Uses `useAllKillTeams`, the one catalog read that goes whole
+rather than paged: a dropdown offering the first 25 of 48 teams is missing half of
+them, and a `<select>` cannot be paged. Both picker queries are gated on `open`,
+because `Modal` stays mounted while closed to restore focus. An empty description is
+**omitted** rather than sent as `''`. States that the kill team is fixed once created,
+while it is still a choice. A duplicate name (#64) shows in the form, worded by the
+backend.
+
+### KillTeamRosterView (`/kill-team/rosters/:rosterId`)
+One roster in two tabs, **Operatives** and **Reference**, from one request —
+`KTRoster_Read` carries the rows with their datacards, the team's rules, ploys and
+equipment, and both universal lists (#52). The picker is the one extra read, because
+the pool to add *from* is the catalog's.
+
+Each row is numbered by its **place in the list, never by `row.position`**: position is
+a sort hint that is neither contiguous nor distinct (#53), so after a move it can read
+`0, 7, 7`. Two rows holding the same datacard render as two rows (#50), so every row
+action is named by position as well as by datacard — "Move Hormagaunt up" is ambiguous
+twice over on a real roster. The datacard sits behind a collapsed `<details>`.
+
+**Writes:** inline rename (guarded against an unchanged or blank name, though
+`KTRoster_Update.name` is server-constrained unlike `Army_Update.name`), **↑/↓** which
+*swap* two positions in two PATCHes because a single nudge would leave a tie for `id`
+to break, **Remove** by the row's own id, an inline **picker** of the team's datacards,
+and **Delete Roster** behind a confirm dialog. Reorder disables across every row while
+a move is in flight, since a move is two writes. An `in_battle` datacard is **addable**
+— the backend refuses only a cross-team or withdrawn card, so availability informs and
+never refuses (#51). A refused delete (#60) closes the dialog so the toast is readable.
 
 ### New Army modal
 Overlay + paper card. Fields: **Army Name** and a **Faction** select populated

@@ -69,6 +69,8 @@ deferred niceties (see below).
 | Unit datasheet | `/army-list/units/:id` | `GET /units/{id}` | ✅ |
 | Kill Team catalog (teams, filtered by faction) | `/kill-team` | `GET /kill-team/teams`, `GET /kill-team/factions` — public | ✅ |
 | Kill Team detail (datacards, composition, rules & ploys) | `/kill-team/teams/:id` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — public | ✅ |
+| Kill Team rosters (list + create) | `/kill-team/rosters` | `GET`/`POST /me/kill-team/rosters` | ✅ |
+| Kill Team roster (operatives, reference, add/remove/reorder/rename/delete) | `/kill-team/rosters/:id` | `GET`/`PATCH`/`DELETE` + the three `/operatives` routes | ✅ |
 | New Army modal (name, faction, subfaction, description, points-limit) | (overlay) | `POST /me/armies` | ✅ |
 
 ## Feature checklist
