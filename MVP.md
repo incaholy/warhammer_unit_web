@@ -67,6 +67,8 @@ deferred niceties (see below).
 | Catalog (browse + add) | `/army-list/catalog`, `/army-list/armies/:id/catalog` | `GET /factions`, `GET /units`, `POST …/units` / `POST /me/inventory` | ✅ |
 | Inventory (owned units) | `/army-list/inventory` | `GET/POST/PATCH/DELETE /me/inventory` | ✅ |
 | Unit datasheet | `/army-list/units/:id` | `GET /units/{id}` | ✅ |
+| Kill Team catalog (teams, filtered by faction) | `/kill-team` | `GET /kill-team/teams`, `GET /kill-team/factions` — public | ✅ |
+| Kill Team detail (datacards, composition, rules & ploys) | `/kill-team/teams/:id` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — public | ✅ |
 | New Army modal (name, faction, subfaction, description, points-limit) | (overlay) | `POST /me/armies` | ✅ |
 
 ## Feature checklist

@@ -263,6 +263,16 @@ non-internal, protocol-relative `//host` included
 
 The first sentence of the principle is enforced by F3's import rule.
 
+**The route tree has two branches now, and that is deliberate** (KF2). Almost
+everything is guarded, but the Kill Team *catalog* is reference data whose reads carry
+no token — no path under `/api/v1/kill-team` declares a method other than `get`
+(KILLTEAM.md #21, #49) — so those routes sit outside `RequireAuth` and a visitor can
+follow a shared team link without an account. The shell is shared: it reports whether
+there is a user rather than assuming one, and the Header offers "Sign in" where a
+signed-in user sees "Log Out". The principle above is unchanged; what changed is that
+"guarded" is now a property of a branch rather than of everything but `/login`. Kill
+Team's *rosters* and *games* are user-owned and arrive inside the guarded branch.
+
 A detail worth crediting: `RequireAuth` returns `null` while the session is hydrating rather than
 redirecting, so a hard refresh does not flash the login screen at an already-authenticated user. That
 is a real bug most implementations ship.

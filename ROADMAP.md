@@ -670,16 +670,40 @@ rather than this.
 
 ## KF2. Browse the Kill Team catalog, without an account
 
-**Status: Not started.** Six reads, and **all six are public** — no `Authorization` header, no
-session. So this slice ships before any auth work touches it, and a team page is linkable and
-shareable. It is also where `K7`'s gating condition is finally met: the frontend becomes a client
+**Status: ✅ Done.** Six reads, and **all six are public** — no `Authorization` header, no
+session. So this slice shipped before any auth work touched it, and a team page is linkable and
+shareable. It is also where `K7`'s gating condition is finally met: the frontend is now a client
 that consumes the catalog as a picker.
+
+Shipped in four reviewed commits: the data layer with no UI, the `Select` primitive, the team list
+with the public route branch, and the team detail. The route tree gained a **second branch** — the
+catalog sits outside `RequireAuth`, the shell reports whether there is a user rather than assuming
+one, and the Header offers "Sign in" where a signed-in user sees "Log Out". `ARCHITECTURE.md` §4
+records it.
+
+Four decisions were settled while building it. **The composition is a tab, not a route**: the detail
+read already carries `selection_rules`, so a separate page would be a second request and a second
+navigation for data already in hand — the `/composition` endpoint stays unused here. **`Select` is
+labelled rather than bare**, the opposite split from `Input`/`Field`, because the thing that was
+missing was the label wiring and not the border. **Tabs are real `tablist`/`tabpanel` semantics**
+rather than `SegmentedToggle`, which is a toggle group and belongs on a display mode like List/Grid;
+kept local to the view, to be promoted when `KF4`'s game screen needs a team tab. **The faction
+filter is server-side**, because filtering the 25 rows in hand would only narrow the current page.
+
+Three failures worth recording, all of them tests that said nothing until they were made to bite.
+`pluralize` already carries its count, so a total rendered twice. `animation: shimmer` referenced a
+keyframe from another module — CSS Modules scopes keyframe NAMES per file, so the skeleton silently
+never moved. And the detail fixture's operatives were named so that printed order and alphabetical
+order **agreed**, under a comment claiming they did not, which made every ordering test built on it
+unfalsifiable; only the `not.toEqual([...names].sort())` guard caught it.
+
+The original scope, kept because the reasoning is the reusable part:
 
 | Route | Serves |
 |---|---|
 | `/kill-team` | the team list, groupable by faction (#12 — factions are a flat list of their own) |
 | `/kill-team/teams/:id` | one team whole — its datacards, rules, ploys, equipment (16–46 KB, median 24, per #47) |
-| `/kill-team/teams/:id/composition` | the printed composition, as text (#44) |
+| `/kill-team/teams/:id` → Composition tab | the printed composition, as text (#44) — a tab, not a route: the detail read already carries it |
 
 **The display rules are not the frontend's to invent, and three of them are counter-intuitive.**
 Everything carries `position` and is read in that order (#25) — sorting by name is wrong three ways:
@@ -706,9 +730,9 @@ one route for the rows no team owns and is meant to be fetched once and kept for
 Names are resolved from ids client-side (#46), the same `Map<UUID, string>` move `CatalogView` already
 makes against `/factions`.
 
-**A missing primitive blocks this immediately:** there is no `Select` in `src/ui/`. The faction filter
-either builds one or copies `NewArmyModal`'s raw `<select>` + `useId()` + manual `<label htmlFor>`
-pattern. Worth deciding once, here, because `KF3` and `KF4` both need it too.
+**A missing primitive blocked this immediately:** there was no `Select` in `src/ui/`, so a dropdown
+meant copying `NewArmyModal`'s raw `<select>` + `useId()` + manual `<label htmlFor>`. Built as a
+primitive instead, labelled rather than bare, and `KF3` and `KF4` now inherit it.
 
 **Still deferred:** no reader for a single selection rule — the backend's own `K3` carve-out, and
 nothing here needs one.

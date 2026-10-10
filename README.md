@@ -65,7 +65,8 @@ src/
   api/       one module per backend resource (units, armies, inventory, factions, auth),
              plus client.ts (fetch wrapper + zod error parsing), queries.ts (React Query
              hooks), and types.ts (the API contract types)
-  views/     route-level screens (Section chooser, Catalog, Collection, Army, Auth) with CSS modules
+  views/     route-level screens (Section chooser, Army List: Catalog/Collection/Army,
+             Kill Team: catalog/team, Auth) with CSS modules
   ui/        the shared design-system components (Button, Input, Tag, …)
   lib/       framework-free helpers (errors, formatting, keyword→role derivation)
   auth/      auth context / token handling

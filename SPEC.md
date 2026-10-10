@@ -174,6 +174,9 @@ warhammer_web/
       CatalogView.tsx     # /army-list/catalog and /army-list/armies/:armyId/catalog
       InventoryView.tsx   # /army-list/inventory
       UnitView.tsx        # /army-list/units/:unitId
+      SectionView.tsx     # / (the section chooser)
+      KillTeamCatalogView.tsx  # /kill-team
+      KillTeamView.tsx    # /kill-team/teams/:killTeamId
 ```
 
 ## Development
@@ -290,8 +293,11 @@ relies on (from the backend routers):
 
 ## Routing & views
 
-`react-router` with a top-level auth gate. Breadcrumbs are derived from the route
-match, reproducing the design's crumb bar.
+`react-router` with TWO branches: a public one and an authenticated one. Almost
+everything is guarded, but the Kill Team **catalog** is reference data whose reads
+need no token (KILLTEAM.md #21), so a visitor can follow a shared team link without
+an account. Breadcrumbs are derived from the route match, reproducing the design's
+crumb bar, and are rooted at the SECTION — `/` is a chooser and carries none.
 
 | Route | View | Backend calls |
 |---|---|---|
@@ -302,6 +308,8 @@ match, reproducing the design's crumb bar.
 | `/army-list/armies/:armyId/catalog` | `CatalogView` (army target) | `GET /factions`, `GET /units`, `POST /me/armies/{id}/units` |
 | `/army-list/catalog` | `CatalogView` (inventory target) | `GET /factions`, `GET /units`, `POST /me/inventory` |
 | `/army-list/inventory` | `InventoryView` | `GET /me/inventory`, `PATCH`/`DELETE /me/inventory/{unit_id}` |
+| `/kill-team` | `KillTeamCatalogView` | `GET /kill-team/teams`, `GET /kill-team/factions` — **public** |
+| `/kill-team/teams/:killTeamId` | `KillTeamView` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — **public** |
 | `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
 
 **Header** — sticky; logo/wordmark returns Home, a segmented `Armies | Inventory`
@@ -313,7 +321,7 @@ password + confirm. Inline error region bound to `ApiError.message`/`field`
 (bad credentials → 401, duplicate email/username → 409). On success, store token
 and navigate Home.
 
-### CollectionView (`/`)
+### CollectionView (`/army-list`)
 The armies index. Header eyebrow + serif *Collection* title + a meta line
 (`N armies · M units · P pts`, aggregated client-side from `GET /me/armies`).
 **List/Grid** segmented toggle (layout is UI state, persisted to `localStorage`).
@@ -321,16 +329,16 @@ The armies index. Header eyebrow + serif *Collection* title + a meta line
 description ("note"), `points_total`, unit count. Empty state when the user has no
 armies.
 
-### ArmyView (`/armies/:armyId`)
+### ArmyView (`/army-list/armies/:armyId`)
 Army header (faction eyebrow, serif name, optional faction blurb, then
 `points · units · created`). **Order of Battle**: units grouped by a derived
 **role** (see "Deriving role"), each row linking to the datasheet, showing `×qty`,
 with a **Remove** action (`DELETE …/units/{unit_id}`). **+ Add From Catalog** →
-`/armies/:armyId/catalog`. Empty state ("No units mustered yet") when the army has
+`/army-list/armies/:armyId/catalog`. Empty state ("No units mustered yet") when the army has
 no units. *(Points-limit progress and a legality panel are backend-ready via
 `points_limit`/`validate` — see Roadmap; the base view shows `points_total`.)*
 
-### CatalogView (`/catalog`, `/armies/:armyId/catalog`)
+### CatalogView (`/army-list/catalog`, `/army-list/armies/:armyId/catalog`)
 Shared catalog browser with a **target** (an army or the inventory), which decides
 what the row's **+ Add** does (`POST …/units` vs `POST /me/inventory`) and the
 header's "Adding to —" label. Left rail = **faction filter** from `GET /factions`
@@ -339,15 +347,15 @@ units** toggle (cross-referencing inventory), and unit rows (name, faction · ro
 an owned tag, **+ Add**). Uses the page body's `total` for the "N of M" label.
 Paged via `limit`/`offset`.
 
-### InventoryView (`/inventory`)
+### InventoryView (`/army-list/inventory`)
 The user's owned datasheets (`GET /me/inventory`), grouped into **collapsible**
 role sections (chevron toggles, expanded state is UI-local). Each row: unit name,
 role, an **editable owned quantity** (`number` input → `PATCH /me/inventory/{unit_id}`,
 debounced), and **Remove** (`DELETE …`). Header meta: `owned datasheets · total
 models`. Search filters client-side / via `q`. **+ Add to Inventory** →
-`/catalog`. Empty state when nothing is owned.
+`/army-list/catalog`. Empty state when nothing is owned.
 
-### UnitView (`/units/:unitId`)
+### UnitView (`/army-list/units/:unitId`)
 The full datasheet from `GET /units/{id}`: eyebrow (`faction — role`), serif name,
 a **6-column profile grid** (M / T / Sv / W / Ld / OC), **Ranged** and **Melee**
 weapon tables (columns Range/A/BS-or-WS/S/AP/D, split by `weapon.category`),
@@ -355,6 +363,45 @@ weapon tables (columns Range/A/BS-or-WS/S/AP/D, split by `weapon.category`),
 actions on the right: **+ Add to {army}** when arrived from an army, or an
 **editable "In collection" quantity** when arrived from inventory; otherwise a
 read-only owned label.
+
+### SectionView (`/`)
+The chooser between the app's two sections, so neither is the implicit default
+(KILLTEAM.md #11). Two cards: **Army List** and **Kill Team**, the latter noting
+that its catalog needs no account. No backend calls. Carries no breadcrumbs.
+
+### KillTeamCatalogView (`/kill-team`)
+**Public.** The kill teams from `GET /kill-team/teams`, paged at 25 with Prev/Next,
+each row linking to its own page. A **faction `Select`** narrows the list
+*server-side* (`?faction_id=`) and returns to the first page, because holding an
+offset across a filter change lands on an empty page of a smaller set. A team row
+carries `faction_id` and never a copy of the name (#46), so the name is resolved
+from `GET /kill-team/factions`, fetched whole; losing that read costs the labels,
+not the list. **Filtered rather than grouped**: #12 permits grouping, but the list
+is paged and a group heading would split across a page boundary.
+
+### KillTeamView (`/kill-team/teams/:killTeamId`)
+**Public.** One team in three tabs, from **one** request — `KillTeam_Detail` nests
+the datacards, rules, ploys, equipment *and* the composition (#47), so the separate
+`/composition` endpoint stays unused here.
+
+**Datacards** — a card per operative: stat line (APL / Move / Save / Wounds), a
+weapon table (A / Hit / Dmg / Rules, with `melee` or the range), abilities, and
+keywords. Weapon rules print verbatim, footnote markers included (#56). An
+`in_battle` card is **marked, not hidden** (#20, #51).
+
+**Composition** — the printed words. One row per `{position, depth, kind}`, read in
+`position` order and indented by `depth`, with footnote bodies as their own `note`
+rows (#30). **Nothing is derived** — no budget, no model count, no caps, no entry
+resolved to a datacard (#28, #44).
+
+**Rules & Ploys** — the team's rules (with a `group` where printed), its ploys with
+kind and CP cost, and its equipment; then the universal ploys and equipment from
+`GET /kill-team/universal`, kept for the session (#48), in a separate block so "its
+own, plus these" reads as such.
+
+Real `tablist`/`tabpanel` semantics rather than `SegmentedToggle`, which is a toggle
+group and belongs on a display mode like List/Grid. Nothing in this view sorts
+(#25).
 
 ### New Army modal
 Overlay + paper card. Fields: **Army Name** and a **Faction** select populated
