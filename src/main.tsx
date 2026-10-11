@@ -6,7 +6,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './toast/ToastProvider'
 import { emitToast } from './toast/toastBus'
 import { ErrorBoundary } from './ui/ErrorBoundary'
-import { messageWithReference } from './lib/errors'
+import { mutationErrorMessage } from './lib/errors'
 import './styles/theme.css'
 import './styles/global.css'
 import App from './App.tsx'
@@ -16,8 +16,8 @@ import App from './App.tsx'
 // something to quote; successes show the mutation's `meta.successMessage`.
 const queryClient = new QueryClient({
   mutationCache: new MutationCache({
-    onError: (error) => {
-      emitToast(messageWithReference(error), 'error')
+    onError: (error, _vars, _ctx, mutation) => {
+      emitToast(mutationErrorMessage(error, mutation?.meta), 'error')
     },
     onSuccess: (_data, _vars, _ctx, mutation) => {
       const message = mutation.meta?.successMessage

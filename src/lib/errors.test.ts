@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 
 import { ApiError } from '../api/client'
-import { CODE_MESSAGES, fieldErrors, messageForError, withReference } from './errors'
+import {
+  CODE_MESSAGES,
+  fieldErrors,
+  messageForError,
+  messageWithReference,
+  mutationErrorMessage,
+  withReference,
+} from './errors'
 
 describe('messageForError', () => {
   it('prefers the ApiError message (the backend detail)', () => {
@@ -79,5 +86,41 @@ describe('withReference', () => {
     expect(withReference('Army not found', noId)).toBe('Army not found')
     expect(withReference('Something went wrong', new Error('boom'))).toBe('Something went wrong')
     expect(withReference('Something went wrong', null)).toBe('Something went wrong')
+  })
+})
+
+describe('mutationErrorMessage', () => {
+  it('prefers a mutation\'s own copy over the code\'s generic string', () => {
+    // The case it exists for: the backend's message is good copy but embeds an id, so
+    // `messageForError` refuses it and falls back to "Not found." — which says
+    // nothing about a datacard the player can see on screen.
+    const err = new ApiError(
+      404,
+      'operative 3f2c1a7e-0000-4000-8000-000000000000 is no longer in the catalog',
+      'NOT_FOUND',
+    )
+    expect(messageForError(err)).toBe('Not found.')
+    expect(mutationErrorMessage(err, { errorMessage: 'That datacard is gone. Reload.' })).toBe(
+      'That datacard is gone. Reload.',
+    )
+  })
+
+  it('leaves every other mutation on the generic path', () => {
+    const err = new ApiError(409, "a roster called 'Mine' already exists", 'CONFLICT')
+    // No override, so the backend's id-free prose still wins — which is the behaviour
+    // the roster conflicts rely on.
+    expect(mutationErrorMessage(err, { successMessage: 'Saved' })).toBe(
+      "a roster called 'Mine' already exists",
+    )
+    expect(mutationErrorMessage(err, undefined)).toBe("a roster called 'Mine' already exists")
+  })
+
+  it('ignores a non-string override, falling back to the normal path', () => {
+    const err = new ApiError(500, 'boom', 'INTERNAL')
+    // Asserted against the normal path's own result rather than a literal, because
+    // the point is that a bad override changes nothing — not what the normal path
+    // happens to return. (Here it returns the backend's `detail`, since 'boom'
+    // carries no id.)
+    expect(mutationErrorMessage(err, { errorMessage: 42 })).toBe(messageWithReference(err))
   })
 })

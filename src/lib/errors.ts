@@ -84,3 +84,21 @@ export function fieldErrors(err: unknown): Record<string, string> {
   }
   return map
 }
+
+/** The toast copy for a failed mutation, honouring a per-mutation override.
+ *
+ * `meta.errorMessage` OVERRIDES rather than falls back, and the distinction matters:
+ * `messageForError`'s `fallback` argument is only reached for a non-`ApiError` or one
+ * with no `code`, so it cannot help an error that HAS a code. The case this exists
+ * for is a backend message that is good copy but embeds an id — which
+ * `messageForError` correctly refuses to show, leaving the code's generic string
+ * where the mutation knows something better. Opted into per mutation, so every other
+ * error keeps the generic path.
+ *
+ * Lives here rather than inline in `main.tsx` so it can be tested: `main.tsx` is
+ * excluded from coverage because it renders the app. */
+export function mutationErrorMessage(err: unknown, meta?: Record<string, unknown>): string {
+  const override = meta?.errorMessage
+  if (typeof override === 'string') return withReference(override, err)
+  return messageWithReference(err)
+}

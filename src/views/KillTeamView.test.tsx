@@ -106,11 +106,27 @@ describe('KillTeamView', () => {
 
       const card = await screen.findByRole('heading', { name: 'Ravener Warrior', level: 2 })
       expect(card).toBeInTheDocument()
+
+      // The stat line, asserted as label→value pairs. It was rendered and asserted
+      // nowhere: deleting `<StatLine>` outright left all seventeen tests green.
+      const stats = screen
+        .getAllByRole('term')
+        .filter((t) => ['APL', 'Move', 'Save', 'Wounds'].includes(t.textContent ?? ''))
+        .map((t) => [t.textContent, t.nextElementSibling?.textContent])
+      expect(stats).toEqual([
+        ['APL', '2'],
+        ['Move', '6"'],
+        ['Save', '4+'],
+        ['Wounds', '12'],
+      ])
+
+      // Cells read BY COLUMN, not by text. `getByText('5')` ignored position, so
+      // swapping the attacks and hit cells so `3+` rendered under "A" passed.
       const row = screen.getByRole('row', { name: /Scything talons/ })
-      expect(within(row).getByText('5')).toBeInTheDocument() // attacks
-      expect(within(row).getByText('3+')).toBeInTheDocument() // hit
-      expect(within(row).getByText('4/5')).toBeInTheDocument() // normal/crit damage
-      expect(within(row).getByText('Lethal 5+')).toBeInTheDocument()
+      const cells = within(row)
+        .getAllByRole('cell')
+        .map((c) => c.textContent)
+      expect(cells).toEqual(['5', '3+', '4/5', 'Lethal 5+'])
       expect(screen.getByText('It burrows.')).toBeInTheDocument()
     })
 
@@ -127,6 +143,33 @@ describe('KillTeamView', () => {
       expect(names).not.toEqual([...names].sort())
     })
 
+    it('renders the order it was SENT, not the order `position` implies', async () => {
+      // The one test that can tell "does not re-sort" from "sorts by position". Every
+      // shared fixture has array order equal to `position` order, so every other
+      // ordering assertion passes under both behaviours. Here they disagree.
+      //
+      // Array order is what must win: the server sends rows in `position` order and
+      // the client renders what it was sent (#25). A client that sorted would be
+      // deciding an order the catalog already decided, and would also break the
+      // `(position, id)` tie-break the server applies and the client cannot see.
+      stubFetch(
+        makeKillTeamDetail({
+          operatives: [
+            makeKTOperative({ id: 'kto-a', name: 'Sent first', position: 9 }),
+            makeKTOperative({ id: 'kto-b', name: 'Sent second', position: 1 }),
+          ],
+        }),
+      )
+      renderView()
+      await screen.findByRole('heading', { name: 'Raveners', level: 1 })
+
+      const names = screen
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent)
+        .filter((n) => n?.startsWith('Sent'))
+      expect(names).toEqual(['Sent first', 'Sent second'])
+    })
+
     it('marks an in-battle datacard rather than hiding it', async () => {
       // `in_battle` means granted during a game, not rostered (#20). It informs; it
       // never refuses (#51), so the card is present and labelled.
@@ -141,6 +184,23 @@ describe('KillTeamView', () => {
 
       expect(await screen.findByRole('heading', { name: 'Vermin', level: 2 })).toBeInTheDocument()
       expect(screen.getByText('In battle only')).toBeInTheDocument()
+    })
+
+    it('does NOT mark a rosterable datacard', async () => {
+      // The other half of #20/#51, and the half that was missing: nothing asserted
+      // the tag's ABSENCE, so making it unconditional left all seventeen tests
+      // green. A marker that appears on everything marks nothing.
+      stubFetch(
+        makeKillTeamDetail({
+          operatives: [
+            makeKTOperative({ id: 'kto1', name: 'Warrior', availability: 'roster', position: 0 }),
+          ],
+        }),
+      )
+      renderView()
+
+      await screen.findByRole('heading', { name: 'Warrior', level: 2 })
+      expect(screen.queryByText('In battle only')).not.toBeInTheDocument()
     })
 
     it('shows a melee weapon as melee and a ranged one by its range', async () => {
@@ -214,8 +274,16 @@ describe('KillTeamView', () => {
 
       fireEvent.click(screen.getByRole('tab', { name: 'Composition' }))
 
-      expect(screen.queryByText(/\bof 6\b/)).not.toBeInTheDocument()
-      expect(screen.queryByText(/selected/i)).not.toBeInTheDocument()
+      // Asserted over what is RENDERED, not against two guessed strings. The previous
+      // version banned `/\bof 6\b/` and `/selected/i`; no "6" existed in the fixture
+      // and "chosen" is not "selected", so adding `0 of 3 chosen` above the list
+      // passed. The composition panel may contain the printed rows and nothing else.
+      const panel = screen.getByRole('tabpanel')
+      const rows = within(panel).getAllByRole('listitem')
+      expect(rows.map((r) => r.textContent)).toEqual(['Select', 'One LEADER', 'A footnote.'])
+      // Every text node in the panel belongs to one of those rows: no derived line,
+      // no count, no budget, whatever words it might use (#28, #44).
+      expect(panel.textContent).toBe(rows.map((r) => r.textContent).join(''))
     })
   })
 
@@ -227,24 +295,25 @@ describe('KillTeamView', () => {
 
       fireEvent.click(screen.getByRole('tab', { name: 'Rules & Ploys' }))
 
-      // Strategy before Firefight, because that is the printed order (#25) — not
-      // because the view groups by kind. Scoped per ploy: the universal ploy is also
-      // a 1 CP strategy ploy, so an unscoped match finds two and proves neither.
-      const own = screen.getByText('Predatory Instincts').closest('div')
-      expect(own).not.toBeNull()
-      expect(within(own as HTMLElement).getByText(/strategy · 1 CP/)).toBeInTheDocument()
+      // Scoped to the Ploys block and asserted ABSOLUTELY, in order. The previous
+      // version matched a substring across the whole reference panel, which could not
+      // tell printed order from group-by-kind order — and the fixture could not
+      // either, until it started printing the firefight ploy first.
+      const ploys = screen.getByRole('heading', { name: 'Ploys', level: 2 }).parentElement
+      expect(ploys).not.toBeNull()
+      const names = within(ploys as HTMLElement)
+        .getAllByRole('term')
+        .map((t) => t.textContent)
 
-      const firefight = screen.getByText('Lurking Horror').closest('div')
-      expect(within(firefight as HTMLElement).getByText(/firefight · 1 CP/)).toBeInTheDocument()
-
-      // Printed order, not grouped by kind: strategy sits before firefight because
-      // that is the order the page prints, and the view does not reorder.
-      const ployNames = screen
-        .getAllByRole('definition')
-        .map((d) => d.previousElementSibling?.textContent ?? '')
-      expect(ployNames.join(' ')).toMatch(/Predatory Instincts.*Lurking Horror/s)
+      // Firefight first, because that is the printed order (#25). A view grouping by
+      // kind would put the strategy ploy first and fail here.
+      expect(names[0]).toContain('Lurking Horror')
+      expect(names[0]).toContain('firefight · 2 CP')
+      expect(names[1]).toContain('Predatory Instincts')
+      expect(names[1]).toContain('strategy · 1 CP')
+      // And the costs differ, so a hardcoded cost fails.
+      expect(names[0]).not.toContain('1 CP')
     })
-
     it('shows the universal ploys separately from the team\'s own', async () => {
       // One row per team, plus the rows no team owns (#48) — "its own, plus these".
       stubFetch()

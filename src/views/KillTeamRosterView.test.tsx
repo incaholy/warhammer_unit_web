@@ -444,3 +444,125 @@ describe('KillTeamRosterView: the writes', () => {
     })
   })
 })
+
+describe('KillTeamRosterView: the gaps the audit found', () => {
+  function calls(fetchMock: ReturnType<typeof stubFetch>) {
+    return fetchMock.mock.calls.map(([url, init]) => ({
+      url: String(url),
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    }))
+  }
+
+  it('does NOT mark a rosterable datacard, in the picker or on a row', async () => {
+    // The other half of #20/#51. Nothing asserted the tag's ABSENCE, so making it
+    // unconditional left every test green — and a marker on everything marks nothing.
+    stubFetch(makeKTRoster(), [makeKTOperative({ id: 'kto1', name: 'Warrior' })])
+    renderView()
+    await screen.findByRole('heading', { name: 'My Raveners', level: 1 })
+    await screen.findByRole('button', { name: 'Add Warrior' })
+
+    expect(screen.queryByText('In battle only')).not.toBeInTheDocument()
+  })
+
+  it('marks an in-battle row on the roster, not only in the picker', async () => {
+    // No fixture row was ever `in_battle`, so the roster-row branch of that marker
+    // had never been rendered.
+    stubFetch(
+      makeKTRoster({
+        operatives: [
+          makeKTRosterOperative({
+            id: 'ktro-1',
+            position: 0,
+            operative: makeKTOperative({ id: 'kto9', name: 'Vermin', availability: 'in_battle' }),
+          }),
+        ],
+      }),
+      [],
+    )
+    renderView()
+
+    await screen.findByRole('heading', { name: 'Vermin', level: 2 })
+    expect(screen.getByText('In battle only')).toBeInTheDocument()
+  })
+
+  it('swaps with the neighbour BELOW when moving down', async () => {
+    // Up and down differ only by `index - 1` versus `index + 1`, and only up was
+    // ever clicked — so a copy-paste error in the down direction shipped green.
+    const fetchMock = stubFetch()
+    renderView()
+    await screen.findByRole('heading', { name: 'My Raveners', level: 1 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Ravener Prime at position 1 down' }))
+
+    await waitFor(() => {
+      const patches = calls(fetchMock).filter((c) => c.method === 'PATCH')
+      expect(patches).toHaveLength(2)
+      // Row 1 takes row 2's position and row 2 takes row 1's — the opposite
+      // direction from the up test, which is the whole point.
+      expect(patches[0].url).toContain('/operatives/ktro-1')
+      expect(patches[0].body).toEqual({ position: 1 })
+      expect(patches[1].url).toContain('/operatives/ktro-2')
+      expect(patches[1].body).toEqual({ position: 0 })
+    })
+  })
+
+  it('leaves the middle rows movable in both directions', async () => {
+    // The previous version asserted only that the LAST down button is disabled, so an
+    // implementation disabling every down button passed.
+    stubFetch()
+    renderView()
+    await screen.findByRole('heading', { name: 'My Raveners', level: 1 })
+
+    expect(screen.getByRole('button', { name: 'Move Hormagaunt at position 2 up' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Move Hormagaunt at position 2 down' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Move Ravener Prime at position 1 up' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Move Hormagaunt at position 3 down' }),
+    ).toBeDisabled()
+  })
+
+  it('saves a rename on Enter, and refuses a second Enter while the first is in flight', async () => {
+    // Both the Enter path and its re-entrancy guard were executed by no test, and the
+    // guard is the reason the comment beside it exists: Enter reaches `save()`
+    // directly, so three quick presses would be three PATCHes and three toasts.
+    let resolvePatch: (() => void) | undefined
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const u = String(url)
+      if ((init?.method ?? 'GET') === 'PATCH' && !u.includes('/operatives/')) {
+        await new Promise<void>((resolve) => {
+          resolvePatch = resolve
+        })
+        return jsonResponse(makeKTRoster({ name: 'Renamed' }))
+      }
+      if (/\/me\/kill-team\/rosters\/[^/]+$/.test(u)) return jsonResponse(makeKTRoster())
+      return jsonResponse(page<KTOperative_ListRead>([], { total: 0 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderView()
+    await screen.findByRole('heading', { name: 'My Raveners', level: 1 })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename My Raveners' }))
+    const input = screen.getByLabelText('Roster name')
+    fireEvent.change(input, { target: { value: 'Renamed' } })
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(1),
+    )
+
+    // Two more presses while the first is still in flight.
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // Flushed before asserting. `fireEvent` is synchronous but a request lands in a
+    // microtask, so the obvious synchronous `expect` here passes whether or not the
+    // guard exists — which it did, until removing the guard left this test green.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(1)
+
+    resolvePatch?.()
+  })
+})

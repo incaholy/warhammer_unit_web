@@ -256,15 +256,27 @@ export function makeKillTeamDetail(over: Partial<KillTeam_Detail> = {}): KillTea
     faction_id: 'ktf1',
     // Two of each where order is the point, and NAMED so that printed order and
     // alphabetical order disagree. A fixture with one row, or with rows that happen
-    // to be alphabetical, cannot fail an ordering assertion -- `position` is the
-    // catalog's whole ordering contract (#25), so it has to be falsifiable here.
+    // to be alphabetical, cannot fail an ordering assertion.
+    //
+    // What this does NOT pin, and a reader should not assume it does: every
+    // collection here has its array order equal to its `position` order, so a test
+    // built on it proves "the view does not re-sort" and cannot tell that apart from
+    // "the view sorts by position". That is the frontend's actual contract -- the
+    // server sends position order and the client renders what it was sent (#25) --
+    // and `test_the_view_renders_the_order_it_was_sent` pins it with a collection
+    // whose two orders disagree.
     rules: [
       makeKillTeamRule({ id: 'ktr1', name: 'Tunnel', position: 0 }),
       makeKillTeamRule({ id: 'ktr2', name: 'Burrow', position: 1 }),
     ],
+    // FIREFIGHT printed first, and the two costs differ. Both are deliberate. With
+    // strategy at position 0 the printed order happened to equal group-by-kind order,
+    // so a view that grouped by kind was indistinguishable from one that read
+    // `position`; and with both ploys at the default 1 CP, a view that hardcoded the
+    // cost passed. Neither now.
     ploys: [
-      makeKTPloy({ id: 'ktp1', name: 'Predatory Instincts', kind: 'strategy', position: 0 }),
-      makeKTPloy({ id: 'ktp2', name: 'Lurking Horror', kind: 'firefight', position: 1 }),
+      makeKTPloy({ id: 'ktp1', name: 'Lurking Horror', kind: 'firefight', cp_cost: 2, position: 0 }),
+      makeKTPloy({ id: 'ktp2', name: 'Predatory Instincts', kind: 'strategy', cp_cost: 1, position: 1 }),
     ],
     equipment: [
       makeKTEquipment({ id: 'kte1', name: 'Grisly Trophy', position: 0 }),

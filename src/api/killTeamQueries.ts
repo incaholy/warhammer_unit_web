@@ -205,7 +205,20 @@ export function useAddRosterOperative(
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: killTeamKeys.roster(rosterId) })
     },
-    meta: { successMessage: 'Operative added' },
+    meta: {
+      successMessage: 'Operative added',
+      // The one Kill Team write whose failure needs copy written here. The backend
+      // refuses a withdrawn or cross-team datacard with `operative {uuid} is no
+      // longer in the catalog` — and that message EMBEDS AN ID, so `messageForError`
+      // rightly refuses to show it and falls back to `CODE_MESSAGES.NOT_FOUND`,
+      // which is the bare string "Not found."
+      //
+      // Reachable: the picker never offers a withdrawn row (#55), but a page left
+      // open while the catalog is re-seeded has a stale one, and "+ Add" then says
+      // "Not found." about a card the player can see. Every other roster failure
+      // arrives as prose written for a person, which is why only this one is worded.
+      errorMessage: 'That datacard is no longer in the catalog. Reload to see what is.',
+    },
   })
 }
 

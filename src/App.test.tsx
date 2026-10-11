@@ -5,7 +5,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './auth/AuthContext'
 import { tokenStore } from './api/client'
 import App from './App'
-import { jsonResponse, makeArmy, makeFacets, makeUser, page } from './test/fixtures'
+import {
+  jsonResponse,
+  makeArmy,
+  makeFacets,
+  makeKillTeam,
+  makeKillTeamDetail,
+  makeKTFaction,
+  makeUniversal,
+  makeUser,
+  page,
+} from './test/fixtures'
 
 /** Writes the current location into the DOM, so a test can assert where a redirect
  *  actually landed. Needed for the query string, which survives the redirect but
@@ -169,5 +179,94 @@ describe('App routing', () => {
       await screen.findByLabelText('Breadcrumb')
       expect(screen.getByTestId('location')).toHaveTextContent('/army-list/armies/a1/catalog')
     })
+  })
+})
+
+describe('App routing: the two branches', () => {
+  // The largest gap either audit found: every Kill Team view test renders the
+  // component in a bare MemoryRouter, bypassing `App`. So the two claims the route
+  // tree exists to make were verified nowhere, and wrapping the public branch back
+  // inside `RequireAuth` left the whole suite green.
+
+  /** Signed OUT, with the catalog's public reads answered. */
+  function visitor() {
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url)
+      if (u.endsWith('/me')) return jsonResponse({ detail: 'nope', code: 'UNAUTHORIZED' }, { status: 401 })
+      if (u.includes('/kill-team/factions')) {
+        return jsonResponse(page([makeKTFaction({ id: 'ktf1', name: 'Tyranids' })]))
+      }
+      if (/\/kill-team\/teams\/[^/]+$/.test(u)) return jsonResponse(makeKillTeamDetail())
+      if (u.includes('/kill-team/universal')) return jsonResponse(makeUniversal())
+      if (u.includes('/kill-team/teams')) {
+        return jsonResponse(page([makeKillTeam({ id: 'kt1', name: 'Raveners' })]))
+      }
+      return jsonResponse(page([]))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('lets a signed-out visitor browse the catalog', async () => {
+    // KF2's central claim: the catalog's reads need no token, so a shared team link
+    // works without an account.
+    visitor()
+
+    renderAt('/kill-team')
+
+    expect(await screen.findByRole('heading', { name: 'Kill teams', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByText('Welcome back')).not.toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/kill-team')
+  })
+
+  it('lets a signed-out visitor open a team page', async () => {
+    visitor()
+
+    renderAt('/kill-team/teams/kt1')
+
+    expect(await screen.findByRole('heading', { name: 'Raveners', level: 1 })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/kill-team/teams/kt1')
+  })
+
+  it('offers a visitor a way in, where a signed-in user gets a way out', async () => {
+    visitor()
+
+    renderAt('/kill-team')
+
+    await screen.findByRole('heading', { name: 'Kill teams', level: 1 })
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.queryByRole('button', { name: 'Log Out' })).not.toBeInTheDocument()
+  })
+
+  it('sends a signed-out visitor from the ROSTERS to the login screen', async () => {
+    // KF3's counterpart claim: a roster is user-owned, so it sits inside the guard.
+    visitor()
+
+    renderAt('/kill-team/rosters')
+
+    expect(await screen.findByText('Welcome back')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Your rosters' })).not.toBeInTheDocument()
+  })
+
+  it('sends a signed-out visitor from a roster page to the login screen', async () => {
+    visitor()
+
+    renderAt('/kill-team/rosters/ktr-1')
+
+    expect(await screen.findByText('Welcome back')).toBeInTheDocument()
+  })
+
+  it('shows the Kill Team section crumbs', async () => {
+    // `crumbsForPath`'s whole `kill-team` branch was at 0% coverage.
+    visitor()
+
+    renderAt('/kill-team/teams/kt1')
+
+    const nav = await screen.findByLabelText('Breadcrumb')
+    expect(within(nav).getAllByText(/Kill Team/).length).toBeGreaterThan(0)
+    expect(within(nav).getByRole('link', { name: 'Kill Team' })).toHaveAttribute(
+      'href',
+      '/kill-team',
+    )
   })
 })
