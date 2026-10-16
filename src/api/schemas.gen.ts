@@ -181,3 +181,290 @@ export const Validation_Read = z.object({
     "points_limit": z.number().nullable(),
     "issues": z.array(ValidationIssue_Read),
   })
+
+export const KTFaction_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+  })
+
+export const Page_KTFaction_Read_ = z.object({
+    "items": z.array(KTFaction_Read),
+    "total": z.number(),
+    "limit": z.number(),
+    "offset": z.number(),
+  })
+
+export const KillTeam_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "faction_id": z.string(),
+  })
+
+export const Page_KillTeam_Read_ = z.object({
+    "items": z.array(KillTeam_Read),
+    "total": z.number(),
+    "limit": z.number(),
+    "offset": z.number(),
+  })
+
+export const KillTeamRule_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "description": z.string(),
+    "group": z.string().nullable(),
+    "position": z.number(),
+  })
+
+export const KTPloy_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "kind": z.string(),
+    "cp_cost": z.number(),
+    "description": z.string(),
+    "position": z.number(),
+  })
+
+export const KTEquipment_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "description": z.string(),
+    "position": z.number(),
+  })
+
+export const KTWeapon_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "category": z.string(),
+    "range": z.number(),
+    "attacks": z.number(),
+    "hit": z.number(),
+    "normal_damage": z.number(),
+    "crit_damage": z.number(),
+    "weapon_rules": z.array(z.string()),
+    "position": z.number(),
+  })
+
+export const KTAbility_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "description": z.string(),
+    "position": z.number(),
+  })
+
+export const KTOperative_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "apl": z.number(),
+    "move": z.number(),
+    "save": z.number(),
+    "wounds": z.number(),
+    "keywords": z.array(z.string()),
+    "availability": z.string(),
+    "position": z.number(),
+    "weapons": z.array(KTWeapon_Read),
+    "abilities": z.array(KTAbility_Read),
+  })
+
+export const KTSelectionRule_Read = z.object({
+    "id": z.string(),
+    "position": z.number(),
+    "depth": z.number(),
+    "kind": z.string(),
+    "text": z.string(),
+  })
+
+export const KillTeam_Detail = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "faction_id": z.string(),
+    "rules": z.array(KillTeamRule_Read),
+    "ploys": z.array(KTPloy_Read),
+    "equipment": z.array(KTEquipment_Read),
+    "operatives": z.array(KTOperative_Read),
+    "selection_rules": z.array(KTSelectionRule_Read),
+  })
+
+export const KTOperative_ListRead = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "apl": z.number(),
+    "move": z.number(),
+    "save": z.number(),
+    "wounds": z.number(),
+    "keywords": z.array(z.string()),
+    "availability": z.string(),
+    "position": z.number(),
+    "weapons": z.array(KTWeapon_Read),
+    "abilities": z.array(KTAbility_Read),
+    "kill_team_id": z.string(),
+  })
+
+export const Page_KTOperative_ListRead_ = z.object({
+    "items": z.array(KTOperative_ListRead),
+    "total": z.number(),
+    "limit": z.number(),
+    "offset": z.number(),
+  })
+
+export const Universal_Read = z.object({
+    "ploys": z.array(KTPloy_Read),
+    "equipment": z.array(KTEquipment_Read),
+  })
+
+export const KTRosterOperative_Read = z.object({
+    "id": z.string(),
+    "position": z.number(),
+    "operative": KTOperative_Read,
+  })
+
+export const KTRoster_Read = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "description": z.string().nullable(),
+    "created_at": z.string(),
+    "kill_team_id": z.string(),
+    "kill_team_name": z.string(),
+    "faction_name": z.string(),
+    "operatives": z.array(KTRosterOperative_Read),
+    "rules": z.array(KillTeamRule_Read),
+    "ploys": z.array(KTPloy_Read),
+    "equipment": z.array(KTEquipment_Read),
+    "universal_ploys": z.array(KTPloy_Read),
+    "universal_equipment": z.array(KTEquipment_Read),
+  })
+
+export const KTRoster_ListRead = z.object({
+    "id": z.string(),
+    "name": z.string(),
+    "description": z.string().nullable(),
+    "created_at": z.string(),
+    "kill_team_id": z.string(),
+    "kill_team_name": z.string(),
+    "faction_name": z.string(),
+  })
+
+export const Page_KTRoster_ListRead_ = z.object({
+    "items": z.array(KTRoster_ListRead),
+    "total": z.number(),
+    "limit": z.number(),
+    "offset": z.number(),
+  })
+
+export const KTGameWeapon_Read = z.object({
+    "name": z.string(),
+    "category": z.string(),
+    "range": z.number(),
+    "attacks": z.number(),
+    "hit": z.number(),
+    "normal_damage": z.number(),
+    "crit_damage": z.number(),
+    "weapon_rules": z.array(z.string()),
+  })
+
+export const KTGameAbility_Read = z.object({
+    "name": z.string(),
+    "description": z.string(),
+  })
+
+export const KTGameOperative_Read = z.object({
+    "id": z.string(),
+    "position": z.number(),
+    "operative_id": z.string(),
+    "name": z.string(),
+    "apl": z.number(),
+    "move": z.number(),
+    "save": z.number(),
+    "wounds": z.number(),
+    "keywords": z.array(z.string()),
+    "weapons": z.array(KTGameWeapon_Read),
+    "abilities": z.array(KTGameAbility_Read),
+    "current_wounds": z.number(),
+    "order": z.string(),
+    "status": z.string(),
+    "activated_in_turning_point": z.number().nullable(),
+    "tokens": z.array(z.string()),
+    "actions_used": z.array(z.record(z.string(), z.unknown())),
+    "source": z.string(),
+    "added_in_turning_point": z.number().nullable(),
+  })
+
+export const KTGameEquipment_Read = z.object({
+    "id": z.string(),
+    "equipment_id": z.string(),
+    "name": z.string(),
+    "text": z.string(),
+    "revealed": z.boolean(),
+    "position": z.number(),
+  })
+
+export const KTGameRule_Read = z.object({
+    "name": z.string(),
+    "description": z.string(),
+    "group": z.string().nullable().optional(),
+  })
+
+export const KTGamePloy_Read = z.object({
+    "name": z.string(),
+    "kind": z.string(),
+    "cp_cost": z.number(),
+    "description": z.string(),
+    "universal": z.boolean(),
+  })
+
+export const KTGameEvent_Read = z.object({
+    "id": z.string(),
+    "sequence": z.number(),
+    "type": z.string(),
+    "turning_point": z.number(),
+    "payload": z.record(z.string(), z.unknown()),
+    "undone_by": z.string().nullable(),
+    "created_at": z.string(),
+  })
+
+export const KTGame_Read = z.object({
+    "id": z.string(),
+    "created_at": z.string(),
+    "roster_id": z.string(),
+    "kill_team_id": z.string(),
+    "kill_team_name": z.string(),
+    "faction_name": z.string(),
+    "opponent_name": z.string().nullable(),
+    "status": z.string(),
+    "turning_point": z.number(),
+    "phase": z.string(),
+    "initiative": z.string().nullable(),
+    "command_points": z.number(),
+    "victory_points": z.record(z.string(), z.number()),
+    "opponent_victory_points": z.number(),
+    "markers": z.array(z.string()),
+    "ploys_used": z.array(z.record(z.string(), z.unknown())),
+    "choices": z.record(z.string(), z.unknown()),
+    "version": z.number(),
+    "equipment_limit": z.number(),
+    "operatives": z.array(KTGameOperative_Read),
+    "equipment": z.array(KTGameEquipment_Read),
+    "rules": z.array(KTGameRule_Read),
+    "ploys": z.array(KTGamePloy_Read),
+    "events": z.array(KTGameEvent_Read),
+  })
+
+export const KTGame_ListRead = z.object({
+    "id": z.string(),
+    "created_at": z.string(),
+    "opponent_name": z.string().nullable(),
+    "status": z.string(),
+    "turning_point": z.number(),
+    "phase": z.string(),
+    "kill_team_id": z.string(),
+    "kill_team_name": z.string(),
+    "faction_name": z.string(),
+    "victory_points": z.record(z.string(), z.number()),
+    "opponent_victory_points": z.number(),
+  })
+
+export const Page_KTGame_ListRead_ = z.object({
+    "items": z.array(KTGame_ListRead),
+    "total": z.number(),
+    "limit": z.number(),
+    "offset": z.number(),
+  })

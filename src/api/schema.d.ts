@@ -518,6 +518,522 @@ export interface paths {
         patch: operations["set_amount_api_v1_me_armies__army_id__units__unit_id__patch"];
         trace?: never;
     };
+    "/api/v1/kill-team/factions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Kt Factions
+         * @description The Kill Team faction list, alphabetically.
+         *
+         *     A flat list of its own, one level deep (decision #12): no grand-alliance level
+         *     above it and no link to the 40k faction tables. A faction is how a team is FOUND.
+         */
+        get: operations["list_kt_factions_api_v1_kill_team_factions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kill-team/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Kill Teams
+         * @description Kill teams, alphabetically, optionally narrowed to one faction.
+         *
+         *     Alphabetical because that is the only order there is: decision #25 gives print
+         *     order to every CHILD of a kill team, not to the teams themselves, so the site's
+         *     nav order is not stored.
+         *
+         *     A `faction_id` matching nothing is an empty page, not a 404 -- a filter naming
+         *     nothing is a legitimate result, where a missing ROW asked for by id is not.
+         */
+        get: operations["list_kill_teams_api_v1_kill_team_teams_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kill-team/teams/{kill_team_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Kill Team
+         * @description One kill team with its rules, ploys, equipment, datacards and composition.
+         *
+         *     404 for an unknown id, through the service's `NotFoundError` -- `app/main.py`
+         *     registers one handler against `CodedError`, so nothing is mapped here.
+         *
+         *     Rows the source has withdrawn are absent (decision #55). The service hands back
+         *     plain lists rather than the `KillTeam` row, because its relationships are shared
+         *     with the roster read, which must NOT filter -- so the shaping happens here.
+         */
+        get: operations["get_kill_team_api_v1_kill_team_teams__kill_team_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kill-team/teams/{kill_team_id}/composition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Composition
+         * @description A team's composition without its datacards.
+         *
+         *     The detail already carries these (#47); this is for a reader that wants the printed
+         *     rules alone -- a roster view beside its picker. It saves less than it looks: the
+         *     composition is 2-29% of a detail response, median 10%.
+         *
+         *     Unpaginated, like `/universal`: this is one document, and a page of a team's
+         *     composition would be a page of half a printed section.
+         *
+         *     404 for an unknown team rather than an empty list, because "no composition" and "no
+         *     such team" are different answers.
+         */
+        get: operations["read_composition_api_v1_kill_team_teams__kill_team_id__composition_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kill-team/operatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Operatives
+         * @description Operatives across teams, optionally narrowed by team or keyword.
+         *
+         *     The cross-team question a nested operative cannot answer: "every operative with
+         *     LEADER", "compare these two teams' Warriors". Ordered by team then printed position.
+         *
+         *     Rows the source has withdrawn are absent, and so are withdrawn weapon or ability
+         *     PROFILES on the rows that remain (#55) -- the profiles are filtered by the query that
+         *     fetches them, because the relationships are shared with the roster read.
+         *
+         *     `keyword` is matched EXACTLY against what the datacard prints, upper-cased: `GUN`
+         *     finds Battleclade's Gun Servitor, which prints `GUN` and `SERVITOR` as two keywords,
+         *     and not Inquisitorial Agent's, which prints `GUN SERVITOR` as one. A substring match
+         *     would conflate them. On Postgres this is `keywords @> '["GUN"]'` against a GIN index
+         *     (decision #26); on SQLite it scans with `json_each`, so the default test tier
+         *     exercises the same filter.
+         */
+        get: operations["list_operatives_api_v1_kill_team_operatives_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kill-team/universal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Universal
+         * @description Command Re-roll and the universal equipment list: the rows no team owns.
+         *
+         *     Unpaginated, deliberately. This is one document rather than a collection -- one
+         *     ploy and eleven pieces of equipment, static until a re-scrape -- so a client
+         *     fetches it once and keeps it.
+         */
+        get: operations["read_universal_api_v1_kill_team_universal_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/rosters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rosters
+         * @description The caller's rosters, oldest first. Only ever the caller's.
+         */
+        get: operations["list_rosters_api_v1_me_kill_team_rosters_get"];
+        put?: never;
+        /**
+         * Create Roster
+         * @description A new, empty roster. 409 if the player already has one by that name.
+         */
+        post: operations["create_roster_api_v1_me_kill_team_rosters_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/rosters/{roster_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Roster */
+        get: operations["get_roster_api_v1_me_kill_team_rosters__roster_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Roster */
+        delete: operations["delete_roster_api_v1_me_kill_team_rosters__roster_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Roster */
+        patch: operations["update_roster_api_v1_me_kill_team_rosters__roster_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/rosters/{roster_id}/operatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Operative
+         * @description Append one operative. A repeat is a second operative, not a 409.
+         *
+         *     The armies router's equivalent is create-only, because an incrementing add is not
+         *     retry-safe. There is no quantity here (decision #50), so a retried add appends --
+         *     which is a real outcome, and a caller that did not mean it removes the extra row.
+         */
+        post: operations["add_operative_api_v1_me_kill_team_rosters__roster_id__operatives_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/rosters/{roster_id}/operatives/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Operative */
+        delete: operations["remove_operative_api_v1_me_kill_team_rosters__roster_id__operatives__row_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Move Operative
+         * @description Set a row's position. Addressed by the ROW's id, not the operative's.
+         */
+        patch: operations["move_operative_api_v1_me_kill_team_rosters__roster_id__operatives__row_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Games
+         * @description The caller's games, newest first. Only ever the caller's.
+         */
+        get: operations["list_games_api_v1_me_kill_team_games_get"];
+        put?: never;
+        /**
+         * Create Game
+         * @description Start a battle from one of the caller's rosters, copying everything it needs.
+         *
+         *     404 if the roster is not theirs: `create_game` writes the CALLER's id and the
+         *     composite foreign key refuses a roster they do not own, so this cannot start a
+         *     battle from a stranger's list even if the route forgot to look (#54).
+         */
+        post: operations["create_game_api_v1_me_kill_team_games_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Game */
+        get: operations["get_game_api_v1_me_kill_team_games__game_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Game */
+        delete: operations["delete_game_api_v1_me_kill_team_games__game_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Game
+         * @description CP, VP, markers, the ploys spent. 409 if `version` is behind (#9).
+         */
+        patch: operations["update_game_api_v1_me_kill_team_games__game_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/operatives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Operative
+         * @description Field a datacard the battle produced — Gellerpox's vermin, a rule's grant (#18).
+         */
+        post: operations["add_operative_api_v1_me_kill_team_games__game_id__operatives_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/operatives/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Operative
+         * @description Wounds, order, tokens, the actions used. Zero wounds takes it out of the battle.
+         */
+        patch: operations["update_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/operatives/{row_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate Operative
+         * @description Mark it activated in the game's CURRENT turning point (#61).
+         *
+         *     Its own route rather than a field on the PATCH, because the server reads the turning
+         *     point off the game — so an activation cannot be recorded in one that is not
+         *     happening. 400 on a second activation in the same turning point.
+         */
+        post: operations["activate_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/operatives/{row_id}/transform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transform Operative
+         * @description One card becomes another, in place (#19) — the same model on the table.
+         *
+         *     The row keeps its id, tokens, actions used and position; only the catalog pointer
+         *     moves and the snapshot is rewritten. How many transforms a turning point allows is
+         *     the players' (#1), so nothing here counts them.
+         */
+        post: operations["transform_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__transform_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/equipment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Equipment
+         * @description Take a piece into this battle (#17), with its text copied.
+         *
+         *     409 for the same piece twice, which is integrity. The ALLOWANCE is not checked
+         *     (#57): the detail read reports `equipment_limit` and a fifth piece is accepted, so
+         *     a custom game can be built.
+         */
+        post: operations["add_equipment_api_v1_me_kill_team_games__game_id__equipment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/equipment/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Equipment */
+        delete: operations["remove_equipment_api_v1_me_kill_team_games__game_id__equipment__row_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Reveal Equipment
+         * @description Reveal it — which can change what is on the table (Gellerpox's vermin, #18).
+         */
+        patch: operations["reveal_equipment_api_v1_me_kill_team_games__game_id__equipment__row_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/ploys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Ploy
+         * @description Spend a ploy: record it and deduct its CP in one operation.
+         *
+         *     The cost comes from the game's own snapshot, so a client does not supply it and
+         *     cannot forget to. One operation because it is one event -- `undo` then restores the
+         *     CP and removes the entry together, where two PATCHes would let one be undone without
+         *     the other.
+         *
+         *     400 for a ploy this game's snapshot does not list, or if the CP will not cover it.
+         *     How many ploys a turning point allows is the players' (#1). Returns the game whole,
+         *     because two of its fields moved.
+         */
+        post: operations["use_ploy_api_v1_me_kill_team_games__game_id__ploys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Advance
+         * @description Next phase, next turning point, or finish the game.
+         *
+         *     The server applies what goes with the move: initiative back to nobody for the new
+         *     turning point's roll-off (#62), and nothing at all for activations, which are
+         *     stamped with the turning point they happened in (#61). Advancing out of the fourth
+         *     firefight phase FINISHES the game, and because that is an event like any other,
+         *     `undo` reopens one closed by accident.
+         */
+        post: operations["advance_api_v1_me_kill_team_games__game_id__advance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/kill-team/games/{game_id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo
+         * @description Revert the newest change that still stands, and record having done so (#58).
+         *
+         *     Returns the game whole rather than the compensating event, because an undo can move
+         *     anything -- a wound, a turning point, a row that existed -- and a client that got
+         *     only the event would have to re-read to know what changed. 400 when there is
+         *     nothing left.
+         */
+        post: operations["undo_api_v1_me_kill_team_games__game_id__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -724,6 +1240,827 @@ export interface components {
              */
             amount: number;
         };
+        /** KTAbility_Read */
+        KTAbility_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+        };
+        /** KTEquipment_Read */
+        KTEquipment_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+        };
+        /** KTFaction_Read */
+        KTFaction_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** KTGameAbility_Read */
+        KTGameAbility_Read: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
+        /** KTGameEquipment_Add */
+        KTGameEquipment_Add: {
+            /**
+             * Equipment Id
+             * Format: uuid
+             */
+            equipment_id: string;
+        };
+        /** KTGameEquipment_Read */
+        KTGameEquipment_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Equipment Id
+             * Format: uuid
+             */
+            equipment_id: string;
+            /** Name */
+            name: string;
+            /** Text */
+            text: string;
+            /** Revealed */
+            revealed: boolean;
+            /** Position */
+            position: number;
+        };
+        /**
+         * KTGameEvent_Read
+         * @description One entry in the log (#8, #58), which is also what `undo` walks back over.
+         */
+        KTGameEvent_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sequence */
+            sequence: number;
+            /** Type */
+            type: string;
+            /** Turning Point */
+            turning_point: number;
+            /**
+             * Payload
+             * @default {}
+             */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Undone By */
+            undone_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** KTGameOperative_Add */
+        KTGameOperative_Add: {
+            /**
+             * Operative Id
+             * Format: uuid
+             */
+            operative_id: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * KTGameOperative_Read
+         * @description One model in the battle: its card as it was snapshotted, then its state.
+         */
+        KTGameOperative_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /**
+             * Operative Id
+             * Format: uuid
+             */
+            operative_id: string;
+            /** Name */
+            name: string;
+            /** Apl */
+            apl: number;
+            /** Move */
+            move: number;
+            /** Save */
+            save: number;
+            /** Wounds */
+            wounds: number;
+            /**
+             * Keywords
+             * @default []
+             */
+            keywords: string[];
+            /**
+             * Weapons
+             * @default []
+             */
+            weapons: components["schemas"]["KTGameWeapon_Read"][];
+            /**
+             * Abilities
+             * @default []
+             */
+            abilities: components["schemas"]["KTGameAbility_Read"][];
+            /** Current Wounds */
+            current_wounds: number;
+            /** Order */
+            order: string;
+            /** Status */
+            status: string;
+            /** Activated In Turning Point */
+            activated_in_turning_point: number | null;
+            /**
+             * Tokens
+             * @default []
+             */
+            tokens: string[];
+            /**
+             * Actions Used
+             * @default []
+             */
+            actions_used: {
+                [key: string]: unknown;
+            }[];
+            /** Source */
+            source: string;
+            /** Added In Turning Point */
+            added_in_turning_point: number | null;
+        };
+        /** KTGameOperative_Transform */
+        KTGameOperative_Transform: {
+            /**
+             * Becomes Operative Id
+             * Format: uuid
+             */
+            becomes_operative_id: string;
+        };
+        /** KTGameOperative_Update */
+        KTGameOperative_Update: {
+            /** Version */
+            version?: number | null;
+            /** Current Wounds */
+            current_wounds?: number | null;
+            /** Order */
+            order?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Tokens */
+            tokens?: string[] | null;
+            /** Actions Used */
+            actions_used?: {
+                [key: string]: unknown;
+            }[] | null;
+        };
+        /** KTGamePloy_Read */
+        KTGamePloy_Read: {
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Cp Cost */
+            cp_cost: number;
+            /** Description */
+            description: string;
+            /** Universal */
+            universal: boolean;
+        };
+        /** KTGamePloy_Use */
+        KTGamePloy_Use: {
+            /** Name */
+            name: string;
+        };
+        /** KTGameRule_Read */
+        KTGameRule_Read: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Group */
+            group?: string | null;
+        };
+        /** KTGameWeapon_Read */
+        KTGameWeapon_Read: {
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Range */
+            range: number;
+            /** Attacks */
+            attacks: number;
+            /** Hit */
+            hit: number;
+            /** Normal Damage */
+            normal_damage: number;
+            /** Crit Damage */
+            crit_damage: number;
+            /**
+             * Weapon Rules
+             * @default []
+             */
+            weapon_rules: string[];
+        };
+        /** KTGame_Create */
+        KTGame_Create: {
+            /**
+             * Roster Id
+             * Format: uuid
+             */
+            roster_id: string;
+            /** Opponent Name */
+            opponent_name?: string | null;
+        };
+        /**
+         * KTGame_ListRead
+         * @description A row of the game listing: enough to choose one, and none of the bundle.
+         *
+         *     Carries the score, because "which game was that?" is answered by who and how it
+         *     went. Deliberately NOT the operatives: a game stores the roster detail's 24-42 KB
+         *     as JSON (#52), so a page of fifty would be megabytes.
+         *
+         *     Names the kill team and its faction for the same reason `KTRoster_ListRead` does --
+         *     a deliberate exception to #46, since a player's own game list should not require
+         *     fetching the catalog to render "Raveners, Tyranids".
+         */
+        KTGame_ListRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Opponent Name */
+            opponent_name: string | null;
+            /** Status */
+            status: string;
+            /** Turning Point */
+            turning_point: number;
+            /** Phase */
+            phase: string;
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+            /** Kill Team Name */
+            kill_team_name: string;
+            /** Faction Name */
+            faction_name: string;
+            /**
+             * Victory Points
+             * @default {}
+             */
+            victory_points: {
+                [key: string]: number;
+            };
+            /** Opponent Victory Points */
+            opponent_victory_points: number;
+        };
+        /**
+         * KTGame_Read
+         * @description A battle whole — everything the screen needs, and no catalog call (#24).
+         */
+        KTGame_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Roster Id
+             * Format: uuid
+             */
+            roster_id: string;
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+            /** Kill Team Name */
+            kill_team_name: string;
+            /** Faction Name */
+            faction_name: string;
+            /** Opponent Name */
+            opponent_name: string | null;
+            /** Status */
+            status: string;
+            /** Turning Point */
+            turning_point: number;
+            /** Phase */
+            phase: string;
+            /** Initiative */
+            initiative: string | null;
+            /** Command Points */
+            command_points: number;
+            /**
+             * Victory Points
+             * @default {}
+             */
+            victory_points: {
+                [key: string]: number;
+            };
+            /** Opponent Victory Points */
+            opponent_victory_points: number;
+            /**
+             * Markers
+             * @default []
+             */
+            markers: string[];
+            /**
+             * Ploys Used
+             * @default []
+             */
+            ploys_used: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Choices
+             * @default {}
+             */
+            choices: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version: number;
+            /**
+             * Equipment Limit
+             * @default 4
+             */
+            equipment_limit: number;
+            /**
+             * Operatives
+             * @default []
+             */
+            operatives: components["schemas"]["KTGameOperative_Read"][];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: components["schemas"]["KTGameEquipment_Read"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["KTGameRule_Read"][];
+            /**
+             * Ploys
+             * @default []
+             */
+            ploys: components["schemas"]["KTGamePloy_Read"][];
+            /**
+             * Events
+             * @default []
+             */
+            events: components["schemas"]["KTGameEvent_Read"][];
+        };
+        /** KTGame_Update */
+        KTGame_Update: {
+            /** Version */
+            version?: number | null;
+            /** Opponent Name */
+            opponent_name?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Initiative */
+            initiative?: string | null;
+            /** Command Points */
+            command_points?: number | null;
+            /** Victory Points */
+            victory_points?: {
+                [key: string]: number;
+            } | null;
+            /** Opponent Victory Points */
+            opponent_victory_points?: number | null;
+            /** Markers */
+            markers?: string[] | null;
+            /** Ploys Used */
+            ploys_used?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Choices */
+            choices?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * KTOperative_ListRead
+         * @description The flat form (`GET /operatives`), which carries the team it belongs to.
+         *
+         *     The nested form inside a team detail can omit it, because its parent supplies it --
+         *     the same split the 40k catalog makes between `Subfaction_Read` and
+         *     `Subfaction_ListRead`.
+         */
+        KTOperative_ListRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Apl */
+            apl: number;
+            /** Move */
+            move: number;
+            /** Save */
+            save: number;
+            /** Wounds */
+            wounds: number;
+            /** Keywords */
+            keywords: string[];
+            /** Availability */
+            availability: string;
+            /** Position */
+            position: number;
+            /**
+             * Weapons
+             * @default []
+             */
+            weapons: components["schemas"]["KTWeapon_Read"][];
+            /**
+             * Abilities
+             * @default []
+             */
+            abilities: components["schemas"]["KTAbility_Read"][];
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+        };
+        /** KTOperative_Read */
+        KTOperative_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Apl */
+            apl: number;
+            /** Move */
+            move: number;
+            /** Save */
+            save: number;
+            /** Wounds */
+            wounds: number;
+            /** Keywords */
+            keywords: string[];
+            /** Availability */
+            availability: string;
+            /** Position */
+            position: number;
+            /**
+             * Weapons
+             * @default []
+             */
+            weapons: components["schemas"]["KTWeapon_Read"][];
+            /**
+             * Abilities
+             * @default []
+             */
+            abilities: components["schemas"]["KTAbility_Read"][];
+        };
+        /** KTPloy_Read */
+        KTPloy_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Cp Cost */
+            cp_cost: number;
+            /** Description */
+            description: string;
+            /** Position */
+            position: number;
+        };
+        /** KTRosterOperative_Create */
+        KTRosterOperative_Create: {
+            /**
+             * Operative Id
+             * Format: uuid
+             */
+            operative_id: string;
+        };
+        /**
+         * KTRosterOperative_Read
+         * @description One operative on the roster: the row's own id, its place, and the datacard.
+         *
+         *     The row id and not the operative's, because two rows may name the same operative
+         *     (decision #50) — it is what `PATCH`/`DELETE` address.
+         */
+        KTRosterOperative_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            operative: components["schemas"]["KTOperative_Read"];
+        };
+        /** KTRosterOperative_Update */
+        KTRosterOperative_Update: {
+            /** Position */
+            position: number;
+        };
+        /** KTRoster_Create */
+        KTRoster_Create: {
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+        };
+        /**
+         * KTRoster_ListRead
+         * @description A row of the roster listing: enough to choose one, and nothing heavier.
+         *
+         *     Carries the kill team's NAME and its faction's, which is a deliberate exception to
+         *     decision #46 ("a read names a parent by id, never a copy of its name"). #46 is
+         *     about the catalog, where a client holds the faction listing anyway; a player's own
+         *     roster list should not require fetching the catalog to render "Raveners, Tyranids".
+         *     Deliberately NOT the operatives: a detail read is 24-42 KB (#52), so a page of
+         *     fifty would be megabytes to answer what the name already answers.
+         */
+        KTRoster_ListRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+            /** Kill Team Name */
+            kill_team_name: string;
+            /** Faction Name */
+            faction_name: string;
+        };
+        /**
+         * KTRoster_Read
+         * @description A roster whole, as decision #52 specifies it.
+         *
+         *     The player's operatives with their datacards, then everything that applies while
+         *     playing them: the team's rules, its ploys, its equipment, and the two collections
+         *     that belong to no team. The equipment lists are the POOL a game chooses from — the
+         *     choice itself is per game (#17), so a roster holds no equipment of its own.
+         */
+        KTRoster_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Kill Team Id
+             * Format: uuid
+             */
+            kill_team_id: string;
+            /** Kill Team Name */
+            kill_team_name: string;
+            /** Faction Name */
+            faction_name: string;
+            /**
+             * Operatives
+             * @default []
+             */
+            operatives: components["schemas"]["KTRosterOperative_Read"][];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["KillTeamRule_Read"][];
+            /**
+             * Ploys
+             * @default []
+             */
+            ploys: components["schemas"]["KTPloy_Read"][];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: components["schemas"]["KTEquipment_Read"][];
+            /**
+             * Universal Ploys
+             * @default []
+             */
+            universal_ploys: components["schemas"]["KTPloy_Read"][];
+            /**
+             * Universal Equipment
+             * @default []
+             */
+            universal_equipment: components["schemas"]["KTEquipment_Read"][];
+        };
+        /** KTRoster_Update */
+        KTRoster_Update: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
+        /**
+         * KTSelectionRule_Read
+         * @description One printed thing from the composition (decisions #44, #45).
+         *
+         *     Read in `position` order, indenting by `depth`, and this is the page's
+         *     composition section back. Nothing is derived from it: no budget, no cap, no
+         *     operative resolved -- `text` is what the page said.
+         */
+        KTSelectionRule_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Depth */
+            depth: number;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+        };
+        /** KTWeapon_Read */
+        KTWeapon_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Range */
+            range: number;
+            /** Attacks */
+            attacks: number;
+            /** Hit */
+            hit: number;
+            /** Normal Damage */
+            normal_damage: number;
+            /** Crit Damage */
+            crit_damage: number;
+            /** Weapon Rules */
+            weapon_rules: string[];
+            /** Position */
+            position: number;
+        };
+        /** KillTeamRule_Read */
+        KillTeamRule_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Group */
+            group: string | null;
+            /** Position */
+            position: number;
+        };
+        /**
+         * KillTeam_Detail
+         * @description A team whole: everything a reader of its page would see (decision #47).
+         *
+         *     One request rather than several, because operatives are reachable only nested and
+         *     a game snapshots the team's rules, its ploys and every datacard anyway (#24). Measured
+         *     over the served responses: 16 KB to 46 KB, median 24 KB, each in nine queries flat.
+         */
+        KillTeam_Detail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Faction Id
+             * Format: uuid
+             */
+            faction_id: string;
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["KillTeamRule_Read"][];
+            /**
+             * Ploys
+             * @default []
+             */
+            ploys: components["schemas"]["KTPloy_Read"][];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: components["schemas"]["KTEquipment_Read"][];
+            /**
+             * Operatives
+             * @default []
+             */
+            operatives: components["schemas"]["KTOperative_Read"][];
+            /**
+             * Selection Rules
+             * @default []
+             */
+            selection_rules: components["schemas"]["KTSelectionRule_Read"][];
+        };
+        /** KillTeam_Read */
+        KillTeam_Read: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Faction Id
+             * Format: uuid
+             */
+            faction_id: string;
+        };
         /** Page[Ability_Read] */
         Page_Ability_Read_: {
             /** Items */
@@ -750,6 +2087,61 @@ export interface components {
         Page_Faction_Read_: {
             /** Items */
             items: components["schemas"]["Faction_Read"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[KTFaction_Read] */
+        Page_KTFaction_Read_: {
+            /** Items */
+            items: components["schemas"]["KTFaction_Read"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[KTGame_ListRead] */
+        Page_KTGame_ListRead_: {
+            /** Items */
+            items: components["schemas"]["KTGame_ListRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[KTOperative_ListRead] */
+        Page_KTOperative_ListRead_: {
+            /** Items */
+            items: components["schemas"]["KTOperative_ListRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[KTRoster_ListRead] */
+        Page_KTRoster_ListRead_: {
+            /** Items */
+            items: components["schemas"]["KTRoster_ListRead"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** Page[KillTeam_Read] */
+        Page_KillTeam_Read_: {
+            /** Items */
+            items: components["schemas"]["KillTeam_Read"][];
             /** Total */
             total: number;
             /** Limit */
@@ -978,6 +2370,27 @@ export interface components {
             points?: number | null;
             /** Keywords */
             keywords?: string[] | null;
+        };
+        /**
+         * Universal_Read
+         * @description The rows that belong to no kill team: `kill_team_id IS NULL` (decision #48).
+         *
+         *     One route for both, because they are one concept and one thing a client wants --
+         *     fetched once, kept for the session, used with every team. Folding them into each
+         *     team detail instead would add 8 KB to every response and re-send it on every team
+         *     view, to save a call that happens once per GAME.
+         */
+        Universal_Read: {
+            /**
+             * Ploys
+             * @default []
+             */
+            ploys: components["schemas"]["KTPloy_Read"][];
+            /**
+             * Equipment
+             * @default []
+             */
+            equipment: components["schemas"]["KTEquipment_Read"][];
         };
         /** UserUnit_Read */
         UserUnit_Read: {
@@ -2466,6 +3879,941 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArmyUnit_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_kt_factions_api_v1_kill_team_factions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KTFaction_Read_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_kill_teams_api_v1_kill_team_teams_get: {
+        parameters: {
+            query?: {
+                faction_id?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KillTeam_Read_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_kill_team_api_v1_kill_team_teams__kill_team_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kill_team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KillTeam_Detail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_composition_api_v1_kill_team_teams__kill_team_id__composition_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kill_team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTSelectionRule_Read"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_operatives_api_v1_kill_team_operatives_get: {
+        parameters: {
+            query?: {
+                kill_team_id?: string | null;
+                keyword?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KTOperative_ListRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_universal_api_v1_kill_team_universal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Universal_Read"];
+                };
+            };
+        };
+    };
+    list_rosters_api_v1_me_kill_team_rosters_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KTRoster_ListRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_roster_api_v1_me_kill_team_rosters_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTRoster_Create"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTRoster_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_roster_api_v1_me_kill_team_rosters__roster_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTRoster_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_roster_api_v1_me_kill_team_rosters__roster_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_roster_api_v1_me_kill_team_rosters__roster_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTRoster_Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTRoster_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_operative_api_v1_me_kill_team_rosters__roster_id__operatives_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTRosterOperative_Create"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTRosterOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_operative_api_v1_me_kill_team_rosters__roster_id__operatives__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_operative_api_v1_me_kill_team_rosters__roster_id__operatives__row_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                roster_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTRosterOperative_Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTRosterOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_games_api_v1_me_kill_team_games_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KTGame_ListRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_game_api_v1_me_kill_team_games_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGame_Create"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_game_api_v1_me_kill_team_games__game_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_game_api_v1_me_kill_team_games__game_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_game_api_v1_me_kill_team_games__game_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGame_Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_operative_api_v1_me_kill_team_games__game_id__operatives_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGameOperative_Add"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGameOperative_Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activate_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transform_operative_api_v1_me_kill_team_games__game_id__operatives__row_id__transform_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGameOperative_Transform"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameOperative_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_equipment_api_v1_me_kill_team_games__game_id__equipment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGameEquipment_Add"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameEquipment_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_equipment_api_v1_me_kill_team_games__game_id__equipment__row_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_equipment_api_v1_me_kill_team_games__game_id__equipment__row_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                row_id: string;
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGameEquipment_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_ploy_api_v1_me_kill_team_games__game_id__ploys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KTGamePloy_Use"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    advance_api_v1_me_kill_team_games__game_id__advance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_api_v1_me_kill_team_games__game_id__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KTGame_Read"];
                 };
             };
             /** @description Validation Error */
