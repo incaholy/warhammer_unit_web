@@ -72,75 +72,13 @@
   gap: 10px;
 }
 
-.wounds {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.woundsValue {
-  font-family: var(--font-mono);
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  /* Fixed width so the row does not shift as the number changes under a thumb. */
-  min-width: 4.5ch;
-  text-align: center;
-}
-
 .order {
   flex-shrink: 0;
-}
-
-/* ---- Tokens ---- */
-
-.tokens {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.token {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tokenRemove {
-  appearance: none;
-  background: none;
-  border: 0;
-  padding: 0 2px;
-  margin: 0;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.tokenRemove:hover {
-  color: var(--danger);
-}
-
-.tokenRemove:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
-.tokenInput {
-  width: 10ch;
-  flex: 0 1 14ch;
 }
 
 @media (max-width: 640px) {
   .controls {
     justify-content: space-between;
-  }
-
-  .tokenInput {
-    flex: 1 1 8ch;
   }
 }
 

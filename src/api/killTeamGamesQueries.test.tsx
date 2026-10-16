@@ -18,12 +18,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   killTeamGameKeys,
   useAdvanceGame,
+  useCreateGame,
   useGame,
+  useUpdateGame,
   useUpdateGameOperative,
   useUseGamePloy,
 } from './killTeamGamesQueries'
 import { killTeamKeys } from './killTeamQueries'
 import { jsonResponse, makeKTGame, makeKTGameOperative } from '../test/fixtures'
+import type { KTGame_Read } from './types'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -159,18 +162,167 @@ describe('afterGameWrite: what a 409 does', () => {
   })
 })
 
-describe('afterGameWrite: how wide a success invalidates', () => {
-  it('advance invalidates the list too, because the row shows the turning point', async () => {
+describe('a game-level write applies its own answer (KF4f)', () => {
+  /** A write that answers the whole game, at a version the caller chooses. */
+  function stubWrite(version: number) {
+    const seen: { url: string; method: string; body: unknown }[] = []
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      seen.push({
+        url: String(url),
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      })
+      return jsonResponse(makeKTGame({ version, command_points: version }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return seen
+  }
+
+  it('puts the response in the cache instead of re-reading the game', async () => {
     const qc = freshClient()
-    const invalidate = vi.spyOn(qc, 'invalidateQueries')
-    stubGame()
+    const seen = stubWrite(8)
 
     const { result } = renderHook(() => useAdvanceGame('ktg-1'), { wrapper: wrapper(qc) })
     result.current.mutate()
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: killTeamGameKeys.allGames })
+    // The whole point: the detail is up to date WITHOUT a GET. Before this, the screen
+    // showed the pre-write values for a full round-trip.
+    expect(qc.getQueryData<KTGame_Read>(killTeamGameKeys.game('ktg-1'))?.version).toBe(8)
+    expect(seen.filter((c) => c.method === 'GET')).toEqual([])
   })
+
+  it('still invalidates the LIST, which is a different shape', async () => {
+    const qc = freshClient()
+    const invalidate = vi.spyOn(qc, 'invalidateQueries')
+    stubWrite(8)
+
+    const { result } = renderHook(() => useAdvanceGame('ktg-1'), { wrapper: wrapper(qc) })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // `KTGame_ListRead` carries status, turning point, phase and both scores, and the
+    // response is not that shape -- so the row still has to be re-read.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: killTeamGameKeys.games })
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: killTeamGameKeys.game('ktg-1') })
+  })
+
+  it('refuses a response that is OLDER than what the cache holds', async () => {
+    const qc = freshClient()
+    qc.setQueryData(killTeamGameKeys.game('ktg-1'), makeKTGame({ version: 9, command_points: 9 }))
+    stubWrite(7)
+
+    const { result } = renderHook(() => useAdvanceGame('ktg-1'), { wrapper: wrapper(qc) })
+    result.current.mutate()
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // Two writes can resolve out of order. `version` is bumped at exactly one site in
+    // the service, so an earlier write's answer always carries a lower number -- which
+    // makes `>` exact rather than a guess.
+    expect(qc.getQueryData<KTGame_Read>(killTeamGameKeys.game('ktg-1'))?.version).toBe(9)
+  })
+
+  it('asserts the version the cache holds, not one captured at tap time', async () => {
+    const qc = freshClient()
+    qc.setQueryData(killTeamGameKeys.game('ktg-1'), makeKTGame({ version: 11 }))
+    const seen = stubWrite(12)
+
+    const { result } = renderHook(() => useUpdateGame('ktg-1'), { wrapper: wrapper(qc) })
+    result.current.mutate({ command_points: 3 })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // `versionFrom` reads at SEND time. With the writes serialised and each response
+    // applied, the freshest cached version is everything this player has caused -- so a
+    // mismatch means somebody else moved, which is what the 409 is for.
+    expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+      command_points: 3,
+      version: 11,
+    })
+  })
+
+  it('sends no version when the cache holds no game yet', async () => {
+    const qc = freshClient()
+    const seen = stubWrite(2)
+
+    const { result } = renderHook(() => useUpdateGame('ktg-1'), { wrapper: wrapper(qc) })
+    result.current.mutate({ command_points: 3 })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // A blind write rather than `version: undefined` in the body. The `version_id_col`
+    // still refuses a genuine race at flush.
+    expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({ command_points: 3 })
+  })
+
+  it('seeds the detail cache on create, so the battle screen needs no read', async () => {
+    const qc = freshClient()
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(makeKTGame({ id: 'ktg-new' }))))
+
+    const { result } = renderHook(() => useCreateGame(), { wrapper: wrapper(qc) })
+    result.current.mutate({ roster_id: 'ktr-1' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(qc.getQueryData<KTGame_Read>(killTeamGameKeys.game('ktg-new'))?.id).toBe('ktg-new')
+  })
+})
+
+describe('useGame keeps the cache monotonic (KF4f)', () => {
+  it('refuses a READ that would regress the version', async () => {
+    const qc = freshClient()
+    qc.setQueryData(killTeamGameKeys.game('ktg-1'), makeKTGame({ version: 9, command_points: 9 }))
+    // A GET issued before a write and landing after it. Once two clients converge by
+    // polling (#72) this is a chance every three seconds, not a rarity.
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(makeKTGame({ version: 6, command_points: 6 })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useGame('ktg-1'), { wrapper: wrapper(qc) })
+    // The fetch must have RESOLVED before the assertion means anything. An earlier
+    // version of this waited on `isFetched`, which the seeded cache satisfies, so it
+    // passed whether or not the guard existed -- the exact false green a mutation check
+    // is for.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await waitFor(() => expect(result.current.isFetching).toBe(false))
+
+    expect(result.current.data?.version).toBe(9)
+    expect(result.current.data?.command_points).toBe(9)
+  })
+
+  it('serialises the game\'s writes, so one cannot overtake another', async () => {
+    // `scope` is what makes `versionFrom` sound: when a write is sent, no earlier write
+    // of ours is unacknowledged, so the cached version is everything the player caused.
+    // Without it a second tap sends the version the first tap has already moved.
+    const qc = freshClient()
+    const release: ((value: Response) => void)[] = []
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((resolve) => release.push(resolve)),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => useAdvanceGame('ktg-1'), { wrapper: wrapper(qc) })
+    result.current.mutate()
+    result.current.mutate()
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    // The second is QUEUED, not in flight.
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    release[0](jsonResponse(makeKTGame({ version: 8 })))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  })
+
+  it('accepts a read that moves forward', async () => {
+    const qc = freshClient()
+    qc.setQueryData(killTeamGameKeys.game('ktg-1'), makeKTGame({ version: 5, command_points: 5 }))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(makeKTGame({ version: 7, command_points: 7 }))))
+
+    const { result } = renderHook(() => useGame('ktg-1'), { wrapper: wrapper(qc) })
+    await waitFor(() => expect(result.current.data?.version).toBe(7))
+    expect(result.current.data?.command_points).toBe(7)
+  })
+})
+
+describe('afterGameWrite: how wide a ROW write invalidates', () => {
 
   it('an operative write invalidates the DETAIL only', async () => {
     const qc = freshClient()

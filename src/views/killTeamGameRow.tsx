@@ -27,7 +27,7 @@
  * response is the obvious shape, and #79 is already moving to `If-Match`). Recorded in
  * ROADMAP KF4 so the trade is reconsidered when that lands, rather than inherited. */
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 import {
   useActivateGameOperative,
@@ -35,14 +35,10 @@ import {
 } from '../api/killTeamGamesQueries'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 import { actionsUsed, hasActivated } from '../lib/killTeamGame'
-import { Button, Input, SegmentedToggle, Select, Tag } from '../ui'
+import { Button, SegmentedToggle, Select } from '../ui'
 import { Abilities, Block, Keywords, StatLine, Weapons } from './killTeamCards'
+import { ChipEditor, Stepper } from './killTeamControls'
 import styles from './killTeamGameRow.module.css'
-
-/** Matches `QuantityInput`'s debounce. Shared by value rather than by import because
- *  that constant is module-private there, and prising it out to couple two unrelated
- *  controls would be worse than restating it with a comment. */
-const COMMIT_DEBOUNCE_MS = 400
 
 const ORDERS = [
   { value: 'engage' as const, label: 'Engage' },
@@ -89,7 +85,20 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
       </div>
 
       <div className={styles.controls}>
-        <Wounds operative={operative} who={who} update={update} />
+        {/* Wounds: the shared stepper. Absolute (#7), and the write never carries
+          * `status` -- the service couples zero wounds to `incapacitated` in BOTH
+          * directions, and its own comment says a caller who had to remember would
+          * eventually not. */}
+        <Stepper
+          label={`Wounds for ${who}`}
+          downLabel={`Take a wound from ${who}`}
+          upLabel={`Heal a wound on ${who}`}
+          value={operative.current_wounds}
+          max={operative.wounds}
+          onCommit={(current_wounds) =>
+            update.mutateAsync({ rowId: operative.id, body: { current_wounds } })
+          }
+        />
 
         <SegmentedToggle
           className={styles.order}
@@ -115,7 +124,16 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
         </Button>
       </div>
 
-      <Tokens operative={operative} who={who} update={update} suggestions={tokenSuggestions} />
+      {/* Tokens: the shared chip editor. No vocabulary, because tokens are
+        * team-specific and numbered (#1, #21) -- see `killTeamChips`. */}
+      <ChipEditor
+        noun="token"
+        on={who}
+        chips={operative.tokens}
+        suggestions={tokenSuggestions}
+        pending={update.isPending}
+        onChange={(tokens) => update.mutate({ rowId: operative.id, body: { tokens } })}
+      />
 
       <Datacard game={game} operative={operative} who={who} update={update} />
     </li>
@@ -286,162 +304,3 @@ function ActionsUsed({
 }
 
 type UpdateMutation = ReturnType<typeof useUpdateGameOperative>
-
-/** Wounds, as a pair of large buttons over a debounced absolute write.
- *
- * Not `QuantityInput`, which is this repo's one debounced quantity field. That control
- * is a typed number field built for "how many do I own", and it has no maximum. A
- * battle wants a single tap per wound with the card's own maximum respected, and the
- * value is read far more often than it is typed.
- *
- * The draft is local so the number moves on the tap rather than after a round-trip,
- * and the commit is debounced so five taps are ONE request carrying the final value
- * (#7). A rejected write resets the draft to what the server holds, which is the
- * behaviour `QuantityInput` documents and the reason it exists: a refused edit must not
- * sit on screen looking saved.
- *
- * The bounds are from the row's own snapshot, so disabling at them is bookkeeping and
- * not a rule — `_validate_operative_fields` refuses anything outside `0..row.wounds`
- * anyway. The service also couples zero wounds to `incapacitated` in BOTH directions,
- * so this never sends `status`: a client that had to remember would eventually not. */
-function Wounds({
-  operative,
-  who,
-  update,
-}: {
-  operative: KTGameOperative_Read
-  who: string
-  update: UpdateMutation
-}) {
-  const [draft, setDraft] = useState(operative.current_wounds)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Read on the error path, which runs long after the render that queued the commit.
-  const latest = useRef(operative.current_wounds)
-
-  useEffect(() => {
-    latest.current = operative.current_wounds
-    if (timer.current === null) setDraft(operative.current_wounds)
-  }, [operative.current_wounds])
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) clearTimeout(timer.current)
-    },
-    [],
-  )
-
-  const commit = (next: number) => {
-    setDraft(next)
-    if (timer.current !== null) clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      timer.current = null
-      update
-        .mutateAsync({ rowId: operative.id, body: { current_wounds: next } })
-        .catch(() => setDraft(latest.current))
-    }, COMMIT_DEBOUNCE_MS)
-  }
-
-  return (
-    <div className={styles.wounds}>
-      <Button
-        variant="secondary"
-        aria-label={`Take a wound from ${who}`}
-        disabled={draft <= 0}
-        onClick={() => commit(draft - 1)}
-      >
-        −
-      </Button>
-      <span className={styles.woundsValue} aria-label={`Wounds for ${who}`}>
-        {draft}/{operative.wounds}
-      </span>
-      <Button
-        variant="secondary"
-        aria-label={`Heal a wound on ${who}`}
-        disabled={draft >= operative.wounds}
-        onClick={() => commit(draft + 1)}
-      >
-        +
-      </Button>
-    </div>
-  )
-}
-
-/** The tokens on one operative: free text, with the battle's own tokens suggested.
- *
- * One of the three shapes KF4 closes, and all three close the same way. `tokens` is
- * `string[]` with no enum because tokens are team-specific and numbered — Raveners put
- * Poison on an operative and Tunnel markers 0–4 on the killzone — so a client-side
- * vocabulary could not express "Tunnel 3" and would put the migration a new team needs
- * back into the frontend. Suggestions come from what this battle has already used,
- * which needs no knowledge of any team.
- *
- * Writes the WHOLE array, because every write here is absolute (#7). A duplicate is
- * refused locally rather than sent: the backend validates `tokens` not at all, so two
- * identical chips would simply both exist and neither could be told from the other. */
-function Tokens({
-  operative,
-  who,
-  update,
-  suggestions,
-}: {
-  operative: KTGameOperative_Read
-  who: string
-  update: UpdateMutation
-  suggestions: string[]
-}) {
-  const [draft, setDraft] = useState('')
-  const listId = `tokens-${operative.id}`
-
-  const write = (tokens: string[]) => update.mutate({ rowId: operative.id, body: { tokens } })
-
-  const add = () => {
-    const name = draft.trim()
-    if (!name || operative.tokens.includes(name)) {
-      setDraft('')
-      return
-    }
-    write([...operative.tokens, name])
-    setDraft('')
-  }
-
-  return (
-    <div className={styles.tokens}>
-      {operative.tokens.map((token) => (
-        <Tag key={token} className={styles.token}>
-          {token}
-          <button
-            type="button"
-            className={styles.tokenRemove}
-            aria-label={`Remove token ${token} from ${who}`}
-            onClick={() => write(operative.tokens.filter((t) => t !== token))}
-          >
-            ×
-          </button>
-        </Tag>
-      ))}
-
-      <Input
-        className={styles.tokenInput}
-        aria-label={`Add a token to ${who}`}
-        placeholder="Token"
-        list={listId}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            add()
-          }
-        }}
-      />
-      <datalist id={listId}>
-        {suggestions.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-      <Button variant="secondary" aria-label={`Add the token to ${who}`} onClick={add}>
-        Add
-      </Button>
-    </div>
-  )
-}

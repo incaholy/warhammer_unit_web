@@ -1,0 +1,71 @@
+/* The shared chip editor. Moved here with the component it styles, so the row's and the
+   scoreboard's chips cannot drift apart visually either. */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.remove {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.remove:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.remove:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.input {
+  width: 10ch;
+  flex: 0 1 14ch;
+}
+
+@media (max-width: 640px) {
+  .input {
+    flex: 1 1 8ch;
+  }
+}
+
+/* ---- Stepper ---- */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  /* Fixed width so a row does not shift as the number changes under a thumb. */
+  min-width: 4.5ch;
+  text-align: center;
+}

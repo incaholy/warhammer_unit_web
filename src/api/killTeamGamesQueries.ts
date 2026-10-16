@@ -59,6 +59,83 @@ export const killTeamGameKeys = {
  *
  * What it deliberately does NOT do is retry. The write that lost is exactly the
  * overwrite the guard exists to stop, so re-sending it is the bug, not the fix. */
+/** The scope every GAME-level write shares, so they run one at a time.
+ *
+ * React Query runs mutations with the same `scope.id` serially. That is what makes
+ * `versionFrom` below sound: when a write's `mutationFn` runs, no earlier game write of
+ * ours is still unacknowledged, so the cache holds everything the player has caused.
+ *
+ * Only the game-level writes. The row writes keep their own debounce and must not queue
+ * behind a scoreboard edit -- a wounds tap that waited on someone else's request would
+ * feel broken at a table. The cost is stated on `versionFrom`. */
+function gameScope(gameId: UUID) {
+  return { id: `kt-game-${gameId}` }
+}
+
+/** The version to assert, read at SEND time rather than captured at `mutate()` time.
+ *
+ * This revises the reasoning `useUpdateGame` carried in KF4a, which argued the version
+ * must be the one the PLAYER SAW. That protects a narrow case -- a refetch landing
+ * between the render a player read and the tap they made -- at the cost of a guaranteed
+ * one: with the version captured at `mutate()` time, a second edit inside one
+ * round-trip asserts a version the player's own first edit has already moved, so the
+ * screen says "Someone changed this game since you loaded it" about nobody.
+ *
+ * With `gameScope` serialising the writes and `applyGame` putting each response
+ * straight into the cache, the freshest cached version IS everything this player has
+ * caused and been shown. So a mismatch means somebody else moved, which is exactly what
+ * the 409 is for.
+ *
+ * The residual, stated rather than hidden: a write to a ROW (wounds, tokens, equipment)
+ * also moves the game's version (#9) and answers a row, so it cannot refresh the cache.
+ * Editing an operative and then the scoreboard inside one round-trip therefore still
+ * asserts a stale version and still 409s falsely. It is self-healing -- the handler
+ * re-reads -- and it closes for good when a write response carries the new version, the
+ * `ETag` noted on ROADMAP KF4. */
+function versionFrom(qc: QueryClient, gameId: UUID): number | undefined {
+  return qc.getQueryData<KTGame_Read>(killTeamGameKeys.game(gameId))?.version
+}
+
+/** Apply a write's own answer to the cache instead of re-reading the game.
+ *
+ * Only for the writes whose response IS `KTGame_Read` -- create, the game `PATCH`,
+ * `advance`, `undo` and `use_ploy`. The shape match is the precondition, not
+ * convenience: the operative and equipment writes answer a ROW, so they cannot do this
+ * and keep `afterGameWrite`.
+ *
+ * Safe to write straight in, for three reasons that were each checked rather than
+ * assumed. The backend sets no `response_model_exclude_*`, so the body is a complete
+ * `KTGame_Read`. `apiPatch`/`apiPost` require a zod schema and parse before resolving,
+ * so what arrives here is already validated. And `version` is bumped at exactly one
+ * site (`_write`), through which every event passes, so it is strictly monotonic.
+ *
+ * That last fact is what the guard rests on: an out-of-order response from an earlier
+ * write always carries a LOWER version, so `>` is exact rather than a heuristic. If
+ * `version` were ever reset, reused, or bumped somewhere other than `_write`, this would
+ * start silently dropping good writes.
+ *
+ * What it does NOT do is skip the list. `KTGame_ListRead` is a different shape -- status,
+ * turning point, phase and both scores -- so the list is still invalidated. */
+function applyGame(qc: QueryClient, game: KTGame_Read) {
+  qc.setQueryData<KTGame_Read>(killTeamGameKeys.game(game.id), (cached) =>
+    cached && cached.version > game.version ? cached : game,
+  )
+  qc.invalidateQueries({ queryKey: killTeamGameKeys.games })
+}
+
+/** What a game-level write does to the cache: apply the answer, re-read on a stale 409. */
+function afterGameRead(qc: QueryClient, gameId: UUID) {
+  return {
+    scope: gameScope(gameId),
+    onSuccess: (game: KTGame_Read) => {
+      applyGame(qc, game)
+    },
+    onError: (err: Error) => {
+      if (isStaleVersion(err)) qc.invalidateQueries({ queryKey: killTeamGameKeys.game(gameId) })
+    },
+  }
+}
+
 function afterGameWrite(qc: QueryClient, gameId: UUID, breadth: readonly unknown[]) {
   return {
     onSuccess: () => {
@@ -98,6 +175,20 @@ export function useGame(gameId: UUID): UseQueryResult<KTGame_Read> {
     queryKey: killTeamGameKeys.game(gameId),
     queryFn: () => gamesApi.getGame(gameId),
     enabled: Boolean(gameId),
+    // Keep the cache MONOTONIC whoever writes it. `applyGame` guards the mutation
+    // path; this guards the query path, which is the one a refetch or a poll uses. A
+    // GET issued before a write and landing after it would otherwise regress the cache
+    // to an older version -- and since `versionFrom` reads that cache, the regression
+    // would be asserted on the next write and 409 falsely.
+    //
+    // This matters more once two clients converge by polling (KILLTEAM.md #72, K9):
+    // every 3 seconds is another chance for a read to land out of order. Guarding here
+    // rather than there means the rule holds before that code exists.
+    structuralSharing: (cached, incoming) => {
+      const before = cached as KTGame_Read | undefined
+      const after = incoming as KTGame_Read
+      return before && before.version > after.version ? before : after
+    },
   })
 }
 
@@ -106,8 +197,12 @@ export function useCreateGame(): UseMutationResult<KTGame_Read, Error, KTGame_Cr
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: KTGame_Create) => gamesApi.createGame(body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: killTeamGameKeys.games })
+    // Seeds the detail cache from the response, so navigating straight into the new
+    // battle renders it with NO request at all. No `scope`: there is no game id to
+    // scope by until this resolves, and nothing of ours can be racing a game that did
+    // not exist a moment ago.
+    onSuccess: (game) => {
+      applyGame(qc, game)
     },
     meta: { successMessage: 'Battle started' },
   })
@@ -123,12 +218,14 @@ export function useCreateGame(): UseMutationResult<KTGame_Read, Error, KTGame_Cr
  * guard by always sending a current value. */
 export function useUpdateGame(
   gameId: UUID,
-): UseMutationResult<KTGame_Read, Error, { body: GameUpdate; version?: number }> {
+): UseMutationResult<KTGame_Read, Error, GameUpdate> {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ body, version }) => gamesApi.updateGame(gameId, body, version),
-    // Both: a score or a status change shows in the list row as well as the detail.
-    ...afterGameWrite(qc, gameId, killTeamGameKeys.allGames),
+    // The version is NOT a variable. `versionFrom` reads it at send time, which is what
+    // makes a rapid second edit assert the version the first one produced rather than
+    // the one the screen happened to be showing when it was tapped.
+    mutationFn: (body: GameUpdate) => gamesApi.updateGame(gameId, body, versionFrom(qc, gameId)),
+    ...afterGameRead(qc, gameId),
   })
 }
 
@@ -152,7 +249,7 @@ export function useAdvanceGame(gameId: UUID): UseMutationResult<KTGame_Read, Err
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => gamesApi.advanceGame(gameId),
-    ...afterGameWrite(qc, gameId, killTeamGameKeys.allGames),
+    ...afterGameRead(qc, gameId),
   })
 }
 
@@ -164,7 +261,7 @@ export function useUndoGame(gameId: UUID): UseMutationResult<KTGame_Read, Error,
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => gamesApi.undoGame(gameId),
-    ...afterGameWrite(qc, gameId, killTeamGameKeys.allGames),
+    ...afterGameRead(qc, gameId),
     meta: { successMessage: 'Undone' },
   })
 }
@@ -176,7 +273,7 @@ export function useUseGamePloy(gameId: UUID): UseMutationResult<KTGame_Read, Err
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (name: string) => gamesApi.useGamePloy(gameId, name),
-    ...afterGameWrite(qc, gameId, killTeamGameKeys.game(gameId)),
+    ...afterGameRead(qc, gameId),
     meta: { successMessage: 'Ploy used' },
   })
 }
