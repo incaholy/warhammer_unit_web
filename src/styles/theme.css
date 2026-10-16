@@ -15,7 +15,8 @@
   --fainter: #b6b4ac;     /* numerals, separators */
   --rule: #c9c7bf;        /* medium borders (inputs, tags) */
   --rule-light: #e4e2db;  /* light dividers (row separators) */
-  --danger: #b23a2e;      /* auth / validation error text */
+  --danger: #b23a2e;      /* auth / validation error text, destructive actions */
+  --danger-hover: #8f2e24; /* destructive button hover */
 
   /* ---- Type families ---- */
   --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;

@@ -1,26 +1,68 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthView } from './AuthView'
 import { AuthProvider } from '../auth/AuthContext'
 import { tokenStore } from '../api/client'
+import { jsonResponse, makeUser } from '../test/fixtures'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
+
+// Mirrors main.tsx's nesting: AuthProvider reads the query client so sign-out can
+// clear cached server state (ROADMAP F1). Same harness shape as App.test.tsx.
+function renderView() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <AuthView />
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+/** Renders AuthView at /login with router state, plus a probe at the destination,
+ *  so a test can assert where a successful sign-in actually lands (ROADMAP F6). */
+function renderViewWithFrom(from: unknown) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[{ pathname: '/login', state: { from } }]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<AuthView />} />
+            <Route path="/armies/:armyId" element={<span>attempted page</span>} />
+            <Route path="/" element={<span>home</span>} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+/** A fetch mock that logs in successfully. */
+function loginFetch() {
+  return vi.fn((rawUrl: string) => {
+    const url = rawUrl.replace(/^\/api\/v1/, '')
+    if (url === '/auth/login') {
+      return Promise.resolve(jsonResponse({ access_token: 'tok123', token_type: 'bearer' }))
+    }
+    if (url === '/me') {
+      return Promise.resolve(jsonResponse(makeUser({ id: 'u1', username: 'kesh', email: 'kesh@x.io' })))
+    }
+    return Promise.reject(new Error(`unexpected fetch: ${url}`))
   })
 }
 
-function renderView() {
-  return render(
-    <MemoryRouter initialEntries={['/login']}>
-      <AuthProvider>
-        <AuthView />
-      </AuthProvider>
-    </MemoryRouter>,
-  )
+function submitLogin() {
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'kesh@x.io' } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } })
+  const submit = screen
+    .getAllByRole('button')
+    .find((b) => b.getAttribute('type') === 'submit')!
+  fireEvent.click(submit)
 }
 
 /** The Log In / Sign Up mode toggle (scoped so its labels don't collide with
@@ -62,6 +104,20 @@ describe('AuthView', () => {
     )
   })
 
+  it('returns the user to the page they asked for after signing in (F6)', async () => {
+    vi.stubGlobal('fetch', loginFetch())
+    renderViewWithFrom('/armies/a1')
+    submitLogin()
+    await waitFor(() => expect(screen.getByText('attempted page')).toBeInTheDocument())
+  })
+
+  it('ignores an external destination and lands home instead (open redirect)', async () => {
+    vi.stubGlobal('fetch', loginFetch())
+    renderViewWithFrom('https://evil.example/phish')
+    submitLogin()
+    await waitFor(() => expect(screen.getByText('home')).toBeInTheDocument())
+  })
+
   it('shows an inline error message when login fails', async () => {
     const fetchMock = vi
       .fn()
@@ -84,6 +140,44 @@ describe('AuthView', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials'),
     )
+  })
+
+  it('shows per-field errors on a multi-field sign-up validation failure (R9/C)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          detail: 'value is not a valid email address',
+          code: 'REQUEST_VALIDATION',
+          field: 'email',
+          errors: [
+            { code: 'REQUEST_VALIDATION', field: 'email', detail: 'value is not a valid email address' },
+            { code: 'REQUEST_VALIDATION', field: 'password', detail: 'string too short' },
+          ],
+        },
+        { status: 422 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderView()
+    fireEvent.click(toggle().getByRole('button', { name: 'Sign Up' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Kesh' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bad' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'x' } })
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'x' } })
+    const submit = screen
+      .getAllByRole('button', { name: 'Sign Up' })
+      .find((b) => b.getAttribute('type') === 'submit')!
+    fireEvent.click(submit)
+
+    // both field messages appear at once — no round-trip per field
+    await waitFor(() => {
+      expect(screen.getByText('value is not a valid email address')).toBeInTheDocument()
+      expect(screen.getByText('string too short')).toBeInTheDocument()
+    })
+    // the offending inputs are flagged invalid
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('disables the submit button and shows a pending label while the request is in flight', async () => {

@@ -1,15 +1,13 @@
-/* Faction resource functions — `GET /factions` and `GET /factions/taxonomy`.
+/* Faction resource functions — `GET /factions`.
  * See SPEC.md → "Routing & views" (faction filter, New Army modal). */
 
 import { apiGet } from './client'
-import type { Faction_Read, FactionTaxonomy } from './types'
+import type { Faction_Read, Page } from './types'
+import { toQueryString, type PageParams } from './paging'
+import * as S from './schemas.gen'
 
-/** `GET /factions` — every faction with its subfactions. */
-export function listFactions(): Promise<Faction_Read[]> {
-  return apiGet<Faction_Read[]>('/factions')
-}
-
-/** `GET /factions/taxonomy` — allowed subfaction names keyed by faction name. */
-export function factionTaxonomy(): Promise<FactionTaxonomy> {
-  return apiGet<FactionTaxonomy>('/factions/taxonomy')
+/** `GET /factions` — every faction with its subfactions (paged). */
+export function listFactions(params: PageParams = {}): Promise<Page<Faction_Read>> {
+  const path = `/factions${toQueryString(params)}`
+  return apiGet(path, S.Page_Faction_Read_)
 }

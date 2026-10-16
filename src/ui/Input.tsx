@@ -1,7 +1,10 @@
-import type { InputHTMLAttributes } from 'react'
+import type { InputHTMLAttributes, Ref } from 'react'
 import styles from './Input.module.css'
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement>
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  /** Forwarded to the underlying input, so a caller can move focus to it. */
+  ref?: Ref<HTMLInputElement>
+}
 
 /** Panel-backed, mono-font text/password/number input with a 1px `--rule`
  *  border that darkens to `--ink` on focus. */

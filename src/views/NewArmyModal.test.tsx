@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 import { NewArmyModal } from './NewArmyModal'
+import { queryKeys } from '../api/queries'
 import type { Army_Create, Army_Read, Faction_Read } from '../api/types'
 import { createArmy } from '../api/armies'
 
@@ -46,7 +47,12 @@ function renderModal(open: boolean) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   })
-  client.setQueryData(['factions'], factions)
+  client.setQueryData(queryKeys.factions, {
+    items: factions,
+    total: factions.length,
+    limit: 50,
+    offset: 0,
+  })
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -60,6 +66,16 @@ describe('NewArmyModal', () => {
   beforeEach(() => {
     vi.mocked(createArmy).mockReset()
     navigateMock.mockReset()
+  })
+
+  it('opens with the name field focused, ready to type', () => {
+    // Regression for the review: this used to rely on `autoFocus` on the Field,
+    // which is inert -- React applies it during commit and Modal's focus effect
+    // runs after, so focus landed on the header Close button. Nothing covered it,
+    // which is why the dead attribute and its comment survived. Modal now focuses
+    // the first focusable in the body.
+    renderModal(true)
+    expect(screen.getByLabelText('Army Name')).toHaveFocus()
   })
 
   it('renders the name field and faction options when open', () => {

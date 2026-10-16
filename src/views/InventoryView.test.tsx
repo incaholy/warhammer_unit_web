@@ -5,54 +5,35 @@ import { MemoryRouter } from 'react-router-dom'
 
 import { InventoryView } from './InventoryView'
 import { queryKeys } from '../api/queries'
+import { jsonResponse, makeUnit, makeUserUnit, page } from '../test/fixtures'
 import type { Unit_Read, UserUnit_Read } from '../api/types'
 
 // --- fetch stub (mutations go through the real HTTP client) ---
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 // A minimal Unit_Read with the given name + keywords (the only fields this view reads).
-function makeUnit(id: string, unit_name: string, keywords: string[]): Unit_Read {
-  return {
-    id,
-    unit_name,
-    faction_id: 'faction-1',
-    subfaction_id: null,
-    movement: 6,
-    toughness: 4,
-    armor_save: 3,
-    wounds: 2,
-    invulnerable_save: null,
-    leadership: 6,
-    objective_control: 1,
-    points: 100,
-    keywords,
-    weapons: [],
-    abilities: [],
-  }
+/** Shorthand over the shared builder, so the fixture table below stays readable. */
+function unitRow(id: string, unit_name: string, keywords: string[]): Unit_Read {
+  return makeUnit({ id, unit_name, keywords })
 }
 
 function makeEntry(unit: Unit_Read, amount: number): UserUnit_Read {
   return { unit, amount }
 }
 
+/** Wrap rows in the pagination envelope the inventory list hook now exposes. */
+
 // Owned units spanning three derived roles (Characters, Battleline, Vehicles).
 const OWNED: UserUnit_Read[] = [
-  makeEntry(makeUnit('u-captain', 'Blade Captain', ['Character', 'Infantry']), 1),
-  makeEntry(makeUnit('u-troops', 'Battle Sisters', ['Battleline', 'Infantry']), 3),
-  makeEntry(makeUnit('u-tank', 'Siege Tank', ['Vehicle']), 2),
+  makeEntry(unitRow('u-captain', 'Blade Captain', ['Character', 'Infantry']), 1),
+  makeEntry(unitRow('u-troops', 'Battle Sisters', ['Battleline', 'Infantry']), 3),
+  makeEntry(unitRow('u-tank', 'Siege Tank', ['Vehicle']), 2),
 ]
 
-function renderView(owned: UserUnit_Read[] | null) {
+function renderView(owned: UserUnit_Read[] | null, over: { total?: number } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  if (owned !== null) client.setQueryData(queryKeys.inventory, owned)
+  if (owned !== null) client.setQueryData(queryKeys.inventory, page(owned, over))
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -69,15 +50,24 @@ describe('InventoryView', () => {
   beforeEach(() => {
     fetchMock = vi.fn((_url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }))
-      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse({ unit: {}, amount: 1 }))
+      if (init?.method === 'PATCH') return Promise.resolve(jsonResponse(makeUserUnit({ unit: makeUnit(), amount: 1 })))
       // any GET (e.g. an invalidation-triggered refetch)
-      return Promise.resolve(jsonResponse(OWNED))
+      return Promise.resolve(jsonResponse(page(OWNED)))
     })
     vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it('states the collection size in the header, not the number of rows in hand', () => {
+    // The reported regression: with the list paginated and no limit sent, the
+    // client held 50 of 137 rows and the header announced "50 owned datasheets"
+    // as fact. Seeding a page whose `total` exceeds its `items` proves the header
+    // reads `total` rather than counting what it was handed.
+    renderView(OWNED, { total: 137 })
+    expect(screen.getByText(/137 owned datasheets/i)).toBeInTheDocument()
   })
 
   it('shows skeleton placeholders while the inventory query is pending', () => {
@@ -93,6 +83,25 @@ describe('InventoryView', () => {
     // …and no real rows / error / empty copy render yet.
     expect(screen.queryByText('Couldn’t load your inventory.')).not.toBeInTheDocument()
     expect(screen.queryByText('Nothing in your collection yet')).not.toBeInTheDocument()
+  })
+
+  it('hands the user the request id when a load fails on the server', async () => {
+    // `request_id` used to surface only on writes: `messageWithReference` was called
+    // from the mutation cache alone, so a 500 on any GET -- the likeliest place to
+    // meet one -- showed a bare "Couldn't load your inventory." with nothing to quote.
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ detail: 'internal server error', code: 'INTERNAL' }, {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'X-Request-ID': 'req-abc123' },
+        }),
+      ),
+    )
+    renderView(null)
+
+    expect(
+      await screen.findByText('Couldn’t load your inventory. (ref: req-abc123)'),
+    ).toBeInTheDocument()
   })
 
   it('renders the header meta from owned datasheets and total models', () => {
@@ -129,6 +138,40 @@ describe('InventoryView', () => {
       expect(patch![0]).toContain('/me/inventory/u-troops')
       expect(patch![1].body).toBe(JSON.stringify({ amount: 5 }))
     })
+  })
+
+  it('never sends a quantity of 0, which the API refuses', async () => {
+    // `0` used to pass the client (`min={0}`, guard `< 0`), so the backend answered
+    // `amount: must be >= 1 (use remove_unit to remove)` and -- with invalidation
+    // only on the success path -- the field kept showing 0 while the server still
+    // held 3. Removal is the Remove button's job; QuantityInput's `min` is the guard.
+    renderView(OWNED)
+    const input = screen.getByLabelText('Owned quantity of Battle Sisters')
+    fireEvent.change(input, { target: { value: '0' } })
+
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
+  })
+
+  it('puts the stored quantity back when the API refuses an edit', async () => {
+    // The other half: an edit the server rejects must not stay on screen. Nothing
+    // else can restore it -- the stored value never changed, so no refetch follows.
+    fetchMock.mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        return Promise.resolve(
+          jsonResponse({ detail: 'amount: must be >= 1', code: 'VALIDATION' }, { status: 400 }),
+        )
+      }
+      return Promise.resolve(jsonResponse(page(OWNED)))
+    })
+    renderView(OWNED)
+    const input = screen.getByLabelText('Owned quantity of Battle Sisters')
+    fireEvent.change(input, { target: { value: '9' } })
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true)
+    })
+    await waitFor(() => expect(input).toHaveValue(3))
   })
 
   it('removes a unit via the remove mutation', async () => {

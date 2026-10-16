@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { tokenStore, onUnauthorized } from '../api/client'
 import { register as apiRegister, login as apiLogin, getMe } from '../api/auth'
 import type { User_Read } from '../api/types'
@@ -17,13 +18,16 @@ export interface AuthContextValue {
   login: (identifier: string, password: string) => Promise<void>
   /** Register (Name → `username`) then log in with the same credentials. */
   register: (name: string, email: string, password: string) => Promise<void>
-  /** Drop the token and clear the current user. */
+  /** End the session: drop the token, the current user, and all cached server data. */
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // The provider is mounted inside <QueryClientProvider> (main.tsx), so the
+  // session layer can end the session completely — see `logout` below.
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User_Read | null>(null)
   // Loading only when we actually hold a token to hydrate — otherwise there's
   // nothing to wait for (avoids a setState directly inside the effect).
@@ -62,6 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(identifier: string, password: string): Promise<void> {
     const token = await apiLogin(identifier, password)
     tokenStore.set(token.access_token)
+    // Starting a session drops whatever the previous one cached. `logout()` below
+    // covers the deliberate exit, but a session can also end involuntarily: the
+    // client clears the token on a 401 (client.ts) without touching the cache,
+    // because clearing from that listener would make mounted queries refetch,
+    // 401, and re-enter it. Clearing here closes that path instead — the new
+    // token is already stored, so any refetch this triggers is the new user's.
+    queryClient.clear()
     const me = await getMe()
     setUser(me)
   }
@@ -74,6 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout(): void {
     tokenStore.clear()
     setUser(null)
+    // Cached server state outlives the token unless it is dropped explicitly, and
+    // TanStack Query serves the cache on mount before any refetch resolves — so a
+    // second user on a shared browser would see the first user's data on FIRST
+    // PAINT, not in a narrow race. `clear()` (not `resetQueries()`) because the
+    // user is leaving: reset would immediately refetch every active query, and
+    // those requests now carry no token.
+    //
+    // Deliberately not wired into the `onUnauthorized` listener below: clearing
+    // there removes queries that still have mounted observers, which refetch,
+    // 401 again, and re-enter this path.
+    queryClient.clear()
   }
 
   const value: AuthContextValue = { user, isLoading, login, register, logout }

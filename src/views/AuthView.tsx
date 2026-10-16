@@ -1,12 +1,13 @@
 /* The `/login` screen: a Log In / Sign Up segmented toggle over a single form.
- * Login collects email + password; Sign Up adds name + confirm. Errors are the
- * thrown `ApiError.message`, shown inline. See SPEC.md → "AuthView". */
+ * Login collects email + password; Sign Up adds name + confirm. Errors run
+ * through `messageForError`, shown inline. See SPEC.md → "AuthView". */
 
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Eyebrow, Field, SegmentedToggle } from '../ui'
-import { ApiError } from '../api/client'
+import { fieldErrors, messageForError } from '../lib/errors'
+import { redirectTarget } from '../lib/redirect'
 import { useAuth } from '../auth/AuthContext'
 import styles from './AuthView.module.css'
 
@@ -19,6 +20,7 @@ const MODE_OPTIONS = [
 
 export function AuthView() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, register } = useAuth()
 
   const [mode, setMode] = useState<Mode>('login')
@@ -27,6 +29,9 @@ export function AuthView() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Per-field messages, keyed by backend field name (username/email/password),
+  // so a sign-up shows every bad field at once (ROADMAP R9/C).
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
   function switchMode(next: Mode) {
@@ -35,6 +40,7 @@ export function AuthView() {
     if (submitting) return
     setMode(next)
     setError(null)
+    setFieldErrs({})
   }
 
   const submitLabel = mode === 'login' ? 'Log In' : 'Sign Up'
@@ -46,6 +52,7 @@ export function AuthView() {
     // request is already in flight.
     if (submitting) return
     setError(null)
+    setFieldErrs({})
 
     if (mode === 'signup' && password !== confirm) {
       setError('Passwords do not match')
@@ -59,11 +66,13 @@ export function AuthView() {
       } else {
         await register(name, email, password)
       }
-      navigate('/')
+      navigate(redirectTarget((location.state as { from?: unknown } | null)?.from))
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Something went wrong. Please try again.'
-      setError(message)
+      // Attach per-field messages where the backend gave them; fall back to a
+      // single banner only when there are none (e.g. a 401 on login).
+      const perField = fieldErrors(err)
+      setFieldErrs(perField)
+      setError(Object.keys(perField).length ? null : messageForError(err))
     } finally {
       setSubmitting(false)
     }
@@ -95,6 +104,7 @@ export function AuthView() {
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              error={fieldErrs.username}
               required
             />
           )}
@@ -105,6 +115,7 @@ export function AuthView() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            error={fieldErrs.email}
             required
           />
 
@@ -114,6 +125,7 @@ export function AuthView() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            error={fieldErrs.password}
             required
           />
 

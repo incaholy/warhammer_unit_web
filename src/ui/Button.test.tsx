@@ -20,6 +20,17 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'button')
   })
 
+  it('gives a destructive action its own look, not the primary one', () => {
+    // The kit had no `danger`, so a confirm dialog's "Delete" rendered identically
+    // to "Create".
+    const { container: danger } = render(<Button variant="danger">Delete</Button>)
+    const { container: primary } = render(<Button>Create</Button>)
+
+    const dangerClasses = danger.querySelector('button')!.className
+    const primaryClasses = primary.querySelector('button')!.className
+    expect(dangerClasses).not.toBe(primaryClasses)
+  })
+
   it('does not fire onClick when disabled', () => {
     const onClick = vi.fn()
     render(

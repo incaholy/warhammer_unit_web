@@ -14,6 +14,7 @@ import { useParams } from 'react-router-dom'
 import { Button, Eyebrow, Input, Tag } from '../ui'
 import { useFactions, useUnit } from '../api/queries'
 import { deriveRole } from '../lib/roles'
+import { withReference } from '../lib/errors'
 import type { Ability_Read, Unit_Read, Weapon_Read } from '../api/types'
 import styles from './UnitView.module.css'
 
@@ -107,7 +108,7 @@ function WeaponTable({
       <div
         className={styles.tableScroll}
         tabIndex={0}
-        role="group"
+        role="region"
         aria-label={`${title} weapons`}
       >
         <table className={styles.table} aria-label={title}>
@@ -284,7 +285,7 @@ function DatasheetSkeleton() {
 
 export default function UnitView(props: UnitViewProps) {
   const { unitId = '' } = useParams<{ unitId: string }>()
-  const { data: unit, isPending, isError } = useUnit(unitId)
+  const { data: unit, isPending, isError, error } = useUnit(unitId)
   const { data: factions } = useFactions()
 
   if (isPending) {
@@ -294,13 +295,15 @@ export default function UnitView(props: UnitViewProps) {
   if (isError || !unit) {
     return (
       <main className={styles.page}>
-        <p className={styles.placeholder}>This datasheet could not be found.</p>
+        <p className={styles.placeholder}>
+          {withReference('This datasheet could not be found.', error)}
+        </p>
       </main>
     )
   }
 
   const role = deriveRole(unit.keywords)
-  const factionName = factions?.find((f) => f.id === unit.faction_id)?.name
+  const factionName = factions?.items.find((f) => f.id === unit.faction_id)?.name
   const eyebrow = factionName ? `${factionName} — ${role}` : role
 
   const ranged = unit.weapons.filter((w) => w.category === 'range')

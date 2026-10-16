@@ -6,6 +6,9 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button'
 export { Input } from './Input'
 export type { InputProps } from './Input'
 
+export { QuantityInput } from './QuantityInput'
+export type { QuantityInputProps } from './QuantityInput'
+
 export { Field } from './Field'
 export type { FieldProps } from './Field'
 
@@ -25,7 +28,7 @@ export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 
 export { Toast } from './Toast'
-export type { ToastProps } from './Toast'
+export type { ToastProps, ToastTone } from './Toast'
 
 export { Header } from './Header'
 export type { HeaderProps } from './Header'

@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button, Field, Modal } from '../ui'
+import { messageForError } from '../lib/errors'
 import { useCreateArmy, useFactions } from '../api/queries'
 import styles from './NewArmyModal.module.css'
 
@@ -27,10 +28,10 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
   const [pointsLimit, setPointsLimit] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const factions = factionsQuery.data ?? []
+  const factions = factionsQuery.data?.items ?? []
 
   // Subfaction options come from the selected faction's own `subfactions` array
-  // ({id, name}). We deliberately do NOT use GET /factions/taxonomy here: that
+  // ({id, name}). We deliberately do NOT use GET /taxonomy here: that
   // endpoint returns subfaction *names* only (no ids) for admin dropdowns, but
   // creating an army needs a real subfaction_id (UUID).
   const selectedFaction = factions.find((f) => f.id === factionId)
@@ -97,7 +98,7 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
           navigate(`/armies/${army.id}`)
         },
         onError: (err) => {
-          setError(err.message || 'Could not create the army.')
+          setError(messageForError(err, 'Could not create the army.'))
         },
       },
     )
@@ -111,7 +112,6 @@ export function NewArmyModal({ open, onClose }: NewArmyModalProps) {
           placeholder="The Hollow Vigil"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          autoFocus
         />
 
         <div className={styles.field}>

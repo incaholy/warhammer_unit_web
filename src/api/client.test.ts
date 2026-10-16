@@ -1,16 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { z } from 'zod'
 import {
   ApiError,
   apiGet,
   apiPost,
   apiPostForm,
   apiDelete,
-  apiGetWithHeaders,
   tokenStore,
   onUnauthorized,
 } from './client'
+import { ResponseShapeError } from './parse'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+/** Deliberately UNTYPED, unlike `src/test/fixtures.ts`'s `jsonResponse`, and named
+ *  differently so the difference is visible at each call site. This file tests the
+ *  client itself: most of its bodies are error shapes the generated schema never
+ *  describes, or malformed on purpose (`{ id: 42 }` against a string schema). The
+ *  typed fixture exists to stop a stub faking a real response shape; here the point
+ *  IS to hand over something the API would not send. */
+function rawResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -29,30 +36,30 @@ describe('api client', () => {
 
   it('attaches a Bearer token when one is stored', async () => {
     tokenStore.set('tok123')
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ ok: true }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiGet('/me')
+    await apiGet('/me', z.unknown())
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Authorization']).toBe('Bearer tok123')
   })
 
   it('omits Authorization when no token is stored', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({}))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiGet('/units')
+    await apiGet('/units', z.unknown())
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Authorization']).toBeUndefined()
   })
 
   it('sends a JSON body with the JSON content-type on POST', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: '1' }, { status: 201 }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ id: '1' }, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiPost('/me/armies', { name: 'The Hollow Vigil' })
+    await apiPost('/me/armies', z.unknown(), { name: 'The Hollow Vigil' })
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.method).toBe('POST')
@@ -63,10 +70,10 @@ describe('api client', () => {
   it('form-encodes the login body (OAuth2 password form)', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ access_token: 'a', token_type: 'bearer' }))
+      .mockResolvedValue(rawResponse({ access_token: 'a', token_type: 'bearer' }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await apiPostForm('/auth/login', { username: 'me@dominion.imp', password: 'pw' })
+    await apiPostForm('/auth/login', z.unknown(), { username: 'me@dominion.imp', password: 'pw' })
 
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
@@ -81,45 +88,104 @@ describe('api client', () => {
     await expect(apiDelete('/me/inventory/unit-1')).resolves.toBeUndefined()
   })
 
-  it('throws an ApiError carrying status, detail message, and field', async () => {
+  it('throws an ApiError carrying status, code, detail message, and field', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ detail: 'email already taken', field: 'email' }, { status: 409 }))
+      .mockResolvedValue(
+        rawResponse({ detail: 'email already taken', code: 'CONFLICT', field: 'email' }, { status: 409 }),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(apiPost('/auth/register', {})).rejects.toMatchObject({
+    await expect(apiPost('/auth/register', z.unknown(), {})).rejects.toMatchObject({
       name: 'ApiError',
       status: 409,
+      code: 'CONFLICT',
       message: 'email already taken',
       field: 'email',
     })
   })
 
+  it('carries the full errors[] array for a multi-field validation (R9/C)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      rawResponse(
+        {
+          detail: 'value is not a valid email address',
+          code: 'REQUEST_VALIDATION',
+          field: 'email',
+          errors: [
+            { code: 'REQUEST_VALIDATION', field: 'email', detail: 'value is not a valid email address' },
+            { code: 'REQUEST_VALIDATION', field: 'password', detail: 'string too short' },
+          ],
+        },
+        { status: 422 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiPost('/auth/register', z.unknown(), {})).rejects.toMatchObject({
+      status: 422,
+      field: 'email', // top-level mirrors the first
+      errors: [
+        { field: 'email', detail: 'value is not a valid email address' },
+        { field: 'password', detail: 'string too short' },
+      ],
+    })
+  })
+
+  it('falls back to a string message when the error body is the wrong shape', async () => {
+    // e.g. FastAPI's old 422 *array* — the zod parse fails, so we keep a
+    // status-derived string message (never "[object Object]") and no code.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(rawResponse({ detail: [{ msg: 'bad' }] }, { status: 422 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiGet('/units/not-a-uuid', z.unknown())).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 422,
+      code: undefined,
+      message: expect.any(String),
+    })
+  })
+
   it('clears the token and notifies listeners on 401', async () => {
     tokenStore.set('stale')
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ detail: 'unauthorized' }, { status: 401 }))
+    const fetchMock = vi.fn().mockResolvedValue(rawResponse({ detail: 'unauthorized' }, { status: 401 }))
     vi.stubGlobal('fetch', fetchMock)
     const listener = vi.fn()
     const off = onUnauthorized(listener)
 
-    await expect(apiGet('/me')).rejects.toBeInstanceOf(ApiError)
+    await expect(apiGet('/me', z.unknown())).rejects.toBeInstanceOf(ApiError)
 
     expect(tokenStore.get()).toBeNull()
     expect(listener).toHaveBeenCalledOnce()
     off()
   })
 
-  it('exposes response headers (X-Total-Count) via apiGetWithHeaders', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse([], {
-        headers: { 'Content-Type': 'application/json', 'X-Total-Count': '137' },
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
+  it('validates the body against the schema it was given', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(rawResponse({ id: 42 })))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const { data, headers } = await apiGetWithHeaders('/units')
+    // Labelled with the real path, query string included, so the console line
+    // matches the request in the network tab.
+    const err = await apiGet('/units?q=vigil', z.object({ id: z.string() })).catch((e) => e)
+    expect(err).toBeInstanceOf(ResponseShapeError)
+    expect(err.path).toBe('/units?q=vigil')
+  })
 
-    expect(data).toEqual([])
-    expect(headers.get('X-Total-Count')).toBe('137')
+  it('will not return a body without a schema to check it against', () => {
+    // A compile-time guarantee, asserted where `tsc -b` sees it: if a wrapper ever
+    // grows a schema-less overload again, these directives become unused and the
+    // typecheck fails. The calls sit in a function that never runs, so no request
+    // is made.
+    const neverCalled = () => {
+      // @ts-expect-error -- schema is required
+      void apiGet('/me')
+      // @ts-expect-error -- schema is required
+      void apiPost('/me/armies', { name: 'x' })
+      // @ts-expect-error -- schema is required
+      void apiPostForm('/auth/login', { username: 'u', password: 'p' })
+    }
+    expect(neverCalled).toBeTypeOf('function')
   })
 })

@@ -3,19 +3,26 @@
  * datasheet with a Remove action — plus a link into the catalog to add more.
  * Data comes from the single-army query hook keyed by the `:armyId` route param. */
 
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 
-import { Button, Eyebrow, EmptyState, Tag } from '../ui'
+import { Button, Eyebrow, EmptyState, Input, Modal, QuantityInput, Tag } from '../ui'
+import { ApiError } from '../api/client'
 import {
   useArmy,
   useFactions,
   useRemoveArmyUnit,
+  useSetArmyUnitAmount,
+  useUpdateArmy,
+  useDeleteArmy,
   useArmyValidation,
   useArmyShortfall,
 } from '../api/queries'
 import { groupByRole } from '../lib/roles'
+import { withReference } from '../lib/errors'
 import { formatPoints, pluralize, formatCreatedLabel } from '../lib/format'
 import type {
+  Unit_Read,
   Army_Read,
   ArmyUnit_Read,
   Validation_Read,
@@ -56,17 +63,28 @@ export default function ArmyView() {
   const validationQuery = useArmyValidation(armyId)
   const shortfallQuery = useArmyShortfall(armyId)
   const removeUnit = useRemoveArmyUnit(armyId)
+  const deleteArmy = useDeleteArmy()
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   if (armyQuery.isPending) {
     return <ArmySkeleton />
   }
   if (armyQuery.isError || !armyQuery.data) {
-    return <div className={styles.status}>Army not found</div>
+    // Only a genuine 404 is "not found"; anything else (500, network, …) is a
+    // load failure. A 401 has already bounced to /login via the client.
+    const notFound = armyQuery.error instanceof ApiError && armyQuery.error.code === 'NOT_FOUND'
+    // `withReference` appends the request id on a server fault and nothing
+    // otherwise, so a 404 stays clean.
+    return (
+      <div className={styles.status}>
+        {withReference(notFound ? 'Army not found' : "Couldn't load this army.", armyQuery.error)}
+      </div>
+    )
   }
 
   const army = armyQuery.data
   const factionName =
-    factionsQuery.data?.find((f) => f.id === army.faction_id)?.name ?? ''
+    factionsQuery.data?.items.find((f) => f.id === army.faction_id)?.name ?? ''
 
   const meta = [
     formatPoints(army.points_total),
@@ -86,10 +104,43 @@ export default function ArmyView() {
     <div className={styles.view}>
       <header className={styles.header}>
         {factionName && <Eyebrow>{factionName}</Eyebrow>}
-        <h1 className={styles.name}>{army.name}</h1>
+        <ArmyName army={army} />
         <p className={styles.meta}>{meta}</p>
         <PointsLimit army={army} />
+        <div className={styles.headerActions}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmingDelete(true)}
+            disabled={deleteArmy.isPending}
+          >
+            Delete Army
+          </Button>
+        </div>
       </header>
+
+      <Modal
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        title="Delete this army?"
+        // Passed as the dialog's description rather than rendered as body copy, so
+        // `aria-describedby` reaches it: the consequence is read with the title
+        // instead of being text a screen-reader user has to go looking for.
+        description={`${army.name} and its order of battle will be removed. This cannot be undone.`}
+      >
+        <div className={styles.confirmActions}>
+          <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => deleteArmy.mutate(army.id, { onSuccess: () => navigate('/') })}
+            disabled={deleteArmy.isPending}
+          >
+            {deleteArmy.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </Modal>
 
       <section className={styles.battle}>
         <div className={styles.battleHead}>
@@ -121,8 +172,8 @@ export default function ArmyView() {
                     <Link to={`/units/${unit.id}`} className={styles.unitLink}>
                       {unit.unit_name}
                     </Link>
-                    {amount > 1 && <span className={styles.qty}>×{amount}</span>}
                   </div>
+                  <UnitAmount armyId={army.id} unit={unit} amount={amount} />
                   <span className={styles.rowPoints}>
                     {formatPoints(unit.points * amount)}
                   </span>
@@ -146,12 +197,12 @@ export default function ArmyView() {
         <ValidationPanel
           data={validationQuery.data}
           isPending={validationQuery.isPending}
-          isError={validationQuery.isError}
+          error={validationQuery.error}
         />
         <ShortfallPanel
           data={shortfallQuery.data}
           isPending={shortfallQuery.isPending}
-          isError={shortfallQuery.isError}
+          error={shortfallQuery.error}
         />
       </div>
     </div>
@@ -160,6 +211,110 @@ export default function ArmyView() {
 
 /** A single shimmering placeholder block. Purely decorative — hidden from the
  * accessibility tree; the surrounding region carries the "loading" status. */
+/** The army name, editable in place.
+ *
+ * Inline rather than a modal: renaming is a single field, and a dialog for one
+ * text input is more ceremony than the task. Escape cancels and Enter saves, so
+ * the keyboard path matches what the shape implies. */
+function ArmyName({ army }: { army: Army_Read }) {
+  const updateArmy = useUpdateArmy(army.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(army.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus explicitly rather than with `autoFocus`. Same reason the dialog's field
+  // is focused by Modal's effect: an attribute applied during commit is easy to
+  // have silently overridden, and this is also what the a11y rule asks for --
+  // focus moved by an action the user took, not stolen on render.
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  function save() {
+    // Guarded here rather than only on the Save button: Enter reaches this directly,
+    // so three quick presses used to send three PATCHes and raise three toasts.
+    // Harmless (the write is idempotent) but noise, and the button already refused.
+    if (updateArmy.isPending) return
+    const name = draft.trim()
+    // An unchanged or empty name is not a request worth making. Note the client is
+    // what enforces non-empty: `Army_Update.name` carries no length constraint and
+    // `update_army` only rejects an explicit null, so an empty string WOULD be
+    // written. Do not rely on a server check that is not there.
+    if (!name || name === army.name) return setEditing(false)
+    updateArmy.mutate({ name }, { onSuccess: () => setEditing(false) })
+  }
+
+  if (!editing) {
+    return (
+      <div className={styles.nameRow}>
+        <h1 className={styles.name}>{army.name}</h1>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setDraft(army.name)
+            setEditing(true)
+          }}
+          aria-label={`Rename ${army.name}`}
+        >
+          Rename
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.nameRow}>
+      <Input
+        ref={inputRef}
+        aria-label="Army name"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+      <Button size="sm" onClick={save} disabled={updateArmy.isPending}>
+        {updateArmy.isPending ? 'Saving…' : 'Save'}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
+        Cancel
+      </Button>
+    </div>
+  )
+}
+
+/** Editable quantity for one unit in the army.
+ *
+ * The debounce, the `min` guard and the reset on a refused write all live in
+ * `QuantityInput`, shared with InventoryView's owned quantity -- the two were
+ * copies that had already drifted apart. Removal stays the Remove button's job:
+ * the backend refuses 0 with `amount: must be >= 1 (use remove_unit to remove)`. */
+function UnitAmount({
+  armyId,
+  unit,
+  amount,
+}: {
+  armyId: UUID
+  unit: Unit_Read
+  amount: number
+}) {
+  const setAmount = useSetArmyUnitAmount(armyId)
+
+  return (
+    <label className={styles.qty}>
+      <span className={styles.srOnly}>Quantity of {unit.unit_name}</span>
+      <QuantityInput
+        value={amount}
+        className={styles.qtyInput}
+        label={`Quantity of ${unit.unit_name}`}
+        onCommit={(next) => setAmount.mutateAsync({ unitId: unit.id, amount: next })}
+      />
+    </label>
+  )
+}
+
 function SkeletonBlock({ className }: { className?: string }) {
   const cls = [styles.skeleton, className].filter(Boolean).join(' ')
   return <span className={cls} aria-hidden="true" />
@@ -267,11 +422,11 @@ function PointsLimit({ army }: { army: Army_Read }) {
 function ValidationPanel({
   data,
   isPending,
-  isError,
+  error,
 }: {
   data: Validation_Read | undefined
   isPending: boolean
-  isError: boolean
+  error: unknown
 }) {
   return (
     <section className={styles.panel} aria-labelledby="legality-title">
@@ -280,8 +435,8 @@ function ValidationPanel({
       </h2>
       {isPending ? (
         <PanelSkeleton label="Checking legality" />
-      ) : isError || !data ? (
-        <p className={styles.panelStatus}>Validation unavailable</p>
+      ) : error || !data ? (
+        <p className={styles.panelStatus}>{withReference('Validation unavailable', error)}</p>
       ) : data.ok ? (
         <p className={styles.legal}>Legal — no issues found</p>
       ) : (
@@ -314,11 +469,11 @@ function IssueRow({ issue }: { issue: ValidationIssue_Read }) {
 function ShortfallPanel({
   data,
   isPending,
-  isError,
+  error,
 }: {
   data: Shortfall_Read[] | undefined
   isPending: boolean
-  isError: boolean
+  error: unknown
 }) {
   const needed = (data ?? []).filter((row) => row.need > 0)
 
@@ -329,8 +484,8 @@ function ShortfallPanel({
       </h2>
       {isPending ? (
         <PanelSkeleton label="Checking your collection" />
-      ) : isError || !data ? (
-        <p className={styles.panelStatus}>Shortfall unavailable</p>
+      ) : error || !data ? (
+        <p className={styles.panelStatus}>{withReference('Shortfall unavailable', error)}</p>
       ) : needed.length === 0 ? (
         <p className={styles.legal}>Nothing needed — your collection covers it</p>
       ) : (

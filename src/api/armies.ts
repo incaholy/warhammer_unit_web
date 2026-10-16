@@ -9,30 +9,35 @@ import type {
   Army_Read,
   Army_Update,
   ArmyUnit_Read,
+  Page,
   Shortfall_Read,
   UnitAdd,
   UUID,
   Validation_Read,
 } from './types'
+import { z } from 'zod'
+import { toQueryString, type PageParams } from './paging'
+import * as S from './schemas.gen'
 
-/** `GET /me/armies` — the user's armies. */
-export function listArmies(): Promise<Army_Read[]> {
-  return apiGet<Army_Read[]>('/me/armies')
+/** `GET /me/armies` — the user's armies (paged). */
+export function listArmies(params: PageParams = {}): Promise<Page<Army_Read>> {
+  const path = `/me/armies${toQueryString(params)}`
+  return apiGet(path, S.Page_Army_Read_)
 }
 
 /** `GET /me/armies/{id}`. */
 export function getArmy(id: UUID): Promise<Army_Read> {
-  return apiGet<Army_Read>(`/me/armies/${id}`)
+  return apiGet(`/me/armies/${id}`, S.Army_Read)
 }
 
 /** `POST /me/armies` → `201 Army_Read`. */
 export function createArmy(body: Army_Create): Promise<Army_Read> {
-  return apiPost<Army_Read>('/me/armies', body)
+  return apiPost('/me/armies', S.Army_Read, body)
 }
 
 /** `PATCH /me/armies/{id}`. */
 export function updateArmy(id: UUID, body: Army_Update): Promise<Army_Read> {
-  return apiPatch<Army_Read>(`/me/armies/${id}`, body)
+  return apiPatch(`/me/armies/${id}`, S.Army_Read, body)
 }
 
 /** `DELETE /me/armies/{id}` → `204`. */
@@ -43,13 +48,13 @@ export function deleteArmy(id: UUID): Promise<void> {
 /** `POST /me/armies/{id}/units` — add a unit to the list (upsert; `amount`
  * defaults to 1 on the backend). */
 export function addUnit(armyId: UUID, body: UnitAdd): Promise<ArmyUnit_Read> {
-  return apiPost<ArmyUnit_Read>(`/me/armies/${armyId}/units`, body)
+  return apiPost(`/me/armies/${armyId}/units`, S.ArmyUnit_Read, body)
 }
 
 /** `PATCH /me/armies/{id}/units/{unit_id}` — set the fielded quantity. */
 export function setAmount(armyId: UUID, unitId: UUID, amount: number): Promise<ArmyUnit_Read> {
   const body: AmountSet = { amount }
-  return apiPatch<ArmyUnit_Read>(`/me/armies/${armyId}/units/${unitId}`, body)
+  return apiPatch(`/me/armies/${armyId}/units/${unitId}`, S.ArmyUnit_Read, body)
 }
 
 /** `DELETE /me/armies/{id}/units/{unit_id}` → `204`. */
@@ -59,10 +64,10 @@ export function removeUnit(armyId: UUID, unitId: UUID): Promise<void> {
 
 /** `GET /me/armies/{id}/shortfall` — what to buy: list vs owned per unit. */
 export function shortfall(id: UUID): Promise<Shortfall_Read[]> {
-  return apiGet<Shortfall_Read[]>(`/me/armies/${id}/shortfall`)
+  return apiGet(`/me/armies/${id}/shortfall`, z.array(S.Shortfall_Read))
 }
 
 /** `GET /me/armies/{id}/validate` — points / faction legality. */
 export function validate(id: UUID): Promise<Validation_Read> {
-  return apiGet<Validation_Read>(`/me/armies/${id}/validate`)
+  return apiGet(`/me/armies/${id}/validate`, S.Validation_Read)
 }

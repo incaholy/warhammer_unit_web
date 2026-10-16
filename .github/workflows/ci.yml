@@ -1,10 +1,21 @@
 name: CI
 
+# `pull_request` carries no branch filter, so a PR into ANY branch is checked --
+# not just one targeting main. Scoped to `main`, the docs PR merged into `roadmap`
+# matched nothing and ran zero checks, and a green PR page that never ran looks
+# identical to one that passed (ROADMAP F8). `push` stays on main only: work on a
+# branch is covered by its PR, and widening it would run every check twice for
+# each push to a branch that has one.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
+# Cancel superseded runs on a PR; keep every main run, where the result is a
+# record of that commit rather than a fast signal.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -22,11 +33,57 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The committed src/api/schema.d.ts is generated from the backend's
+      # openapi.json, which the backend's own CI verifies is fresh. Without this
+      # step a backend schema change leaves this repo green against stale types --
+      # and a checked-in generated file that can drift silently is worse than a
+      # hand-written one, because it is trusted more (ROADMAP F2).
+      #
+      # The ref is this branch's name, so `roadmap` here reads `roadmap` there and
+      # `main` reads `main` once both merge; a branch with no backend counterpart
+      # falls back to main. Nothing to remember to undo.
+      - name: Check generated API types are fresh
+        env:
+          OPENAPI_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          npm run gen:api
+          git diff --exit-code src/api/schema.d.ts src/api/schemas.gen.ts \
+            || { echo "::error::generated API files are stale — run 'npm run gen:api' and commit them"; exit 1; }
+
       - name: Lint
         run: npm run lint
 
       - name: Build
         run: npm run build
 
+      # A dependency added for one call site is easy to add and invisible
+      # afterwards. The check that catches that is a comparison against the base
+      # branch, not an absolute line: five PRs adding 1 kB each stay under any
+      # ceiling, and the sixth fails for reasons that have nothing to do with it
+      # (ROADMAP F8). So a PR builds its own base branch and diffs the entry chunk;
+      # a push with no base falls back to the absolute ceiling.
+      #
+      # The cost is honest: this builds the app twice on a PR. `npm ci` is cached,
+      # so it is roughly a minute.
+      - name: Build the base branch for comparison
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE"
+          git worktree add /tmp/base "origin/$BASE"
+          cd /tmp/base && npm ci --prefer-offline --no-audit && npm run build
+
+      - name: Check bundle budget
+        run: |
+          if [ -d /tmp/base/dist/assets ]; then
+            node scripts/check-bundle-size.mjs --dir /tmp/base/dist/assets --out /tmp/base-size.json
+            node scripts/check-bundle-size.mjs --baseline /tmp/base-size.json
+          else
+            npm run check:size
+          fi
+
+      # Coverage thresholds are a floor just under today's numbers, so a module
+      # shipping untested fails rather than passing unnoticed (ROADMAP F8).
       - name: Test
-        run: npm test
+        run: npm run test:coverage

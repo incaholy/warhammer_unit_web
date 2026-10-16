@@ -14,3 +14,9 @@
   white-space: nowrap;
   animation: toastIn 0.24s ease;
 }
+
+/* A failure reads as one: the danger red rather than ink. Paired with role="alert"
+   in Toast.tsx, so the difference is not colour alone. */
+.error {
+  background: var(--danger);
+}
