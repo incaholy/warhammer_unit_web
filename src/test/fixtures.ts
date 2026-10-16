@@ -26,6 +26,15 @@ import type {
   KTAbility_Read,
   KTEquipment_Read,
   KTFaction_Read,
+  KTGame_ListRead,
+  KTGame_Read,
+  KTGameAbility_Read,
+  KTGameEquipment_Read,
+  KTGameEvent_Read,
+  KTGameOperative_Read,
+  KTGamePloy_Read,
+  KTGameRule_Read,
+  KTGameWeapon_Read,
   KTOperative_ListRead,
   KTPloy_Read,
   KTRoster_ListRead,
@@ -94,6 +103,11 @@ type ApiBody =
   | Page<KillTeam_Read>
   | Page<KTOperative_ListRead>
   | Page<KTRoster_ListRead>
+  | KTGame_Read
+  | KTGame_ListRead
+  | KTGameOperative_Read
+  | KTGameEquipment_Read
+  | Page<KTGame_ListRead>
 
 /** A JSON `Response` whose body must be a shape the API can really return. */
 export function jsonResponse<T extends ApiBody>(body: T, init: ResponseInit = {}): Response {
@@ -366,6 +380,197 @@ export function makeKTRoster(over: Partial<KTRoster_Read> = {}): KTRoster_Read {
     equipment: [makeKTEquipment({ id: 'ktr-e1', name: 'Grisly Trophy', position: 0 })],
     universal_ploys: [makeKTPloy({ id: 'ktr-up1', name: 'Command Re-roll', position: 0 })],
     universal_equipment: [makeKTEquipment({ id: 'ktr-ue1', name: 'Frag Grenade', position: 0 })],
+    ...over,
+  }
+}
+
+/* ---- Kill Team games (ROADMAP KF4) ---- */
+
+export function makeKTGameWeapon(over: Partial<KTGameWeapon_Read> = {}): KTGameWeapon_Read {
+  return {
+    name: 'Ravening claws',
+    category: 'M',
+    range: 0,
+    attacks: 4,
+    hit: 3,
+    normal_damage: 3,
+    crit_damage: 4,
+    weapon_rules: ['Lethal 5+'],
+    ...over,
+  }
+}
+
+export function makeKTGameAbility(over: Partial<KTGameAbility_Read> = {}): KTGameAbility_Read {
+  return { name: 'Burrow', description: 'A snapshotted ability.', ...over }
+}
+
+export function makeKTGameRule(over: Partial<KTGameRule_Read> = {}): KTGameRule_Read {
+  return { name: 'Swarming Instincts', description: 'A snapshotted rule.', group: null, ...over }
+}
+
+export function makeKTGamePloy(over: Partial<KTGamePloy_Read> = {}): KTGamePloy_Read {
+  return {
+    name: 'Sudden Surge',
+    kind: 'strategic',
+    cp_cost: 1,
+    description: 'A snapshotted ploy.',
+    universal: false,
+    ...over,
+  }
+}
+
+export function makeKTGameEquipment(
+  over: Partial<KTGameEquipment_Read> = {},
+): KTGameEquipment_Read {
+  return {
+    id: 'ktge-1',
+    equipment_id: 'kte1',
+    name: 'Tunnel markers',
+    text: 'Snapshotted equipment text.',
+    revealed: false,
+    position: 0,
+    ...over,
+  }
+}
+
+export function makeKTGameEvent(over: Partial<KTGameEvent_Read> = {}): KTGameEvent_Read {
+  return {
+    id: 'ktgev-1',
+    sequence: 1,
+    type: 'operative_updated',
+    turning_point: 1,
+    payload: {},
+    undone_by: null,
+    created_at: '2026-02-01T00:00:00Z',
+    ...over,
+  }
+}
+
+export function makeKTGameOperative(
+  over: Partial<KTGameOperative_Read> = {},
+): KTGameOperative_Read {
+  return {
+    id: 'ktgo-1',
+    position: 0,
+    operative_id: 'kto1',
+    name: 'Ravener Prime',
+    apl: 2,
+    move: 6,
+    save: 4,
+    wounds: 12,
+    keywords: ['RAVENER', 'TYRANID'],
+    weapons: [makeKTGameWeapon()],
+    abilities: [makeKTGameAbility()],
+    current_wounds: 12,
+    order: 'conceal',
+    status: 'on board',
+    activated_in_turning_point: null,
+    tokens: [],
+    actions_used: [],
+    source: 'roster',
+    added_in_turning_point: null,
+    ...over,
+  }
+}
+
+/** A game mid-battle, built so the derivations KF4 makes are FALSIFIABLE.
+ *
+ * `makeKTRoster` holds two rows with the same datacard because that is the roster's
+ * defining property; this does the equivalent for the game screen. Four properties
+ * are deliberately arranged rather than defaulted:
+ *
+ *   - **`turning_point: 2`, with one operative activated in 2 and another in 1.**
+ *     "Has it activated?" is a comparison against the game's own turning point, not
+ *     a flag (#61) — `advance` clears nothing. A fixture where every activated row
+ *     matched the current turning point would pass whether the screen compared or
+ *     just checked for non-null.
+ *   - **`initiative: null`** — "not yet rolled" (#62), which MUST NOT render as the
+ *     opponent holding it.
+ *   - **Two rows holding the same `operative_id`** (#50 carries into the game), so a
+ *     test that addressed a row by its datacard instead of its own id would fail.
+ *   - **One operative on 0 wounds and incapacitated**, since the service couples the
+ *     two, and one on reduced wounds that is still fighting.
+ *
+ * `victory_points` and `markers` are non-empty with values no enum would contain:
+ * the API leaves all three of those shapes free (#1, #21), so a client-side
+ * vocabulary would be unable to express "Tunnel 3". */
+export function makeKTGame(over: Partial<KTGame_Read> = {}): KTGame_Read {
+  return {
+    id: 'ktg-1',
+    created_at: '2026-02-01T00:00:00Z',
+    roster_id: 'ktr-1',
+    kill_team_id: 'kt1',
+    kill_team_name: 'Raveners',
+    faction_name: 'Tyranids',
+    opponent_name: 'Kesh',
+    status: 'in progress',
+    turning_point: 2,
+    phase: 'firefight',
+    initiative: null,
+    command_points: 2,
+    victory_points: { 'Crit op: Hold': 3, 'Tunnel network': 2 },
+    opponent_victory_points: 4,
+    markers: ['Tunnel 0', 'Tunnel 3'],
+    // A list of OBJECTS, not names: `ploys_used` and `actions_used` are both
+    // `array<object>` (#23). A fixture of bare strings typechecks against the
+    // generated `{[key: string]: unknown}[]` in some positions but fails the zod
+    // parse at runtime, which is how this was caught.
+    ploys_used: [{ name: 'Sudden Surge', turning_point: 1 }],
+    choices: { 'Accursed Gift': 'Mutation' },
+    version: 7,
+    equipment_limit: 4,
+    operatives: [
+      makeKTGameOperative({
+        id: 'ktgo-1',
+        position: 0,
+        operative_id: 'kto1',
+        name: 'Ravener Prime',
+        current_wounds: 8,
+        order: 'engage',
+        activated_in_turning_point: 2,
+        tokens: ['Poison'],
+        actions_used: [{ name: 'Burrow', turning_point: 2 }],
+      }),
+      makeKTGameOperative({
+        id: 'ktgo-2',
+        position: 1,
+        operative_id: 'kto2',
+        name: 'Hormagaunt',
+        current_wounds: 12,
+        activated_in_turning_point: 1,
+      }),
+      makeKTGameOperative({
+        id: 'ktgo-3',
+        position: 2,
+        operative_id: 'kto2',
+        name: 'Hormagaunt',
+        current_wounds: 0,
+        status: 'incapacitated',
+        activated_in_turning_point: null,
+      }),
+    ],
+    equipment: [makeKTGameEquipment()],
+    rules: [makeKTGameRule()],
+    ploys: [makeKTGamePloy()],
+    events: [makeKTGameEvent()],
+    ...over,
+  }
+}
+
+/** A row in the games list — NOT the snapshot. Carries no operatives by design. */
+export function makeKTGameListRow(over: Partial<KTGame_ListRead> = {}): KTGame_ListRead {
+  return {
+    id: 'ktg-1',
+    created_at: '2026-02-01T00:00:00Z',
+    opponent_name: 'Kesh',
+    status: 'in progress',
+    turning_point: 2,
+    phase: 'firefight',
+    kill_team_id: 'kt1',
+    kill_team_name: 'Raveners',
+    faction_name: 'Tyranids',
+    victory_points: { 'Crit op: Hold': 3 },
+    opponent_victory_points: 4,
     ...over,
   }
 }

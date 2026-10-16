@@ -57,6 +57,27 @@ export type KTRoster_Create = Schemas['KTRoster_Create']
 export type KTRoster_Update = Schemas['KTRoster_Update']
 export type KTRosterOperative_Read = Schemas['KTRosterOperative_Read']
 
+// Kill Team games (ROADMAP KF4) -- the live battle. `KTGame_Read` is the whole
+// snapshot (KILLTEAM.md #22, #24): every datacard, the team's rules, its ploys and
+// the universal ones, the text of each piece of equipment taken. So the game screen
+// never calls the catalog.
+export type KTGame_ListRead = Schemas['KTGame_ListRead']
+export type KTGame_Read = Schemas['KTGame_Read']
+export type KTGame_Create = Schemas['KTGame_Create']
+export type KTGame_Update = Schemas['KTGame_Update']
+export type KTGameOperative_Read = Schemas['KTGameOperative_Read']
+export type KTGameOperative_Add = Schemas['KTGameOperative_Add']
+export type KTGameOperative_Update = Schemas['KTGameOperative_Update']
+export type KTGameOperative_Transform = Schemas['KTGameOperative_Transform']
+export type KTGameEquipment_Read = Schemas['KTGameEquipment_Read']
+export type KTGameEquipment_Add = Schemas['KTGameEquipment_Add']
+export type KTGamePloy_Read = Schemas['KTGamePloy_Read']
+export type KTGamePloy_Use = Schemas['KTGamePloy_Use']
+export type KTGameRule_Read = Schemas['KTGameRule_Read']
+export type KTGameWeapon_Read = Schemas['KTGameWeapon_Read']
+export type KTGameAbility_Read = Schemas['KTGameAbility_Read']
+export type KTGameEvent_Read = Schemas['KTGameEvent_Read']
+
 // ---- Client-side conveniences (no single backend schema to re-export) ----
 
 export type UUID = string

@@ -1,14 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { ApiError } from '../api/client'
-import {
-  CODE_MESSAGES,
-  fieldErrors,
-  messageForError,
-  messageWithReference,
-  mutationErrorMessage,
-  withReference,
-} from './errors'
+import { CODE_MESSAGES, fieldErrors, isStaleVersion, messageForError, messageWithReference, mutationErrorMessage, withReference } from './errors'
 
 describe('messageForError', () => {
   it('prefers the ApiError message (the backend detail)', () => {
@@ -122,5 +115,54 @@ describe('mutationErrorMessage', () => {
     // happens to return. (Here it returns the backend's `detail`, since 'boom'
     // carries no id.)
     expect(mutationErrorMessage(err, { errorMessage: 42 })).toBe(messageWithReference(err))
+  })
+})
+
+describe('the stale-version 409 (ROADMAP KF4, KILLTEAM.md #78)', () => {
+  // The three CONFLICTs the backend's contract names, told apart by `field` alone.
+  const stale = (detail: string) => new ApiError(409, detail, 'CONFLICT', 'version')
+
+  it('is recognised by `field`, not by the code or the status', () => {
+    expect(isStaleVersion(stale('anything'))).toBe(true)
+    expect(isStaleVersion(new ApiError(409, 'x', 'CONFLICT', 'equipment_id'))).toBe(false)
+    expect(isStaleVersion(new ApiError(409, 'x', 'CONFLICT'))).toBe(false)
+    expect(isStaleVersion(new ApiError(400, 'x', 'VALIDATION', 'version'))).toBe(false)
+    expect(isStaleVersion(new Error('version'))).toBe(false)
+  })
+
+  it('words the service path, whose real detail embeds the game id', () => {
+    // `service_killteam_game.py`: "game {uuid} has moved on (version 7, not 5)".
+    // Reached ONLY when a client sends a version -- so before this, doing the
+    // careful thing got "That already exists." and sending nothing got good prose.
+    const err = stale('game 3f2a1b8c-5d4e-4f6a-9b7c-1e2d3f4a5b6c has moved on (version 7, not 5)')
+    expect(messageForError(err)).not.toBe(CODE_MESSAGES.CONFLICT)
+    expect(messageForError(err)).toMatch(/reload/i)
+  })
+
+  it('OVERRIDES the handler path, whose own prose says "retry"', () => {
+    // `app/main.py`: "this game has moved on since it was read -- read it again and
+    // retry". No id, so `messageForError` would show it verbatim -- and #78 is that
+    // a 409 means re-read and re-DECIDE. The write that lost is exactly the
+    // overwrite the guard exists to stop, so re-sending it is the bug.
+    const err = stale('this game has moved on since it was read \u2014 read it again and retry')
+    expect(messageForError(err)).not.toMatch(/retry/i)
+  })
+
+  it('gives both paths the SAME copy, since the player cannot tell them apart', () => {
+    const fromService = stale('game 3f2a1b8c-5d4e-4f6a-9b7c-1e2d3f4a5b6c has moved on (version 7, not 5)')
+    const fromHandler = stale('this game has moved on since it was read')
+    expect(messageForError(fromService)).toBe(messageForError(fromHandler))
+  })
+
+  it('carries no reference id, because a 409 is the player\'s to act on', () => {
+    const err = new ApiError(409, 'moved on', 'CONFLICT', 'version', undefined, 'rq-1')
+    expect(messageWithReference(err)).not.toMatch(/ref:/)
+  })
+
+  it('leaves the duplicate conflicts alone', () => {
+    // The regression this guards: a rule keyed on the CODE would have reworded
+    // registration's "username 'kesh' is already taken" into reload advice.
+    const dup = new ApiError(409, "username 'kesh' is already taken", 'CONFLICT', 'username')
+    expect(messageForError(dup)).toBe("username 'kesh' is already taken")
   })
 })

@@ -100,9 +100,10 @@ export default defineConfig([
                 '**/api/auth',
                 '**/api/killTeam',
                 '**/api/killTeamRosters',
+                '**/api/killTeamGames',
               ],
               message:
-                'Views and UI use a hook from a queries module (src/api/queries.ts, src/api/killTeamQueries.ts), not a resource module directly -- otherwise the call escapes the cache and its invalidation.',
+                'Views and UI use a hook from a queries module (src/api/queries.ts, src/api/killTeamQueries.ts, src/api/killTeamGamesQueries.ts), not a resource module directly -- otherwise the call escapes the cache and its invalidation. For a game write that also means escaping the 409 re-read in `afterGameWrite`.',
             },
             {
               group: ['@tanstack/react-query'],

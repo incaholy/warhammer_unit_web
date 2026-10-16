@@ -22,6 +22,36 @@ const GENERIC = 'Something went wrong. Please try again.'
 /** Any string containing one is describing a row, not talking to a person. */
 const EMBEDS_AN_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
+/** The one CONFLICT that is not a duplicate: a Kill Team game written from stale state.
+ *
+ * `CODE_MESSAGES.CONFLICT` is "That already exists.", which is right for the two
+ * conflicts it was written for and nonsense for this one. The backend's own contract
+ * names the discriminator (`docs/api/conventions.md`): CONFLICT is three situations,
+ * and **`field: "version"` is what separates the stale write from the duplicates.**
+ *
+ * Worded here rather than taken from the backend because the two paths that produce it
+ * disagree, and the one a careful client reaches is the worse of them:
+ *
+ *   - The service's `expected_version` check — reached only when a client SENDS a
+ *     version — answers `game {uuid} has moved on (version 7, not 5)`. That embeds an
+ *     id, so `messageForError` refuses it and the user gets "That already exists."
+ *   - The `StaleDataError` handler, reached when a client sends none, answers prose
+ *     with no id, which is shown verbatim: "…read it again and retry".
+ *
+ * So doing the careful thing produced the worse message. And the better of the two
+ * says **retry**, which KILLTEAM.md #78 forbids: a 409 means re-read and re-DECIDE,
+ * because the write that lost is exactly the overwrite the guard exists to stop.
+ * Re-sending it is the bug. One string for both paths, in the design's own words.
+ *
+ * `meta.errorMessage` could not do this job: it overrides a mutation's EVERY error,
+ * and a game write fails with 400 VALIDATION far more often than with a 409. */
+const STALE_VERSION = 'Someone changed this game since you loaded it. Reload and choose again.'
+
+/** A write that lost a race, as opposed to a duplicate. See `STALE_VERSION`. */
+export function isStaleVersion(err: unknown): boolean {
+  return err instanceof ApiError && err.code === 'CONFLICT' && err.field === 'version'
+}
+
 /** A user-facing message for any thrown value.
  *
  * Prefers the backend's `detail`, which is often the best copy available
@@ -41,6 +71,7 @@ const EMBEDS_AN_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
  * never a raw internal message, so a caller can supply context. */
 export function messageForError(err: unknown, fallback: string = GENERIC): string {
   if (!(err instanceof ApiError)) return fallback
+  if (isStaleVersion(err)) return STALE_VERSION
   if (err.message && !EMBEDS_AN_ID.test(err.message)) return err.message
   return err.code ? CODE_MESSAGES[err.code] : fallback
 }
