@@ -278,7 +278,12 @@ describe('KillTeamGameView: the operative list', () => {
     // disagree with array order, so sorting by position fails only this test.
     const ordinals = screen.getAllByTestId('row-ordinal').map((n) => n.textContent)
     expect(ordinals).toEqual(['1', '2'])
-    const names = screen.getAllByRole('listitem').map((li) => li.getAttribute('aria-label'))
+    // Scoped to the Operatives section: KF4f added a victory-point source list, so
+    // those are list items on this screen too.
+    const operatives = screen.getByRole('heading', { name: 'Operatives' }).closest('section')!
+    const names = within(operatives)
+      .getAllByRole('listitem')
+      .map((li) => li.getAttribute('aria-label'))
     expect(names).toEqual(['Last Sent at position 1', 'First Sent at position 2'])
   })
 
@@ -326,5 +331,190 @@ describe('KillTeamGameView: loading and failure', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("Couldn't load this battle.")
     expect(alert).toHaveTextContent('rq-9')
+  })
+})
+
+/* ---- Score, command and the killzone (KF4f) ---- */
+
+describe('KillTeamGameView: score and command', () => {
+  it('sends an ABSOLUTE command point total', async () => {
+    const seen = stub(makeKTGame({ command_points: 2 }))
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Gain a command point'))
+
+    await waitFor(() => {
+      const patch = seen.find((c) => c.method === 'PATCH')
+      // #7, and the version is asserted because `PATCH /{game_id}` answers the whole
+      // game -- the one write in a battle where a client can stay current.
+      expect(patch?.body).toEqual({ command_points: 3, version: 7 })
+    })
+  })
+
+  it('cannot spend a command point it does not have', async () => {
+    stub(makeKTGame({ command_points: 0 }))
+    renderView()
+    // `ck_kt_game_command_points` refuses a negative, and the service says "cannot be
+    // negative". Disabling mirrors that refusal rather than applying a rule.
+    expect(await screen.findByLabelText('Spend a command point')).toBeDisabled()
+  })
+
+  it('writes the WHOLE victory point document when one source changes', async () => {
+    const seen = stub(
+      makeKTGame({ victory_points: { 'Crit op: Hold': 3, 'Tunnel network': 2 } }),
+    )
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Score a victory point from Tunnel network'))
+
+    await waitFor(() => {
+      // The document, not a patch of one key: every write in a battle is absolute, and
+      // a per-key merge is something two devices would both win.
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        victory_points: { 'Crit op: Hold': 3, 'Tunnel network': 3 },
+        version: 7,
+      })
+    })
+  })
+
+  it('adds a new source at zero', async () => {
+    const seen = stub(makeKTGame({ victory_points: {} }))
+    renderView()
+    fireEvent.change(await screen.findByLabelText('Victory point source'), {
+      target: { value: '  Kill ops  ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add source' }))
+
+    await waitFor(() => {
+      // Adding a source says "we scored this kind of thing", not how much. The keys are
+      // free text because the sources are the players' (#1, #59) -- Tac Ops are not
+      // scraped, so nothing here could enumerate them.
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        victory_points: { 'Kill ops': 0 },
+        version: 7,
+      })
+    })
+  })
+
+  it('sends nothing for a blank or duplicate source', async () => {
+    const seen = stub(makeKTGame({ victory_points: { 'Kill ops': 2 } }))
+    renderView()
+    const field = await screen.findByLabelText('Victory point source')
+
+    fireEvent.change(field, { target: { value: '   ' } })
+    expect(screen.getByRole('button', { name: 'Add source' })).toBeDisabled()
+
+    fireEvent.change(field, { target: { value: 'Kill ops' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add source' }))
+    await waitFor(() => expect(field).toHaveValue(''))
+    expect(seen.some((c) => c.method === 'PATCH')).toBe(false)
+  })
+
+  it('removes a source from the document', async () => {
+    const seen = stub(makeKTGame({ victory_points: { 'Kill ops': 2, Hold: 1 } }))
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Remove the victory point source Kill ops'))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        victory_points: { Hold: 1 },
+        version: 7,
+      })
+    })
+  })
+
+  it('says so when nothing has been scored', async () => {
+    stub(makeKTGame({ victory_points: {} }))
+    renderView()
+    expect(await screen.findByText('No victory points scored yet.')).toBeInTheDocument()
+  })
+
+  it("edits the opponent's score as a plain number", async () => {
+    const seen = stub(makeKTGame({ opponent_victory_points: 4, opponent_name: 'Kesh' }))
+    renderView()
+    fireEvent.click(await screen.findByLabelText("Raise the opponent's victory points"))
+
+    await waitFor(() => {
+      // A bare integer, not a keyed document: the opponent's score is entered by hand.
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        opponent_victory_points: 5,
+        version: 7,
+      })
+    })
+  })
+
+  it("names the opponent on their score when the battle records one", async () => {
+    stub(makeKTGame({ opponent_name: 'Kesh' }))
+    renderView()
+    expect(await screen.findByText("Kesh's victory points")).toBeInTheDocument()
+  })
+})
+
+describe('KillTeamGameView: the killzone', () => {
+  it('writes the whole marker list', async () => {
+    const seen = stub(makeKTGame({ markers: ['Tunnel 0'] }))
+    renderView()
+    fireEvent.change(await screen.findByLabelText('Add a marker to the killzone'), {
+      target: { value: 'Tunnel 3' },
+    })
+    fireEvent.click(screen.getByLabelText('Add the marker to the killzone'))
+
+    await waitFor(() => {
+      // A NUMBERED marker, which is the case no enum could express -- Raveners place
+      // Tunnel markers 0 to 4, so the column stays free text (#1, #21).
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        markers: ['Tunnel 0', 'Tunnel 3'],
+        version: 7,
+      })
+    })
+  })
+
+  it('removes a marker', async () => {
+    const seen = stub(makeKTGame({ markers: ['Tunnel 0', 'Tunnel 3'] }))
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Remove marker Tunnel 0 from the killzone'))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        markers: ['Tunnel 3'],
+        version: 7,
+      })
+    })
+  })
+})
+
+describe('KillTeamGameView: deleting a battle', () => {
+  it('confirms first, and says what goes with it', async () => {
+    const seen = stub(makeKTGame())
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete battle' }))
+
+    const dialog = await screen.findByRole('dialog')
+    // `undo` reverts an event and a deleted game has no events left:
+    // `kt_game_events.game_id` is ON DELETE CASCADE, so the log goes with the row.
+    expect(dialog).toHaveAccessibleDescription(/cannot be undone/i)
+    expect(seen.some((c) => c.method === 'DELETE')).toBe(false)
+  })
+
+  it('cancels without sending anything', async () => {
+    const seen = stub(makeKTGame())
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete battle' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(seen.some((c) => c.method === 'DELETE')).toBe(false)
+  })
+
+  it('DELETEs on confirmation', async () => {
+    const seen = stub(makeKTGame())
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete battle' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => {
+      const del = seen.find((c) => c.method === 'DELETE')
+      expect(del?.url).toBe('/api/v1/me/kill-team/games/ktg-1')
+    })
   })
 })

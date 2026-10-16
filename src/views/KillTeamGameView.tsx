@@ -22,12 +22,14 @@
  * no way to use one would be empty on every new battle. */
 
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
   useAdvanceGame,
+  useDeleteGame,
   useGame,
   useUndoGame,
+  useUpdateGame,
   useUseGamePloy,
 } from '../api/killTeamGamesQueries'
 import type { KTGame_Read } from '../api/types'
@@ -40,7 +42,8 @@ import {
   ploysUsedThisTurningPoint,
   totalVictoryPoints,
 } from '../lib/killTeamGame'
-import { Button, EmptyState, Eyebrow, Select } from '../ui'
+import { Button, EmptyState, Eyebrow, Field, Modal, Select } from '../ui'
+import { ChipEditor, Stepper } from './killTeamControls'
 import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
 
@@ -83,8 +86,11 @@ export default function KillTeamGameView() {
       <Scoreboard game={game} />
       <Controls game={game} />
       <div className={styles.body}>
+        <ScoreAndCommand game={game} />
+        <Killzone game={game} />
         <ThisTurningPoint game={game} />
         <Operatives game={game} />
+        <DeleteBattle game={game} />
       </div>
     </section>
   )
@@ -281,6 +287,209 @@ function Operatives({ game }: { game: KTGame_Read }) {
           />
         ))}
       </ul>
+    </section>
+  )
+}
+
+/** CP, the player's victory points by source, and the opponent's score (KF4f).
+ *
+ * Editable here rather than in the scoreboard above, which has to stay compact enough
+ * to remain visible while the list scrolls -- four steppers would make it most of a
+ * phone. The scoreboard reports; this section writes.
+ *
+ * **This is the one place `version` is asserted.** `PATCH /{game_id}` answers the whole
+ * `KTGame_Read`, so `useUpdateGame` can read the version at send time and apply the
+ * response straight to the cache; the operative writes answer a row and cannot (KF4d).
+ *
+ * **VP by source is the third of KF4's open shapes**, and it closes like the other two:
+ * free-text keys, no vocabulary. The sources are the players' (#1, #59) -- Tac Ops are
+ * not scraped, stored or gated, so nothing in this project could enumerate them -- and
+ * the service validates only that each value is a non-negative whole number, "or a
+ * listing's total is nonsense". So the screen offers a name field and a stepper per
+ * source, and totals them for the scoreboard.
+ *
+ * `opponent_name` and `status` are deliberately NOT editable. The name is set when the
+ * battle starts and #67 (K8) drops the column outright, replacing it with a side row --
+ * so an editor for it is work with a known expiry. `status` is in `_UPDATABLE`, but
+ * `advance` already moves a game through every state including its end and `undo`
+ * reopens one closed by accident (#58, #66), so a second path to the same field is
+ * redundant and easier to misuse than to use. */
+function ScoreAndCommand({ game }: { game: KTGame_Read }) {
+  const update = useUpdateGame(game.id)
+  const [source, setSource] = useState('')
+
+  const sources = Object.keys(game.victory_points).sort()
+
+  const writeVictoryPoints = (next: Record<string, number>) =>
+    update.mutateAsync({ victory_points: next })
+
+  const addSource = () => {
+    const name = source.trim()
+    if (!name || name in game.victory_points) {
+      setSource('')
+      return
+    }
+    // Absolute, like every write in a battle (#7): the whole document, not a patch of
+    // one key. Added at zero, because adding a source is saying "we scored this kind of
+    // thing", not how much.
+    writeVictoryPoints({ ...game.victory_points, [name]: 0 })
+    setSource('')
+  }
+
+  return (
+    <section className={styles.section} aria-labelledby="score-heading">
+      <h2 id="score-heading" className={styles.sectionTitle}>
+        Score and command
+      </h2>
+
+      <div className={styles.scoreRow}>
+        <span className={styles.scoreLabel}>Command points</span>
+        <Stepper
+          label="Command points"
+          downLabel="Spend a command point"
+          upLabel="Gain a command point"
+          value={game.command_points}
+          onCommit={(command_points) => update.mutateAsync({ command_points })}
+        />
+      </div>
+
+      {sources.length === 0 ? (
+        <p className={styles.quiet}>No victory points scored yet.</p>
+      ) : (
+        <ul className={styles.sources}>
+          {sources.map((name) => (
+            <li key={name} className={styles.scoreRow}>
+              <span className={styles.scoreLabel}>{name}</span>
+              <Stepper
+                label={`Victory points from ${name}`}
+                downLabel={`Lose a victory point from ${name}`}
+                upLabel={`Score a victory point from ${name}`}
+                value={game.victory_points[name]}
+                onCommit={(points) =>
+                  writeVictoryPoints({ ...game.victory_points, [name]: points })
+                }
+              />
+              <button
+                type="button"
+                className={styles.removeSource}
+                aria-label={`Remove the victory point source ${name}`}
+                onClick={() => {
+                  const next = { ...game.victory_points }
+                  delete next[name]
+                  writeVictoryPoints(next)
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className={styles.addSource}>
+        <Field
+          label="Victory point source"
+          placeholder="Crit op: Hold"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              addSource()
+            }
+          }}
+        />
+        <Button variant="secondary" onClick={addSource} disabled={!source.trim()}>
+          Add source
+        </Button>
+      </div>
+
+      <div className={styles.scoreRow}>
+        {/* A plain integer, not a keyed document: the opponent's score is entered by
+          * hand. The asymmetry is deliberate and is not a shape to unify. */}
+        <span className={styles.scoreLabel}>
+          {game.opponent_name ? `${game.opponent_name}'s victory points` : "Opponent's victory points"}
+        </span>
+        <Stepper
+          label="Opponent victory points"
+          downLabel="Lower the opponent's victory points"
+          upLabel="Raise the opponent's victory points"
+          value={game.opponent_victory_points}
+          onCommit={(opponent_victory_points) => update.mutateAsync({ opponent_victory_points })}
+        />
+      </div>
+    </section>
+  )
+}
+
+/** Markers on the killzone — the game's own free-text list (KF4f).
+ *
+ * The same control as an operative's tokens, and the same reason it has no vocabulary:
+ * markers are team-specific and NUMBERED, so Raveners place Tunnel markers 0 to 4 and no
+ * enum could express "Tunnel 3". `KILLTEAM.md` keeps the column generic on purpose, "so
+ * a new team needs no migration" -- a client-side enum would move that migration here. */
+function Killzone({ game }: { game: KTGame_Read }) {
+  const update = useUpdateGame(game.id)
+  return (
+    <section className={styles.section} aria-labelledby="killzone-heading">
+      <h2 id="killzone-heading" className={styles.sectionTitle}>
+        Killzone
+      </h2>
+      <ChipEditor
+        noun="marker"
+        on="the killzone"
+        chips={game.markers}
+        suggestions={game.markers}
+        pending={update.isPending}
+        onChange={(markers) => update.mutate({ markers })}
+      />
+    </section>
+  )
+}
+
+/** Discarding a battle, behind a confirmation (KF4f).
+ *
+ * Confirmed because it is the one operation here with no way back: `undo` reverts an
+ * event and a deleted game has no events left -- `kt_game_events.game_id` is
+ * ON DELETE CASCADE, so the log goes with the row. #82 makes this host-only once a game
+ * can have two participants, for exactly that reason. */
+function DeleteBattle({ game }: { game: KTGame_Read }) {
+  const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
+  const deleteGame = useDeleteGame()
+
+  return (
+    <section className={styles.section}>
+      <Button variant="secondary" className={styles.danger} onClick={() => setConfirming(true)}>
+        Delete battle
+      </Button>
+
+      <Modal
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Delete battle"
+        description="This cannot be undone. The battle and its event log go with it."
+      >
+        <div className={styles.confirmActions}>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            Cancel
+          </Button>
+          <Button
+            className={styles.danger}
+            disabled={deleteGame.isPending}
+            onClick={() =>
+              deleteGame.mutate(game.id, {
+                onSuccess: () => {
+                  setConfirming(false)
+                  navigate('/kill-team/games')
+                },
+              })
+            }
+          >
+            {deleteGame.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      </Modal>
     </section>
   )
 }

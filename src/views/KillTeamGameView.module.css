@@ -276,3 +276,80 @@
     flex-direction: column;
   }
 }
+
+/* ---- Score and command (KF4f) ----
+   Editing lives in the body, not in the sticky scoreboard: four steppers up there would
+   make the thing that must stay visible take most of a phone. */
+
+.scoreRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+}
+
+.scoreRow + .scoreRow {
+  border-top: 1px solid var(--rule-light);
+}
+
+.scoreLabel {
+  flex: 1;
+  min-width: 12ch;
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.removeSource {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  margin: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.removeSource:hover {
+  color: var(--danger);
+}
+
+.removeSource:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.addSource {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.addSource > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Deleting ---- */
+
+.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}

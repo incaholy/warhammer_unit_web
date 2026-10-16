@@ -826,9 +826,16 @@ reachable from a stale page and needs a message.
 
 ## KF4. Run a battle: the state half
 
-**Status: In progress.** KF4a (the data layer: resource functions, hooks, the 409 flow) and
-KF4b (`/kill-team/games` — the battles list and the create overlay) are built. KF4c–KF4f, the
-battle screen itself at `/kill-team/games/:gameId`, are not.
+**Status: In progress.** Built: KF4a (the data layer and the 409 flow), KF4b (the battles list and
+the create overlay), KF4c (the battle screen's frame, scoreboard, advance and undo), KF4d (the
+writes on an operative row), KF4e (the datacard behind a card) and KF4f (the score, the killzone
+markers, deleting a battle, and the cache and concurrency work the writes needed).
+**Not built: KF4g** — equipment taken into a battle (#17, #57), fielding a datacard the battle
+produced (#18) and transforming one in place (#19). Those three are separated out because each
+needs a POOL the game's snapshot does not carry: `KTGame_Read.equipment` is what has been TAKEN and
+`operatives` is what has been FIELDED, so adding either means reading `useKillTeam` and
+`useUniversal`. That is the first thing on this screen to need a catalog read, and it narrows the
+claim below rather than fitting inside it.
 Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
 This is the screen the feature exists for, and `KILLTEAM.md`'s own Frontend section specifies it:
 **phone-first**, for use at the table. Large touch targets, one card per operative, and turning point,
@@ -940,3 +947,56 @@ players, a chosen Tac Op beside the Accursed Gift, free-form by #59.
 
 **Still deferred:** no redo, by #58. No Tac Ops or archetype gating, by #59 — gating a choice by
 archetype would be applying a rule, which #1 puts out of scope.
+
+---
+
+## KF6. Two players on one battle
+
+**Status: Not started, and BLOCKED on the backend.** The design is settled and lives in the API
+repo; none of it is built on either side. `KILLTEAM.md` decisions #67 and #74 (K8) and #70, #72,
+#75, #81, #82 and #89 (K9) are the specification, and this entry exists because **every obligation
+they place on a CLIENT was written down only in the other repository.** A convention recorded in
+one repo and owed by another is the shape of defect this roadmap has found twice already.
+
+**What blocks it.** Decision #72 converges two clients by polling
+`GET /me/kill-team/games/{game_id}/events`. That path is **not published**: measured against
+`openapi.json`, zero event paths exist, and `KTGame_Read.events` is embedded in the game read
+instead. So the cheap delta poll cannot be written yet. Re-reading the whole game on a timer is the
+alternative and it is the thing #72 exists to avoid — a 12-operative battle is roughly 11 kB of
+JSON, nearly all of it a snapshot that #24 guarantees will never change.
+
+**The polling contract, verbatim obligations on this client** (#72). Every one is ours to honour;
+the decision says plainly that nothing on the server enforces any of it, because there is no rate
+limiting:
+
+- Poll **every 3 seconds** while the game screen is focused.
+- **Stop while hidden**, and do one immediate catch-up read on regaining focus.
+- On a network error or a 5xx, back off 3s → 6s → 12s → 24s, capped at **30s**, and reset on
+  success.
+- On a `404`, stop and show the tombstone #81 adds.
+- No WebSocket and no SSE. The reasoning is the deployment: Cloud Run caps a request at 60 minutes
+  and a game runs longer, `--max-instances 5` with no session affinity puts two sockets on
+  different instances, and `--min-instances 0` means an open socket bills a container for the whole
+  game.
+
+**Two states a client MUST render** (#89), neither of which exists today:
+
+- **No opponent yet** — `KTGame_Read.opponent` is null until a side's team is known (#74), so the
+  screen shows your side and an invitation prompt, never an empty opponent panel.
+- **Polling failing** — after the first failed retry, say the screen is out of date and when it
+  last succeeded: "last updated 14:32, reconnecting". Stale and disconnected are deliberately NOT
+  distinguished, because a client cannot tell them apart reliably.
+
+**What else changes on this screen.** `opponent_name` and `opponent_victory_points` are dropped and
+replaced by two side rows (#67), so KF4f's opponent controls are rebuilt rather than extended —
+which is why KF4f deliberately left `opponent_name` uneditable. A list row gains `your_side` and
+names both teams (#75), so `KillTeamGamesView` must say which half of a matchup is yours. The event
+log gains an actor, and the undo control must NAME the actor and the event before it is pressed
+(#70). Deleting a battle and minting an invite become host-only, and a participant refused one gets
+**403** rather than the house 404 (#82).
+
+**What KF4f already did for it.** `useGame` carries a `structuralSharing` guard that refuses any
+read which would regress the game's `version`. Polling makes that necessary rather than tidy: every
+3 seconds is another chance for a read issued before a write to land after it, and `versionFrom`
+reads that cache to decide what the next write asserts. The guard was added before the polling
+existed because retrofitting it later means auditing every path that touches the key instead of one.
