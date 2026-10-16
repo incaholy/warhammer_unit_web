@@ -6,9 +6,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import KillTeamGameView from './KillTeamGameView'
 import {
   jsonResponse,
+  makeKillTeamDetail,
+  makeKTEquipment,
   makeKTGame,
+  makeKTGameEquipment,
   makeKTGameOperative,
   makeKTGamePloy,
+  makeKTOperative,
+  makeUniversal,
 } from '../test/fixtures'
 import type { KTGame_Read } from '../api/types'
 
@@ -516,5 +521,205 @@ describe('KillTeamGameView: deleting a battle', () => {
       const del = seen.find((c) => c.method === 'DELETE')
       expect(del?.url).toBe('/api/v1/me/kill-team/games/ktg-1')
     })
+  })
+})
+
+/* ---- Catalog pools, behind a disclosure (KF4g) ----
+ *
+ * The property these protect is a NON-event: the battle screen asks the catalog for
+ * nothing until a player opens one of three controls. KF4c and KF4e each assert the
+ * whole list of urls for the same reason -- a count plus a check of the first would pass
+ * a screen that also called the catalog. */
+
+/** Answers the game, the team detail and the universal lists, recording every url. */
+function stubWithCatalog(game = makeKTGame()) {
+  const seen: { url: string; method: string; body: unknown }[] = []
+  const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+    const u = String(url)
+    seen.push({
+      url: u,
+      method: init?.method ?? 'GET',
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+    })
+    if (u.includes('/kill-team/universal')) return jsonResponse(makeUniversal())
+    if (u.includes('/kill-team/teams/')) {
+      return jsonResponse(
+        makeKillTeamDetail({
+          equipment: [
+            makeKTEquipment({ id: 'kte1', name: 'Tunnel markers' }),
+            makeKTEquipment({ id: 'kte2', name: 'Spike' }),
+          ],
+          operatives: [
+            makeKTOperative({ id: 'kto1', name: 'Ravener Prime', availability: 'roster' }),
+            makeKTOperative({ id: 'kto9', name: 'Mutoid Vermin', availability: 'in_battle' }),
+          ],
+        }),
+      )
+    }
+    if (u.includes('/operatives/') || u.includes('/equipment')) {
+      return jsonResponse(makeKTGameOperative())
+    }
+    return jsonResponse(game)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return seen
+}
+
+const catalogCalls = (seen: { url: string }[]) =>
+  seen.filter((c) => c.url.includes('/api/v1/kill-team/'))
+
+describe('KillTeamGameView: the pools are not fetched until asked for', () => {
+  it('renders a whole battle without a single catalog request', async () => {
+    const seen = stubWithCatalog()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    // The claim `KILLTEAM.md` now makes, narrowed from the one it used to: a battle
+    // RENDERS with no catalog request. Three controls ask for a pool; nothing else does.
+    expect(catalogCalls(seen)).toEqual([])
+  })
+
+  it('fetches the equipment pool only when the disclosure opens', async () => {
+    const seen = stubWithCatalog()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    expect(catalogCalls(seen)).toEqual([])
+
+    fireEvent.click(screen.getByText('Take equipment'))
+    await waitFor(() => expect(catalogCalls(seen).length).toBe(2))
+    expect(catalogCalls(seen).map((c) => c.url.replace('/api/v1', '')).sort()).toEqual([
+      '/kill-team/teams/kt1',
+      '/kill-team/universal',
+    ])
+  })
+
+  it('offers only pieces this battle has not taken', async () => {
+    // The same piece twice is a 409, and that one IS integrity rather than a rule -- so
+    // it is prevented rather than reported.
+    stubWithCatalog(
+      makeKTGame({ equipment: [makeKTGameEquipment({ equipment_id: 'kte1', name: 'Tunnel markers' })] }),
+    )
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByText('Take equipment'))
+
+    const select = await screen.findByLabelText('Equipment')
+    expect(within(select).getByRole('option', { name: 'Spike' })).toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Tunnel markers' })).not.toBeInTheDocument()
+  })
+
+  it('takes a piece by id', async () => {
+    const seen = stubWithCatalog(makeKTGame({ equipment: [] }))
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByText('Take equipment'))
+    fireEvent.change(await screen.findByLabelText('Equipment'), { target: { value: 'kte2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Take' }))
+
+    await waitFor(() => {
+      const post = seen.find((c) => c.method === 'POST' && c.url.endsWith('/equipment'))
+      expect(post?.body).toEqual({ equipment_id: 'kte2' })
+    })
+  })
+
+  it('reports the allowance and never blocks on it', async () => {
+    // #57: `equipment_limit` is a constant the read carries, and the service accepts a
+    // fifth piece on purpose so a custom game can be built.
+    stubWithCatalog(
+      makeKTGame({
+        equipment_limit: 1,
+        equipment: [makeKTGameEquipment({ equipment_id: 'kte1', name: 'Tunnel markers' })],
+      }),
+    )
+    renderView()
+    expect(await screen.findByText(/Equipment · 1 of 1/)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Take equipment'))
+    // At the limit, and still offering the other piece.
+    expect(await screen.findByLabelText('Equipment')).toBeEnabled()
+  })
+
+  it('reveals a piece with no body, and removes one by its row id', async () => {
+    const seen = stubWithCatalog(
+      makeKTGame({ equipment: [makeKTGameEquipment({ id: 'ktge-1', name: 'Spike', revealed: false })] }),
+    )
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Reveal Spike'))
+    await waitFor(() => {
+      const patch = seen.find((c) => c.method === 'PATCH' && c.url.includes('/equipment/'))
+      expect(patch?.body).toBeUndefined()
+    })
+
+    fireEvent.click(screen.getByLabelText('Remove Spike from the battle'))
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'DELETE')?.url).toContain('/equipment/ktge-1')
+    })
+  })
+
+  it('says a piece is revealed instead of offering to reveal it again', async () => {
+    stubWithCatalog(
+      makeKTGame({ equipment: [makeKTGameEquipment({ name: 'Spike', revealed: true })] }),
+    )
+    renderView()
+    expect(await screen.findByText('Revealed')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Reveal Spike')).not.toBeInTheDocument()
+  })
+})
+
+describe('KillTeamGameView: fielding a datacard the battle produced', () => {
+  it('offers only the cards marked in_battle', async () => {
+    stubWithCatalog()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByText('Field a datacard'))
+
+    const select = await screen.findByLabelText('Datacard')
+    // #20: the flag comes from a conditional composition block, which only Gellerpox
+    // print -- so this is the vermin, and NOT the team's rosterable cards.
+    expect(within(select).getByRole('option', { name: 'Mutoid Vermin' })).toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Ravener Prime' })).not.toBeInTheDocument()
+  })
+
+  it('POSTs the datacard and what produced it', async () => {
+    const seen = stubWithCatalog()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByText('Field a datacard'))
+    fireEvent.change(await screen.findByLabelText('Datacard'), { target: { value: 'kto9' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rule' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Field' }))
+
+    await waitFor(() => {
+      const post = seen.find((c) => c.method === 'POST' && c.url.endsWith('/operatives'))
+      expect(post?.body).toEqual({ operative_id: 'kto9', source: 'rule' })
+    })
+  })
+
+  it('says so for a team that prints none, rather than showing an empty picker', async () => {
+    const seen: { url: string }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL) => {
+        const u = String(url)
+        seen.push({ url: u })
+        if (u.includes('/kill-team/universal')) return jsonResponse(makeUniversal())
+        if (u.includes('/kill-team/teams/')) {
+          // Every card rosterable, which is 47 of the 48 teams: only Gellerpox print a
+          // conditional block, so only they have `in_battle` rows at all.
+          return jsonResponse(
+            makeKillTeamDetail({
+              operatives: [makeKTOperative({ id: 'kto1', availability: 'roster' })],
+            }),
+          )
+        }
+        return jsonResponse(makeKTGame())
+      }),
+    )
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByText('Field a datacard'))
+
+    expect(
+      await screen.findByText('This kill team prints no datacards that arrive mid-battle.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Datacard')).not.toBeInTheDocument()
   })
 })

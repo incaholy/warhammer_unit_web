@@ -830,12 +830,12 @@ reachable from a stale page and needs a message.
 the create overlay), KF4c (the battle screen's frame, scoreboard, advance and undo), KF4d (the
 writes on an operative row), KF4e (the datacard behind a card) and KF4f (the score, the killzone
 markers, deleting a battle, and the cache and concurrency work the writes needed).
-**Not built: KF4g** — equipment taken into a battle (#17, #57), fielding a datacard the battle
-produced (#18) and transforming one in place (#19). Those three are separated out because each
-needs a POOL the game's snapshot does not carry: `KTGame_Read.equipment` is what has been TAKEN and
-`operatives` is what has been FIELDED, so adding either means reading `useKillTeam` and
-`useUniversal`. That is the first thing on this screen to need a catalog read, and it narrows the
-claim below rather than fitting inside it.
+KF4g (equipment, fielding a datacard the battle produced, transforming one in place) is built too,
+which completes the slice. It was separated out because each of those three needs a POOL the game's
+snapshot does not carry: `KTGame_Read.equipment` is what has been TAKEN and `operatives` is what has
+been FIELDED, unlike `ploys`, which IS the team's whole list — which is why spending a ploy needs
+nothing extra. So those three read the catalog, which narrows the claim below rather than fitting
+inside it.
 Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
 This is the screen the feature exists for, and `KILLTEAM.md`'s own Frontend section specifies it:
 **phone-first**, for use at the table. Large touch targets, one card per operative, and turning point,
@@ -845,10 +845,18 @@ CP and VP always visible.
 wounds, order, whether it has activated), and any card opening to the full datacard as printed, for
 mid-activation lookups.
 
-**The game read needs no catalog call, ever** (#22, #24). It carries the whole snapshot — every
+**RENDERING the game needs no catalog call** (#22, #24). It carries the whole snapshot — every
 datacard, the team's rules, its ploys and the universal ones, the text of each piece of equipment
 taken — and the snapshot never invalidates, because it is static for the game's life. So the screen
 reads the snapshot, not the catalog API.
+
+This said "no catalog call, **ever**" until KF4g built the three operations that disprove it. Adding
+equipment (#17), fielding a datacard (#18) and transforming one (#19) each name a catalog id, and
+the snapshot holds what has been taken and fielded rather than a pool to choose from. Each of the
+three sits behind its own disclosure and fetches only once opened, so a battle still renders — and
+is played — without the catalog; and both pool reads carry `staleTime: Infinity`, which is a
+statement of fact rather than a tuning choice, because the catalog has no write route at all (#21,
+proven by #49). `KILLTEAM.md` carries the same correction.
 
 What that does **not** license is caching the game query: `KTGame_Read` carries the wounds, the CP,
 the turning point and the scores in the *same body* as the datacards, so `staleTime: Infinity` would

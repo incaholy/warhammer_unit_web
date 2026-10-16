@@ -353,3 +353,70 @@
   gap: 10px;
   margin-top: 18px;
 }
+
+/* ---- Catalog pools, behind a disclosure (KF4g) ----
+   Collapsed so the battle screen keeps the property KF4c and KF4e prove with tests: it
+   renders, and is played, without a catalog request. Opening one of these is the only
+   thing that asks for a pool. */
+
+.pool {
+  margin-top: 16px;
+}
+
+.poolSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.poolSummary::-webkit-details-marker {
+  display: none;
+}
+
+.poolSummary::before {
+  content: '+';
+  font-size: 12px;
+  line-height: 1;
+  color: var(--faint);
+}
+
+.pool[open] > .poolSummary::before {
+  content: '−';
+}
+
+.poolSummary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.poolBody {
+  padding: 8px 4px 4px;
+}
+
+.revealed {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.field > :first-child {
+  flex: 1;
+  min-width: 14ch;
+}

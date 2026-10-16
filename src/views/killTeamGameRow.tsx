@@ -31,8 +31,10 @@ import { useState } from 'react'
 
 import {
   useActivateGameOperative,
+  useTransformGameOperative,
   useUpdateGameOperative,
 } from '../api/killTeamGamesQueries'
+import { useKillTeam } from '../api/killTeamQueries'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 import { actionsUsed, hasActivated } from '../lib/killTeamGame'
 import { Button, SegmentedToggle, Select } from '../ui'
@@ -192,6 +194,10 @@ function Datacard({
         <Block title="Actions used">
           <ActionsUsed game={game} operative={operative} who={who} update={update} />
         </Block>
+
+        <Block title="Transform">
+          <Transform game={game} operative={operative} who={who} />
+        </Block>
       </div>
     </details>
   )
@@ -304,3 +310,96 @@ function ActionsUsed({
 }
 
 type UpdateMutation = ReturnType<typeof useUpdateGameOperative>
+
+/** One card becomes another, in place (#19).
+ *
+ * Inside the datacard and behind its own disclosure, so opening a card to read a weapon
+ * rule does not fetch the team. The pool is the team's WHOLE operative list, and it
+ * deliberately does NOT use the `availability === 'in_battle'` filter the add-operative
+ * picker uses. #20 derives that flag from a conditional composition block, which only
+ * Gellerpox print -- so it marks their three vermin and NOT Chaos Cult's Mutant and
+ * Torment, the two cards this operation exists for, which are named in rule prose "too
+ * loose to store as a column". Filtering here would offer nothing to the only team that
+ * transforms.
+ *
+ * In PLACE: the row keeps its id, its tokens, its actions used and its board status; only
+ * the catalog pointer moves and the snapshot is rewritten. So the card a player is
+ * looking at changes under them, which is correct -- it is the same model on the table.
+ * How many transforms a turning point allows is the players' (#1). */
+function Transform({
+  game,
+  operative,
+  who,
+}: {
+  game: KTGame_Read
+  operative: KTGameOperative_Read
+  who: string
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <details
+      className={styles.transform}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className={styles.transformSummary} aria-label={`Transform ${who}`}>
+        Become another datacard
+      </summary>
+      <TransformPicker game={game} operative={operative} who={who} open={open} />
+    </details>
+  )
+}
+
+function TransformPicker({
+  game,
+  operative,
+  who,
+  open,
+}: {
+  game: KTGame_Read
+  operative: KTGameOperative_Read
+  who: string
+  open: boolean
+}) {
+  const transform = useTransformGameOperative(game.id)
+  const [choice, setChoice] = useState('')
+  const team = useKillTeam(game.kill_team_id, open)
+
+  // Every datacard the team prints, minus the one this row already holds.
+  const pool = (team.data?.operatives ?? []).filter((o) => o.id !== operative.operative_id)
+
+  if (team.isPending) {
+    return (
+      <p role="status" className={styles.quiet}>
+        Loading datacards…
+      </p>
+    )
+  }
+
+  return (
+    <div className={styles.transformPicker}>
+      <Select
+        label="Becomes"
+        aria-label={`Becomes, for ${who}`}
+        options={[
+          { value: '', label: 'Choose a datacard…' },
+          ...pool.map((o) => ({ value: o.id, label: o.name })),
+        ]}
+        value={choice}
+        onChange={(e) => setChoice(e.target.value)}
+      />
+      <Button
+        variant="secondary"
+        aria-label={`Transform ${who} into the chosen datacard`}
+        disabled={!choice || transform.isPending}
+        onClick={() =>
+          transform.mutate(
+            { rowId: operative.id, becomesOperativeId: choice },
+            { onSuccess: () => setChoice('') },
+          )
+        }
+      >
+        {transform.isPending ? 'Transforming…' : 'Transform'}
+      </Button>
+    </div>
+  )
+}

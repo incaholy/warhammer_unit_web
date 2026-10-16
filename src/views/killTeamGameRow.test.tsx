@@ -10,10 +10,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { OperativeRow } from './killTeamGameRow'
 import {
   jsonResponse,
+  makeKillTeamDetail,
   makeKTGame,
   makeKTGameAbility,
   makeKTGameOperative,
   makeKTGameWeapon,
+  makeKTOperative,
 } from '../test/fixtures'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 
@@ -537,5 +539,96 @@ describe('OperativeRow: actions used', () => {
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Good')
     expect(within(section).queryByText('No TP')).not.toBeInTheDocument()
+  })
+})
+
+/* ---- Transform (KF4g) ---- */
+
+describe('OperativeRow: transform', () => {
+  /** Answers the team detail too, and records every url. */
+  function stubWithTeam() {
+    const seen: { url: string; method: string; body: unknown }[] = []
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      const u = String(url)
+      seen.push({
+        url: u,
+        method: init?.method ?? 'GET',
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      })
+      if (u.includes('/kill-team/teams/')) {
+        return jsonResponse(
+          makeKillTeamDetail({
+            operatives: [
+              // The card this row already holds, plus two it could become. All three
+              // `roster`, which is the point: Chaos Cult's Mutant and Torment are NOT
+              // flagged `in_battle` (#20), so filtering on that would offer nothing.
+              makeKTOperative({ id: 'kto1', name: 'Devotee', availability: 'roster' }),
+              makeKTOperative({ id: 'kto2', name: 'Mutant', availability: 'roster' }),
+              makeKTOperative({ id: 'kto3', name: 'Torment', availability: 'roster' }),
+            ],
+          }),
+        )
+      }
+      if (u.includes('/operatives/')) return jsonResponse(makeKTGameOperative())
+      return jsonResponse(makeKTGame())
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    return seen
+  }
+
+  const catalog = (seen: { url: string }[]) =>
+    seen.filter((c) => c.url.includes('/api/v1/kill-team/'))
+
+  it('fetches nothing until its own disclosure opens', async () => {
+    const seen = stubWithTeam()
+    renderRow({ operative_id: 'kto1' })
+    // Opening the DATACARD must not fetch the team: a player reading a weapon rule is
+    // the common case, and transforming is one team's rule.
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    expect(catalog(seen)).toEqual([])
+
+    fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
+    await waitFor(() => expect(catalog(seen).length).toBe(1))
+    expect(catalog(seen)[0].url).toContain('/kill-team/teams/kt1')
+  })
+
+  it('offers every card the team prints, not only the in_battle ones', async () => {
+    stubWithTeam()
+    renderRow({ operative_id: 'kto1' })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
+
+    const select = await screen.findByLabelText(`Becomes, for ${WHO}`)
+    expect(within(select).getByRole('option', { name: 'Mutant' })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: 'Torment' })).toBeInTheDocument()
+  })
+
+  it('does not offer the card this row already holds', async () => {
+    stubWithTeam()
+    renderRow({ operative_id: 'kto1' })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
+
+    const select = await screen.findByLabelText(`Becomes, for ${WHO}`)
+    expect(within(select).queryByRole('option', { name: 'Devotee' })).not.toBeInTheDocument()
+  })
+
+  it('POSTs the card it becomes, addressed by the ROW', async () => {
+    const seen = stubWithTeam()
+    renderRow({ id: 'ktgo-7', operative_id: 'kto1' })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
+    fireEvent.change(await screen.findByLabelText(`Becomes, for ${WHO}`), {
+      target: { value: 'kto2' },
+    })
+    fireEvent.click(screen.getByLabelText(`Transform ${WHO} into the chosen datacard`))
+
+    await waitFor(() => {
+      const post = seen.find((c) => c.url.endsWith('/transform'))
+      // #19: the row keeps its id while its catalog pointer moves, so the operation is
+      // addressed by the row and names only what it becomes.
+      expect(post?.url).toContain('/operatives/ktgo-7/transform')
+      expect(post?.body).toEqual({ becomes_operative_id: 'kto2' })
+    })
   })
 })

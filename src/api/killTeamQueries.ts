@@ -107,11 +107,28 @@ export function useAllKillTeams(enabled = true): UseQueryResult<Page<KillTeam_Re
 }
 
 /** One team whole. Carries its own composition, so a team page needs nothing else. */
-export function useKillTeam(killTeamId: UUID): UseQueryResult<KillTeam_Detail> {
+export function useKillTeam(
+  killTeamId: UUID,
+  /** Gated so a caller that only MIGHT need the team does not fetch it. KF4g opens the
+   *  equipment, add-operative and transform pickers from this read, each behind its own
+   *  disclosure, so the battle screen stays true to "renders without the catalog". */
+  enabled = true,
+): UseQueryResult<KillTeam_Detail> {
   return useQuery({
     queryKey: killTeamKeys.team(killTeamId),
     queryFn: () => killTeamApi.getKillTeam(killTeamId),
-    enabled: Boolean(killTeamId),
+    // Cached for the session, like `useUniversal`. Not an optimisation but a statement
+    // of fact: the Kill Team catalog has NO write route at all (#21), and #49 proves it
+    // with a test asserting no path under `/api/v1/kill-team` declares any method but
+    // `get`. So a team's datacards, rules, ploys and equipment cannot change while the
+    // app is open, and re-reading them is work with no possible result.
+    //
+    // It matters most where this is read as a POOL rather than as a page: KF4g opens
+    // the equipment, add-operative and transform pickers from it, so without this a
+    // battle would re-read 16-46 KB (median 24, measured over all 48 teams in #52)
+    // every time a player opened one of them.
+    staleTime: Infinity,
+    enabled: enabled && Boolean(killTeamId),
   })
 }
 
@@ -126,11 +143,12 @@ export function useKTOperatives(
 }
 
 /** The ploys and equipment no team owns. Fetch once, keep for the session (#48). */
-export function useUniversal(): UseQueryResult<Universal_Read> {
+export function useUniversal(enabled = true): UseQueryResult<Universal_Read> {
   return useQuery({
     queryKey: killTeamKeys.universal,
     queryFn: () => killTeamApi.getUniversal(),
     staleTime: Infinity,
+    enabled,
   })
 }
 

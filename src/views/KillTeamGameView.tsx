@@ -25,13 +25,18 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
+  useAddGameEquipment,
+  useAddGameOperative,
   useAdvanceGame,
   useDeleteGame,
   useGame,
+  useRemoveGameEquipment,
+  useRevealGameEquipment,
   useUndoGame,
   useUpdateGame,
   useUseGamePloy,
 } from '../api/killTeamGamesQueries'
+import { useKillTeam, useUniversal } from '../api/killTeamQueries'
 import type { KTGame_Read } from '../api/types'
 import { ApiError } from '../api/client'
 import { withReference } from '../lib/errors'
@@ -42,7 +47,7 @@ import {
   ploysUsedThisTurningPoint,
   totalVictoryPoints,
 } from '../lib/killTeamGame'
-import { Button, EmptyState, Eyebrow, Field, Modal, Select } from '../ui'
+import { Button, EmptyState, Eyebrow, Field, Modal, SegmentedToggle, Select } from '../ui'
 import { ChipEditor, Stepper } from './killTeamControls'
 import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
@@ -89,6 +94,7 @@ export default function KillTeamGameView() {
         <ScoreAndCommand game={game} />
         <Killzone game={game} />
         <ThisTurningPoint game={game} />
+        <Equipment game={game} />
         <Operatives game={game} />
         <DeleteBattle game={game} />
       </div>
@@ -287,6 +293,7 @@ function Operatives({ game }: { game: KTGame_Read }) {
           />
         ))}
       </ul>
+      <FieldOperative game={game} />
     </section>
   )
 }
@@ -491,5 +498,235 @@ function DeleteBattle({ game }: { game: KTGame_Read }) {
         </div>
       </Modal>
     </section>
+  )
+}
+
+/** A disclosure that fetches a catalog POOL only once opened.
+ *
+ * The seam KF4g needs and the reason the no-catalog claim narrowed rather than broke.
+ * `KTGame_Read` carries `equipment` and `operatives` as what has been TAKEN and FIELDED,
+ * never as pools -- unlike `ploys`, which IS the team's whole list, which is why
+ * spending one needs nothing extra. So three operations name a catalog id and the rest
+ * of the screen names none.
+ *
+ * Lazy rather than eager, because these are the RARE operations: equipment is normally
+ * chosen before the battle, #18 fires for one team's single piece of kit and #19 for one
+ * team's rule, so a typical battle uses none of them. Fetching the pools with every
+ * battle would roughly double what opening one costs -- 16-46 KB for the team detail,
+ * median 24 over all 48 teams (#52) -- to make three controls a player may never touch
+ * feel instant.
+ *
+ * Fetched at most ONCE per session either way: both reads carry `staleTime: Infinity`,
+ * which is a statement of fact rather than a tuning choice. The catalog has no write
+ * route at all (#21), proven by #49's assertion that no path under `/api/v1/kill-team`
+ * declares any method but `get`, so these rows cannot change while the app is open. */
+function PoolDisclosure({
+  summary,
+  children,
+}: {
+  summary: string
+  /** Given the open state, returns an ELEMENT. It must not call hooks itself: a
+   *  function passed as a child is not a component, so hooks in it break the rules of
+   *  hooks -- which the linter catches, and did. The picker that needs the pool is a
+   *  component taking `open` as a prop instead. */
+  children: (open: boolean) => React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <details
+      className={styles.pool}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className={styles.poolSummary}>{summary}</summary>
+      <div className={styles.poolBody}>{children(open)}</div>
+    </details>
+  )
+}
+
+/** The equipment taken into this battle, and taking more (#17, #57).
+ *
+ * The ALLOWANCE is reported and never enforced. `equipment_limit` is a constant the read
+ * carries rather than a column (#57), the service accepts a fifth piece on purpose so a
+ * custom game can be built, and #1 is that the tracker records while the players apply.
+ * So the count is shown against the limit and nothing is disabled by it.
+ *
+ * Revealing is its own operation with no body and no un-reveal: it can change what is on
+ * the table (Gellerpox's vermin, #18). A piece already taken is filtered out of the
+ * picker, because the same piece twice is a 409 -- that one IS integrity, not a rule. */
+function Equipment({ game }: { game: KTGame_Read }) {
+  const reveal = useRevealGameEquipment(game.id)
+  const remove = useRemoveGameEquipment(game.id)
+
+  return (
+    <section className={styles.section} aria-labelledby="equipment-heading">
+      <h2 id="equipment-heading" className={styles.sectionTitle}>
+        Equipment · {game.equipment.length} of {game.equipment_limit}
+      </h2>
+
+      {game.equipment.length === 0 ? (
+        <p className={styles.quiet}>No equipment taken.</p>
+      ) : (
+        <ul className={styles.sources}>
+          {game.equipment.map((row) => (
+            <li key={row.id} className={styles.scoreRow}>
+              <span className={styles.scoreLabel}>{row.name}</span>
+              {row.revealed ? (
+                <span className={styles.revealed}>Revealed</span>
+              ) : (
+                <Button
+                  variant="secondary"
+                  aria-label={`Reveal ${row.name}`}
+                  disabled={reveal.isPending}
+                  onClick={() => reveal.mutate(row.id)}
+                >
+                  Reveal
+                </Button>
+              )}
+              <button
+                type="button"
+                className={styles.removeSource}
+                aria-label={`Remove ${row.name} from the battle`}
+                disabled={remove.isPending}
+                onClick={() => remove.mutate(row.id)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <PoolDisclosure summary="Take equipment">
+        {(open) => <TakeEquipment game={game} open={open} />}
+      </PoolDisclosure>
+    </section>
+  )
+}
+
+/** The equipment picker, which only fetches once its disclosure is open.
+ *
+ * A component rather than a callback because it calls hooks. Two reads: the team's own
+ * equipment and the universal list (#52). A piece already taken is filtered out, since
+ * the same piece twice is a 409 -- that one is integrity, not a rule, so it is prevented
+ * rather than reported. */
+function TakeEquipment({ game, open }: { game: KTGame_Read; open: boolean }) {
+  const add = useAddGameEquipment(game.id)
+  const [choice, setChoice] = useState('')
+  const team = useKillTeam(game.kill_team_id, open)
+  const universal = useUniversal(open)
+
+  const taken = new Set(game.equipment.map((row) => row.equipment_id))
+  const pool = [...(team.data?.equipment ?? []), ...(universal.data?.equipment ?? [])].filter(
+    (piece) => !taken.has(piece.id),
+  )
+
+  if (team.isPending || universal.isPending) {
+    return (
+      <p role="status" className={styles.quiet}>
+        Loading equipment…
+      </p>
+    )
+  }
+
+  return (
+    <div className={styles.addSource}>
+      <Select
+        label="Equipment"
+        options={[
+          { value: '', label: 'Choose a piece…' },
+          ...pool.map((piece) => ({ value: piece.id, label: piece.name })),
+        ]}
+        value={choice}
+        onChange={(e) => setChoice(e.target.value)}
+      />
+      <Button
+        variant="secondary"
+        disabled={!choice || add.isPending}
+        onClick={() => add.mutate(choice, { onSuccess: () => setChoice('') })}
+      >
+        Take
+      </Button>
+    </div>
+  )
+}
+
+/** Fielding a datacard the battle produced (#18).
+ *
+ * The picker offers only `availability === 'in_battle'`, and that filter is narrower than
+ * it looks. #20 derives the flag from a CONDITIONAL composition block, which only
+ * Gellerpox print -- so it marks their three vermin and NOT Chaos Cult's Mutant and
+ * Torment, which are named in rule prose "too loose to store as a column". So for most
+ * teams this list is legitimately EMPTY, and the screen says so rather than showing an
+ * empty dropdown. Chaos Cult's two arrive by TRANSFORM instead, which is why that picker
+ * cannot use this filter.
+ *
+ * `source` records which half of #18 produced the card -- a piece of equipment or a rule
+ * -- so the row can be told from a roster operative afterwards. */
+function FieldOperative({ game }: { game: KTGame_Read }) {
+  return (
+    <PoolDisclosure summary="Field a datacard">
+      {(open) => <FieldPicker game={game} open={open} />}
+    </PoolDisclosure>
+  )
+}
+
+function FieldPicker({ game, open }: { game: KTGame_Read; open: boolean }) {
+  const add = useAddGameOperative(game.id)
+  const [choice, setChoice] = useState('')
+  const [source, setSource] = useState<'equipment' | 'rule'>('equipment')
+  const team = useKillTeam(game.kill_team_id, open)
+
+  const pool = (team.data?.operatives ?? []).filter(
+    (operative) => operative.availability === 'in_battle',
+  )
+
+  if (team.isPending) {
+    return (
+      <p role="status" className={styles.quiet}>
+        Loading datacards…
+      </p>
+    )
+  }
+  if (pool.length === 0) {
+    return (
+      <p className={styles.quiet}>
+        This kill team prints no datacards that arrive mid-battle.
+      </p>
+    )
+  }
+
+  return (
+          <div className={styles.field}>
+            <Select
+              label="Datacard"
+              options={[
+                { value: '', label: 'Choose a datacard…' },
+                ...pool.map((operative) => ({ value: operative.id, label: operative.name })),
+              ]}
+              value={choice}
+              onChange={(e) => setChoice(e.target.value)}
+            />
+            <SegmentedToggle
+              aria-label="What produced it"
+              options={[
+                { value: 'equipment', label: 'Equipment' },
+                { value: 'rule', label: 'Rule' },
+              ]}
+              value={source}
+              onChange={setSource}
+            />
+            <Button
+              variant="secondary"
+              disabled={!choice || add.isPending}
+              onClick={() =>
+                add.mutate(
+                  { operativeId: choice, source },
+                  { onSuccess: () => setChoice('') },
+                )
+              }
+            >
+              Field
+            </Button>
+          </div>
   )
 }

@@ -211,3 +211,47 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ---- Transform (KF4g) ----
+   A disclosure INSIDE the datacard, so opening a card to read a weapon rule does not
+   fetch the team's whole operative list. */
+
+.transform {
+  margin: 0;
+}
+
+.transformSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.transformSummary::-webkit-details-marker {
+  display: none;
+}
+
+.transformSummary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.transformPicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.transformPicker > :first-child {
+  flex: 1;
+  min-width: 14ch;
+}
