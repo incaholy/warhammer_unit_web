@@ -36,12 +36,12 @@ import { withReference } from '../lib/errors'
 import {
   advanceLabel,
   gameStateLabel,
-  hasActivated,
   initiativeLabel,
   ploysUsedThisTurningPoint,
   totalVictoryPoints,
 } from '../lib/killTeamGame'
 import { Button, EmptyState, Eyebrow, Select } from '../ui'
+import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
 
 export default function KillTeamGameView() {
@@ -236,18 +236,24 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   )
 }
 
-/** The whole team at a glance — name, wounds left, order, whether it has activated.
+/** The whole team at a glance, and the writes a battle makes to it.
  *
  * The compact half of the two levels of detail `KILLTEAM.md` asks for; the full
- * datacard behind a card is KF4e, and every write on a row is KF4d. Read-only here,
- * and real rather than a placeholder, because the scoreboard above it has to have
- * something to stay put over.
+ * datacard behind a card is KF4e. The row itself lives in `killTeamGameRow.tsx` --
+ * this function owns the collection and the one thing derived ACROSS rows.
  *
  * Rows are rendered in the order the server sent (#25), which is `position` with the
  * primary key as a tie-break — a client that re-sorted would break a tie it cannot
  * see. Each row is named by its ORDINAL as well as its name, because two rows can hold
  * the same datacard (#50). */
 function Operatives({ game }: { game: KTGame_Read }) {
+  // Suggested to every row's add field. Gathered from the battle rather than from a
+  // vocabulary, because tokens are team-specific and the column has no enum -- so the
+  // only source that needs no knowledge of any team is what has already been used.
+  const tokenSuggestions = [
+    ...new Set(game.operatives.flatMap((operative) => operative.tokens)),
+  ].sort()
+
   if (game.operatives.length === 0) {
     return (
       <section className={styles.section} aria-labelledby="operatives-heading">
@@ -265,38 +271,15 @@ function Operatives({ game }: { game: KTGame_Read }) {
         Operatives
       </h2>
       <ul className={styles.rows}>
-        {game.operatives.map((operative, index) => {
-          const activated = hasActivated(operative.activated_in_turning_point, game.turning_point)
-          const out = operative.current_wounds === 0
-          return (
-            <li
-              key={operative.id}
-              className={`${styles.row} ${out ? styles.rowOut : ''}`}
-              aria-label={`${operative.name} at position ${index + 1}`}
-            >
-              <span className={styles.rowName}>
-                <span className={styles.ordinal} data-testid="row-ordinal">
-                  {index + 1}
-                </span>
-                {operative.name}
-              </span>
-              <span className={styles.rowState}>
-                <span className={styles.wounds}>
-                  {operative.current_wounds}/{operative.wounds}
-                </span>
-                <span className={styles.order}>{operative.order}</span>
-                {/* Spelled out rather than a tick: a glyph alone has no accessible
-                  * name, and "has it gone yet?" is the single most-read fact here.
-                  * `hasActivated` is a COMPARISON against the current turning point
-                  * (#61) -- `advance` clears nothing, so a non-null check would mark
-                  * every operative that ever activated as activated for the battle. */}
-                <span className={activated ? styles.activated : styles.notActivated}>
-                  {activated ? 'Activated' : 'Not activated'}
-                </span>
-              </span>
-            </li>
-          )
-        })}
+        {game.operatives.map((operative, index) => (
+          <OperativeRow
+            key={operative.id}
+            game={game}
+            operative={operative}
+            index={index}
+            tokenSuggestions={tokenSuggestions}
+          />
+        ))}
       </ul>
     </section>
   )

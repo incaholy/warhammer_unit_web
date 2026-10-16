@@ -1,0 +1,145 @@
+/* One operative's row. Large touch targets throughout: this is read and pressed with
+   one hand at a table, which is the requirement KILLTEAM.md's Frontend section sets.
+
+   Three stacked bands rather than one line -- name, controls, tokens -- because four
+   controls beside a name do not fit a phone, and a row that wraps unpredictably is
+   worse than one that is deliberately tall. */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 4px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+/* Faded, not hidden: an incapacitated operative stays on the list because the wounds
+   control is how a mis-tap is corrected, and the service clears the status on the way
+   back up. */
+.rowOut {
+  opacity: 0.6;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.name {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  min-width: 0;
+}
+
+.ordinal {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+.activated,
+.notActivated {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.activated {
+  color: var(--faint);
+}
+
+.notActivated {
+  color: var(--ink);
+}
+
+/* ---- The controls band ---- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.wounds {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.woundsValue {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  /* Fixed width so the row does not shift as the number changes under a thumb. */
+  min-width: 4.5ch;
+  text-align: center;
+}
+
+.order {
+  flex-shrink: 0;
+}
+
+/* ---- Tokens ---- */
+
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tokenRemove {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  margin: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tokenRemove:hover {
+  color: var(--danger);
+}
+
+.tokenRemove:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.tokenInput {
+  width: 10ch;
+  flex: 0 1 14ch;
+}
+
+@media (max-width: 640px) {
+  .controls {
+    justify-content: space-between;
+  }
+
+  .tokenInput {
+    flex: 1 1 8ch;
+  }
+}

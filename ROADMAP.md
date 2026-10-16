@@ -861,6 +861,13 @@ as soon as it resolves. (This paragraph said "the detail query is fetch-once" un
   than a token meaning "not me". There is likely a simpler formulation after that lands.
   `initiativeLabel` in `src/lib/killTeamGame.ts` is deliberately the only place that would change.
 - **Every write is an absolute value**, never a delta — `wounds: 7`, not `-2` — for retry safety (#7).
+  **And `version` is not sent on a row write** (KF4d). `PATCH …/operatives/{row_id}` answers
+  `KTGameOperative_Read`, which carries no `version` and no response header, so a client cannot learn
+  the game's new version from its own write — and since #9 moves the version on EVERY write, sending
+  the last-rendered one makes a second tap conflict with the player's own first tap. The
+  `version_id_col` still refuses a genuine concurrent write at flush; what is given up is the stale-READ
+  overwrite. An `ETag` on the write response would close it, which is the natural companion to #79's
+  `If-Match` — reconsider the trade when that lands rather than inheriting it.
 
 `activate` and `transform` are their own `POST` routes; the operative `PATCH` carries only what a
 client genuinely sets: wounds, order, tokens, actions used (#63). The opponent's VP is entered by hand,

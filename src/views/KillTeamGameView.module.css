@@ -169,74 +169,17 @@
   min-width: 0;
 }
 
-/* ---- The operative list ---- */
+/* ---- The operative list ----
+   The ROW's own rules live in `killTeamGameRow.module.css`, beside the component that
+   references them (KF4d). Nine rules moved there rather than being left here: the
+   static guard in `src/styles/cssModules.test.ts` checks that a referenced class is
+   defined, not that a defined one is referenced, so an orphaned rule is invisible --
+   which is the defect that guard was written for, in the other direction. */
 
 .rows {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  /* Large touch targets: this list is read and pressed with one hand at a table. */
-  padding: 16px 4px;
-}
-
-.row + .row {
-  border-top: 1px solid var(--rule);
-}
-
-.rowOut {
-  opacity: 0.55;
-}
-
-.rowName {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  font-family: var(--font-serif);
-  font-size: 19px;
-  min-width: 0;
-}
-
-.ordinal {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--faint);
-}
-
-.rowState {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.wounds {
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-}
-
-.order {
-  color: var(--muted);
-}
-
-.activated {
-  color: var(--faint);
-}
-
-.notActivated {
-  color: var(--ink);
 }
 
 /* ---- Loading and errors ---- */
