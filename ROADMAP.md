@@ -826,7 +826,10 @@ reachable from a stale page and needs a message.
 
 ## KF4. Run a battle: the state half
 
-**Status: Not started.** Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
+**Status: In progress.** KF4a (the data layer: resource functions, hooks, the 409 flow) and
+KF4b (`/kill-team/games` — the battles list and the create overlay) are built. KF4c–KF4f, the
+battle screen itself at `/kill-team/games/:gameId`, are not.
+Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
 This is the screen the feature exists for, and `KILLTEAM.md`'s own Frontend section specifies it:
 **phone-first**, for use at the table. Large touch targets, one card per operative, and turning point,
 CP and VP always visible.
@@ -837,8 +840,14 @@ mid-activation lookups.
 
 **The game read needs no catalog call, ever** (#22, #24). It carries the whole snapshot — every
 datacard, the team's rules, its ploys and the universal ones, the text of each piece of equipment
-taken — and the snapshot never invalidates, because it is static for the game's life. So the detail
-query is fetch-once and the screen reads the snapshot, not the catalog API.
+taken — and the snapshot never invalidates, because it is static for the game's life. So the screen
+reads the snapshot, not the catalog API.
+
+What that does **not** license is caching the game query: `KTGame_Read` carries the wounds, the CP,
+the turning point and the scores in the *same body* as the datacards, so `staleTime: Infinity` would
+freeze the live half along with the static one. #22 and #24 buy no CATALOG request; they say nothing
+about re-reading the game. `useGame` therefore sets no `staleTime`, and a test pins `isStale` as true
+as soon as it resolves. (This paragraph said "the detail query is fetch-once" until KF4a measured it.)
 
 **Three state rules the UI derives rather than reads:**
 
