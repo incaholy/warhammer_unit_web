@@ -42,10 +42,10 @@ const SECTIONS: Section[] = [
   {
     prefix: '/kill-team',
     label: 'Kill Team',
-    // Games joins this in KF4.
     pages: [
       { to: '/kill-team', label: 'Catalog', end: true },
       { to: '/kill-team/rosters', label: 'Rosters' },
+      { to: '/kill-team/games', label: 'Battles' },
     ],
   },
 ]

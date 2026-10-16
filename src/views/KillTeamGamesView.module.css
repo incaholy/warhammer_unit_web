@@ -1,0 +1,170 @@
+/* Mirrors KillTeamRostersView.module.css. The additions are `.rowMain`, `.score` and
+   `.scoreDash`: a battle row is two columns rather than a stack, because the score is
+   what the player scans for. */
+
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 42px;
+  line-height: 1;
+  margin: 6px 0 10px;
+}
+
+.meta,
+.error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.error {
+  color: var(--danger);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 13px;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+.rowLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 4px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.rowLink:hover .gameName,
+.rowLink:focus-visible .gameName {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rowLink:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.gameName {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.score {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.scoreDash {
+  color: var(--faint);
+  margin: 0 6px;
+}
+
+/* ---- Loading ---- */
+
+.skeleton {
+  min-height: 30vh;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skeletonRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 4px;
+}
+
+.skeletonRow + .skeletonRow {
+  border-top: 1px solid var(--rule);
+}
+
+@keyframes gamesShimmer {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+}
+
+.skeletonBlock {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--rule-light) 0%, var(--panel) 50%, var(--rule-light) 100%);
+  background-size: 200% 100%;
+  animation: gamesShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonName {
+  width: 34%;
+  height: 22px;
+}
+
+.skeletonMeta {
+  width: 46%;
+  height: 11px;
+}
+
+@media (max-width: 640px) {
+  .view {
+    padding: 32px 20px 64px;
+  }
+
+  .score {
+    font-size: 17px;
+  }
+}

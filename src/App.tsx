@@ -23,6 +23,7 @@ const KillTeamCatalogView = lazy(() => import('./views/KillTeamCatalogView'))
 const KillTeamView = lazy(() => import('./views/KillTeamView'))
 const KillTeamRostersView = lazy(() => import('./views/KillTeamRostersView'))
 const KillTeamRosterView = lazy(() => import('./views/KillTeamRosterView'))
+const KillTeamGamesView = lazy(() => import('./views/KillTeamGamesView'))
 const CatalogView = lazy(() => import('./views/CatalogView'))
 const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
 const ArmyView = lazy(() => import('./views/ArmyView'))
@@ -65,6 +66,11 @@ function crumbsForPath(pathname: string): Crumb[] {
       return rest.length > 1
         ? [home, { label: 'Rosters', to: '/kill-team/rosters' }, { label: 'Roster' }]
         : [home, { label: 'Rosters' }]
+    }
+    if (rest[0] === 'games') {
+      return rest.length > 1
+        ? [home, { label: 'Battles', to: '/kill-team/games' }, { label: 'Battle' }]
+        : [home, { label: 'Battles' }]
     }
     return [home]
   }
@@ -169,6 +175,7 @@ export default function App() {
           * not, so these are inside the guard. */}
         <Route path="/kill-team/rosters" element={<KillTeamRostersView />} />
         <Route path="/kill-team/rosters/:rosterId" element={<KillTeamRosterView />} />
+        <Route path="/kill-team/games" element={<KillTeamGamesView />} />
 
         {/* Pre-section paths, kept so existing bookmarks resolve. The splats cover
          * the nested army and unit routes without repeating their parameters. */}

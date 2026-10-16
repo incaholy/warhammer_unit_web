@@ -269,4 +269,39 @@ describe('App routing: the two branches', () => {
       '/kill-team',
     )
   })
+
+  it('sends a signed-out visitor from the BATTLES to the login screen', async () => {
+    // KF4's counterpart claim: a game is user-owned like a roster, so it is inside
+    // the guard and not beside the public catalog.
+    visitor()
+
+    renderAt('/kill-team/games')
+
+    expect(await screen.findByText('Welcome back')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Your battles' })).not.toBeInTheDocument()
+  })
+
+  it('renders the battles for a signed-in player, with its own crumbs', async () => {
+    signedIn()
+
+    renderAt('/kill-team/games')
+
+    expect(await screen.findByRole('heading', { name: 'Your battles', level: 1 })).toBeInTheDocument()
+    const nav = screen.getByLabelText('Breadcrumb')
+    // `crumbsForPath` is hand-written per section, so a new branch that was never
+    // added renders only the Kill Team home crumb -- silently, with no error.
+    expect(within(nav).getByText('Battles')).toBeInTheDocument()
+  })
+
+  it('offers Battles in the Kill Team page nav', async () => {
+    signedIn()
+
+    renderAt('/kill-team/games')
+
+    await screen.findByRole('heading', { name: 'Your battles', level: 1 })
+    expect(screen.getByRole('link', { name: 'Battles' })).toHaveAttribute(
+      'href',
+      '/kill-team/games',
+    )
+  })
 })
