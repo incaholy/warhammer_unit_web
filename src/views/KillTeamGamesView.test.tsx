@@ -18,7 +18,8 @@ const IN_PROGRESS = makeKTGameListRow({
   kill_team_name: 'Raveners',
   faction_name: 'Tyranids',
   opponent_name: 'Kesh',
-  status: 'in progress',
+  // The token the backend actually stores (`ck_kt_game_status`), not 'in progress'.
+  status: 'in_progress',
   turning_point: 2,
   phase: 'firefight',
   // Three sources, so a row that read one field instead of summing shows 3 not 6.
@@ -131,11 +132,15 @@ describe('KillTeamGamesView', () => {
     renderView()
     const inProgress = (await screen.findByText('Raveners vs Kesh')).closest('a')
     expect(within(inProgress as HTMLElement).getByText(/TP 2 · firefight/)).toBeInTheDocument()
+    // Never the raw token. This is what the list rendered before the fix, because the
+    // comparison and the fixture agreed on a spelling the backend cannot store.
+    expect(within(inProgress as HTMLElement).queryByText(/in_progress/)).not.toBeInTheDocument()
 
     // A game in setup is at turning point 1 having played none of it, so "TP 1 ·
-    // strategy" would read as a battle already under way.
+    // strategy" would read as a battle already under way. And the row shows the
+    // player's word for it, not the server's token.
     const setup = screen.getByText('Gellerpox').closest('a')
-    expect(within(setup as HTMLElement).getByText(/setup/)).toBeInTheDocument()
+    expect(within(setup as HTMLElement).getByText(/Not started/)).toBeInTheDocument()
     expect(within(setup as HTMLElement).queryByText(/TP 1/)).not.toBeInTheDocument()
   })
 

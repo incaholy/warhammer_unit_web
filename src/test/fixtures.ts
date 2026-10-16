@@ -463,7 +463,9 @@ export function makeKTGameOperative(
     abilities: [makeKTGameAbility()],
     current_wounds: 12,
     order: 'conceal',
-    status: 'on board',
+    // `ck_kt_game_operative_status`: reserve / on_board / incapacitated. Snake_case,
+    // and the schema publishes it as a bare `string`, so nothing rejects a wrong one.
+    status: 'on_board',
     activated_in_turning_point: null,
     tokens: [],
     actions_used: [],
@@ -503,7 +505,10 @@ export function makeKTGame(over: Partial<KTGame_Read> = {}): KTGame_Read {
     kill_team_name: 'Raveners',
     faction_name: 'Tyranids',
     opponent_name: 'Kesh',
-    status: 'in progress',
+    // `ck_kt_game_status`: setup / in_progress / finished. The underscore matters --
+    // `advance` writes `in_progress`, and this fixture said `'in progress'`, which is
+    // a value the backend's CHECK constraint forbids and no gate here can catch.
+    status: 'in_progress',
     turning_point: 2,
     phase: 'firefight',
     initiative: null,
@@ -563,7 +568,7 @@ export function makeKTGameListRow(over: Partial<KTGame_ListRead> = {}): KTGame_L
     id: 'ktg-1',
     created_at: '2026-02-01T00:00:00Z',
     opponent_name: 'Kesh',
-    status: 'in progress',
+    status: 'in_progress',
     turning_point: 2,
     phase: 'firefight',
     kill_team_id: 'kt1',

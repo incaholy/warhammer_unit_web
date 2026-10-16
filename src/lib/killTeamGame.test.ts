@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  GAME_STATUSES,
   gameStateLabel,
+  gameStatusLabel,
   hasActivated,
   initiativeLabel,
   totalVictoryPoints,
@@ -43,14 +45,38 @@ describe('initiativeLabel', () => {
   })
 
   it('shows whoever holds it', () => {
-    expect(initiativeLabel('me')).toBe('me')
+    // The real tokens: `ck_kt_game_initiative` allows NULL, 'player' or 'opponent'.
+    // They pass through as the server's own words for now; KF4c decides whether the
+    // header says "You" and the opponent's name instead, since nothing renders them
+    // yet and that is a copy decision rather than a correctness one.
+    expect(initiativeLabel('player')).toBe('player')
     expect(initiativeLabel('opponent')).toBe('opponent')
+  })
+})
+
+describe('gameStatusLabel', () => {
+  it('has copy for every status the backend can store', () => {
+    // `Record<GameStatus, string>` already makes a missing one a compile error; this
+    // catches the other direction -- a token added to the array with no copy written,
+    // which would read back as the raw word and look deliberate.
+    for (const status of GAME_STATUSES) {
+      expect(gameStatusLabel(status)).not.toBe(status)
+    }
+  })
+
+  it('falls back to the raw token for a status it has never seen', () => {
+    // The field is a bare `string` in the published schema, so a status added on the
+    // backend arrives before any frontend change does. The raw word beats a blank.
+    expect(gameStatusLabel('abandoned')).toBe('abandoned')
   })
 })
 
 describe('gameStateLabel', () => {
   it('shows the turning point and phase only while a battle is in progress', () => {
-    expect(gameStateLabel({ status: 'in progress', turning_point: 2, phase: 'firefight' })).toBe(
+    // SNAKE_CASE. This read `'in progress'` and so did the fixture, so the comparison
+    // agreed with a value the backend's CHECK constraint forbids -- and a real
+    // in-progress battle rendered the raw token in the list.
+    expect(gameStateLabel({ status: 'in_progress', turning_point: 2, phase: 'firefight' })).toBe(
       'TP 2 · firefight',
     )
   })
@@ -58,9 +84,19 @@ describe('gameStateLabel', () => {
   it('names the status instead for a game not being played', () => {
     // A game in setup is at turning point 1 having played none of it, and a finished
     // game keeps the turning point it ended in. Both would read as mid-battle.
-    expect(gameStateLabel({ status: 'setup', turning_point: 1, phase: 'strategy' })).toBe('setup')
+    expect(gameStateLabel({ status: 'setup', turning_point: 1, phase: 'strategy' })).toBe(
+      'Not started',
+    )
     expect(gameStateLabel({ status: 'finished', turning_point: 4, phase: 'firefight' })).toBe(
-      'finished',
+      'Finished',
+    )
+  })
+
+  it('does not treat the space-separated spelling as in progress', () => {
+    // The exact defect this commit fixes, pinned so it cannot come back: a value the
+    // backend cannot store must not be special-cased into working.
+    expect(gameStateLabel({ status: 'in progress', turning_point: 2, phase: 'firefight' })).toBe(
+      'in progress',
     )
   })
 })

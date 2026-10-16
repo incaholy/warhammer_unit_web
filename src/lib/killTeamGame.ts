@@ -46,13 +46,51 @@ export function initiativeLabel(initiative: string | null): string {
   return initiative ?? 'Not rolled'
 }
 
+/** The values `ck_kt_game_status` allows, verbatim.
+ *
+ * SNAKE_CASE, and the underscore is the whole point of writing them down. The
+ * constraint lives in the backend's DDL
+ * (`app/core/db/models_killteam.py`: `status IN ('setup', 'in_progress', 'finished')`)
+ * and `openapi.json` publishes the field as a bare `string`. So `schema.d.ts` types it
+ * `string`, `schemas.gen.ts` validates it as `z.string()`, and NOTHING -- not `tsc`,
+ * not zod, not the typed fixture union -- can reject a literal that is merely wrong.
+ *
+ * This slice shipped `'in progress'` with a space, in a fixture and in a comparison
+ * that therefore agreed with it. Keeping the tokens here as a `const` array, with the
+ * label map typed `Record<GameStatus, string>`, is what turns the next wrong one into
+ * a compile error instead of a green test. */
+export const GAME_STATUSES = ['setup', 'in_progress', 'finished'] as const
+export type GameStatus = (typeof GAME_STATUSES)[number]
+
+/** Display copy per status. `setup` is worded as what the player sees rather than as
+ *  the token: "setup" is the server's word for a battle nobody has started yet. */
+const GAME_STATUS_LABELS: Record<GameStatus, string> = {
+  setup: 'Not started',
+  in_progress: 'In progress',
+  finished: 'Finished',
+}
+
+/** A status as a person reads it, falling back to the raw token.
+ *
+ * The fallback is deliberate rather than defensive. The field is a `string` in the
+ * published schema, so a status added on the backend reaches this screen before any
+ * frontend change does -- and showing the raw word is strictly better than showing
+ * nothing, crashing, or claiming a battle is finished when the server did not say so. */
+export function gameStatusLabel(status: string): string {
+  return GAME_STATUS_LABELS[status as GameStatus] ?? status
+}
+
 /** The one-line state of a game, for a list row or a header.
  *
  * Turning point and phase are only meaningful while a battle is being played: a game
  * in `setup` is at turning point 1 having played none of it, and a `finished` game
- * keeps the turning point it ended in. Showing "TP 1 · Strategy" for a battle nobody
- * has started reads as a battle in progress. */
+ * keeps the turning point it ended in. Showing "TP 1 · strategy" for a battle nobody
+ * has started reads as a battle in progress.
+ *
+ * `phase` is left as the server's own word. `strategy` and `firefight` are the terms
+ * printed in the rules, and the one place this renders applies `text-transform:
+ * uppercase` anyway, so mapping them would add a table that changes nothing. */
 export function gameStateLabel(game: Pick<KTGame_Read, 'status' | 'turning_point' | 'phase'>): string {
-  if (game.status !== 'in progress') return game.status
+  if (game.status !== 'in_progress') return gameStatusLabel(game.status)
   return `TP ${game.turning_point} · ${game.phase}`
 }
