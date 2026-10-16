@@ -14,7 +14,7 @@
  * also why two SIDES land before two USERS on the backend (K8 before K9). */
 
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useCreateGame } from '../api/killTeamGamesQueries'
 import { useRosters } from '../api/killTeamQueries'
@@ -28,6 +28,7 @@ export interface NewGameModalProps {
 }
 
 export function NewGameModal({ open, onClose }: NewGameModalProps) {
+  const navigate = useNavigate()
   const rostersQuery = useRosters()
   const createGame = useCreateGame()
 
@@ -80,15 +81,13 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
         ...(trimmed ? { opponent_name: trimmed } : {}),
       },
       {
-        // Closes onto the refreshed list rather than navigating to the new battle,
-        // which is the one place this departs from `NewRosterModal`. The battle
-        // screen is KF4c; navigating there now would land on no route and bounce the
-        // player to `/`. `useCreateGame` invalidates the list, so the new battle is
-        // the top row and one tap away, and KF4c adds the navigation with the screen
-        // it goes to.
-        onSuccess: () => {
+        // Straight into the battle, now that KF4c gives it a screen. KF4b closed onto
+        // the refreshed list instead, because navigating to a route that did not exist
+        // would have bounced the player to `/`.
+        onSuccess: (game) => {
           reset()
           onClose()
+          navigate(`/kill-team/games/${game.id}`)
         },
         onError: (err) => {
           // In the form rather than left to the central toast, because the player is

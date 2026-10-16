@@ -854,7 +854,12 @@ as soon as it resolves. (This paragraph said "the detail query is fetch-once" un
 - **"Has it activated?" is a comparison**, not a flag: `activated_in_turning_point` against the game's
   own `turning_point`. `advance` clears nothing (#61).
 - **`initiative: null` renders "not rolled"**, never as the opponent's. `advance` resets it to null
-  each turning point (#62).
+  each turning point (#62). **Revisit this one.** KF4c words `player` as "You" and `opponent` as the
+  opponent's name, which works but is awkward: a three-valued field carrying one side's identity has
+  to be read relative to the caller. `KILLTEAM.md` #67 (K8) drops `opponent_name` and gives a game two
+  SIDE rows with their own display names, so "whose initiative" becomes a reference to a side rather
+  than a token meaning "not me". There is likely a simpler formulation after that lands.
+  `initiativeLabel` in `src/lib/killTeamGame.ts` is deliberately the only place that would change.
 - **Every write is an absolute value**, never a delta — `wounds: 7`, not `-2` — for retry safety (#7).
 
 `activate` and `transform` are their own `POST` routes; the operative `PATCH` carries only what a

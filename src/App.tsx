@@ -24,6 +24,7 @@ const KillTeamView = lazy(() => import('./views/KillTeamView'))
 const KillTeamRostersView = lazy(() => import('./views/KillTeamRostersView'))
 const KillTeamRosterView = lazy(() => import('./views/KillTeamRosterView'))
 const KillTeamGamesView = lazy(() => import('./views/KillTeamGamesView'))
+const KillTeamGameView = lazy(() => import('./views/KillTeamGameView'))
 const CatalogView = lazy(() => import('./views/CatalogView'))
 const InventoryView = lazy(() => import('./views/InventoryView').then((m) => ({ default: m.InventoryView })))
 const ArmyView = lazy(() => import('./views/ArmyView'))
@@ -176,6 +177,7 @@ export default function App() {
         <Route path="/kill-team/rosters" element={<KillTeamRostersView />} />
         <Route path="/kill-team/rosters/:rosterId" element={<KillTeamRosterView />} />
         <Route path="/kill-team/games" element={<KillTeamGamesView />} />
+        <Route path="/kill-team/games/:gameId" element={<KillTeamGameView />} />
 
         {/* Pre-section paths, kept so existing bookmarks resolve. The splats cover
          * the nested army and unit routes without repeating their parameters. */}

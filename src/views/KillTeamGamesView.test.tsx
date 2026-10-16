@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import KillTeamGamesView from './KillTeamGamesView'
@@ -70,14 +70,26 @@ function stubFetch(
   return fetchMock
 }
 
+/** Where the router actually is.
+ *
+ * Needed because this view navigates on a successful create, and a bare
+ * `MemoryRouter` with no `<Routes>` keeps the view mounted whatever the location
+ * becomes -- so an assertion that the heading is still present proves nothing either
+ * way. That is how the KF4b test claiming "does not navigate away" passed before AND
+ * after the navigation was added. */
+function LocationProbe() {
+  return <output data-testid="location">{useLocation().pathname}</output>
+}
+
 function renderView() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/kill-team/games']}>
         <KillTeamGamesView />
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -274,9 +286,10 @@ describe('KillTeamGamesView: starting a battle', () => {
     )
   })
 
-  it('does not navigate away, because the battle screen is KF4c', async () => {
+  it('navigates into the new battle, and re-reads the list behind it', async () => {
     const fetchMock = stubFetch()
     renderView()
+    expect(screen.getByTestId('location')).toHaveTextContent('/kill-team/games')
     fireEvent.click(await screen.findByRole('button', { name: '+ New Battle' }))
 
     const dialog = await screen.findByRole('dialog')
@@ -285,14 +298,16 @@ describe('KillTeamGamesView: starting a battle', () => {
     })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
 
-    // The list is still here and the dialog has closed. Navigating to
-    // `/kill-team/games/:id` would match no route and bounce the player to `/`, so
-    // this pins the departure from `NewRosterModal` rather than leaving it to a
-    // comment that a later slice could quietly contradict.
+    // Asserted through the LOCATION, not through what is still on screen. KF4b's
+    // version of this test checked that the heading was still present and therefore
+    // passed both before and after the navigation existed -- a bare `MemoryRouter`
+    // keeps the view mounted whatever the path becomes.
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent('/kill-team/games/ktg-new'),
+    )
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'Your battles' })).toBeInTheDocument()
     await waitFor(() => {
-      // And the list was re-read, so the new battle is the top row.
+      // And the list was invalidated, so returning to it shows the new battle.
       const gets = calls(fetchMock).filter(
         (c) => c.method === 'GET' && c.url.includes('/me/kill-team/games'),
       )

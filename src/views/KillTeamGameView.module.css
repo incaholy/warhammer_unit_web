@@ -1,0 +1,335 @@
+/* The battle screen's frame. Two regions: a scoreboard that stays put and a body that
+   scrolls under it (KILLTEAM.md's Frontend section -- turning point, CP and VP always
+   visible, phone-first for table-side use).
+
+   `.scoreboard` is the SECOND sticky element in the app. `ui/Header.module.css` is the
+   first, at `z-index: 50`, and it is two rows tall -- so this sits below it with a
+   lower z-index, and the vertical cost of both is the thing the slice is meant to let
+   someone judge by looking. A test cannot: jsdom has no layout engine. */
+
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 32px 80px;
+}
+
+/* ---- The scoreboard ---- */
+
+.scoreboard {
+  position: sticky;
+  /* Below the app header rather than under it. The header is translucent with a blur,
+     so an element scrolling beneath it stays legible; this one must not, because it is
+     the thing being read. */
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--ink);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.1;
+  margin: 6px 0 0;
+}
+
+.stats {
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+  margin: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stat dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.statNumber {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreDash {
+  color: var(--faint);
+  margin: 0 5px;
+}
+
+/* ---- The controls ---- */
+
+.controls {
+  position: sticky;
+  /* Travels with the scoreboard: `advance` is the most-pressed control in the app and
+     a player should never scroll to reach it. */
+  top: 0;
+  z-index: 39;
+  display: flex;
+  gap: 10px;
+  padding: 14px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ---- The body ---- */
+
+.body {
+  padding-top: 8px;
+}
+
+.section + .section {
+  margin-top: 36px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.quiet {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ---- Ploys this turning point ---- */
+
+.ploys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ploy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 4px;
+}
+
+.ploy + .ploy {
+  border-top: 1px solid var(--rule-light);
+}
+
+.ployName {
+  font-family: var(--font-serif);
+  font-size: 17px;
+}
+
+.ployKind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.spend {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.spend > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- The operative list ---- */
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  /* Large touch targets: this list is read and pressed with one hand at a table. */
+  padding: 16px 4px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+.rowOut {
+  opacity: 0.55;
+}
+
+.rowName {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  min-width: 0;
+}
+
+.ordinal {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+
+.rowState {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wounds {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.order {
+  color: var(--muted);
+}
+
+.activated {
+  color: var(--faint);
+}
+
+.notActivated {
+  color: var(--ink);
+}
+
+/* ---- Loading and errors ---- */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes gameShimmer {
+  0%,
+  100% {
+    background-position: 200% 0;
+  }
+  50% {
+    background-position: 0 0;
+  }
+}
+
+.skeletonBlock {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--rule-light) 0%, var(--panel) 50%, var(--rule-light) 100%);
+  background-size: 200% 100%;
+  animation: gameShimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonTitle {
+  width: 46%;
+  height: 30px;
+  margin: 28px 0 12px;
+}
+
+.skeletonMeta {
+  width: 30%;
+  height: 11px;
+}
+
+.error {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--danger);
+  margin: 32px 0 16px;
+}
+
+.back {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 2px;
+}
+
+@media (max-width: 640px) {
+  .view {
+    padding: 0 20px 64px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .stats {
+    gap: 16px;
+  }
+
+  .statNumber {
+    font-size: 19px;
+  }
+
+  /* The scoreboard is the whole point of the screen, so on a phone it takes the width
+     and the stats sit under the name rather than being squeezed beside it. */
+  .scoreboard {
+    align-items: stretch;
+  }
+
+  .stats {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+}

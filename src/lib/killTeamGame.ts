@@ -41,9 +41,26 @@ export function hasActivated(
  * `null` is "not yet rolled" (#62) — `advance` resets it every turning point for the
  * new roll-off. It MUST NOT render as the opponent holding initiative, which is what
  * a falsy check produces and what a scoreboard showing the opponent's name by default
- * would mean at a table. */
-export function initiativeLabel(initiative: string | null): string {
-  return initiative ?? 'Not rolled'
+ * would mean at a table.
+ *
+ * `ck_kt_game_initiative` allows NULL, `player` or `opponent`. The player's own side
+ * reads as "You" and the opponent's as their name, falling back to "Opponent" when the
+ * game records none — `opponent_name` is nullable because the common case is an
+ * opponent with no account.
+ *
+ * REVISIT. This shape is worth looking over again rather than built on, for two
+ * reasons. A three-valued field carrying one side's identity is already awkward to
+ * word, and KILLTEAM.md #67 (K8) drops `opponent_name` outright: a game gains two SIDE
+ * rows each with their own display name, so "whose initiative" becomes a reference to a
+ * side rather than a token meaning "not me". There may be a simpler formulation once
+ * that lands, and this function is deliberately the only place that would change. */
+export function initiativeLabel(initiative: string | null, opponentName?: string | null): string {
+  if (initiative === null) return 'Not rolled'
+  if (initiative === 'player') return 'You'
+  if (initiative === 'opponent') return opponentName?.trim() || 'Opponent'
+  // A value this build has never seen, for the reason `gameStatusLabel` gives: the
+  // field is a bare `string` in the published schema.
+  return initiative
 }
 
 /** The values `ck_kt_game_status` allows, verbatim.
@@ -93,4 +110,73 @@ export function gameStatusLabel(status: string): string {
 export function gameStateLabel(game: Pick<KTGame_Read, 'status' | 'turning_point' | 'phase'>): string {
   if (game.status !== 'in_progress') return gameStatusLabel(game.status)
   return `TP ${game.turning_point} · ${game.phase}`
+}
+
+/** The next thing `advance` will do, named.
+ *
+ * MIRRORS the server's state machine rather than guessing at it
+ * (`app/core/services/service_killteam_game.py`, `advance`): `strategy` → `firefight`
+ * within a turning point; `firefight` → the next turning point's `strategy`, which puts
+ * initiative back to nobody for its roll-off (#62); and out of the LAST turning point's
+ * firefight phase, the game FINISHES. `LAST_TURNING_POINT` is 4, which
+ * `ck_kt_game_turning_point` also enforces.
+ *
+ * Duplicated logic, knowingly. A button reading only "Advance" is honest and useless at
+ * a table — the one control that moves a game through every state including its end
+ * should say which of the three it is about to do. The duplication is bounded (one
+ * function, three branches, both constants fixed by a CHECK constraint) and it is
+ * PREDICTIVE rather than authoritative: the server still decides, this only labels the
+ * button, and a test covers every phase of every turning point so a drift shows up
+ * here rather than in the player's hands.
+ *
+ * It is not a game rule being applied, which #1 forbids. It is the game's own state
+ * machine, which the server owns and the screen reports. */
+export function advanceLabel(
+  game: Pick<KTGame_Read, 'status' | 'turning_point' | 'phase'>,
+): string {
+  if (game.status === 'finished') return 'Battle finished'
+  if (game.phase === 'strategy') return 'Advance to firefight'
+  if (game.turning_point < LAST_TURNING_POINT) return 'Advance to next turning point'
+  return 'Finish battle'
+}
+
+/** The last turning point a battle has, per `ck_kt_game_turning_point`. */
+export const LAST_TURNING_POINT = 4
+
+/** One entry in `ploys_used`: the ploy's name and the turning point it was spent in.
+ *
+ * `ploys_used` is `array<object>` in the published schema and therefore
+ * `{ [key: string]: unknown }[]` in the generated types, so nothing checks that an
+ * entry has either field. The backend writes exactly
+ * `{"name": name, "turning_point": game.turning_point}` (`use_ploy`), and this is the
+ * narrowing that turns that fact into something the view can rely on. */
+export interface PloyUse {
+  name: string
+  turningPoint: number
+}
+
+/** The ploys spent in the turning point being played, newest last.
+ *
+ * What the screen can honestly say. After the strategy phase a player has chosen their
+ * strategy ploys, and those last the turning point — but that DURATION is a rule, and
+ * #1 is that the tracker records while the players apply. So this reports the two facts
+ * it holds: the ploy was spent, and it was spent in THIS turning point. Pairing that
+ * with the `kind` on the game's own ploy snapshot lets a player tell a strategy ploy
+ * that is still standing from a firefight ploy already resolved, without the app
+ * claiming to know how long either lasts.
+ *
+ * Entries missing a usable `name` or `turning_point` are dropped rather than rendered
+ * as `undefined`. Not reachable through the API today; the shape is unenforced by both
+ * the schema and zod, so a wrong entry would otherwise reach the screen. */
+export function ploysUsedThisTurningPoint(
+  game: Pick<KTGame_Read, 'ploys_used' | 'turning_point'>,
+): PloyUse[] {
+  const used: PloyUse[] = []
+  for (const entry of game.ploys_used) {
+    const name = entry.name
+    const turningPoint = entry.turning_point
+    if (typeof name !== 'string' || typeof turningPoint !== 'number') continue
+    if (turningPoint === game.turning_point) used.push({ name, turningPoint })
+  }
+  return used
 }

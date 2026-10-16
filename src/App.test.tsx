@@ -293,6 +293,30 @@ describe('App routing: the two branches', () => {
     expect(within(nav).getByText('Battles')).toBeInTheDocument()
   })
 
+  it('sends a signed-out visitor from a BATTLE page to the login screen', async () => {
+    visitor()
+
+    renderAt('/kill-team/games/ktg-1')
+
+    expect(await screen.findByText('Welcome back')).toBeInTheDocument()
+  })
+
+  it('shows the Battle crumb trail, with Battles linked back', async () => {
+    signedIn()
+
+    renderAt('/kill-team/games/ktg-1')
+
+    const nav = await screen.findByLabelText('Breadcrumb')
+    // Three levels, and the middle one has to be a LINK: the detail branch of
+    // `crumbsForPath` is separate from the list branch, so a slice that added the
+    // route and forgot the `rest.length > 1` case renders "Battles" unlinked.
+    expect(within(nav).getByRole('link', { name: 'Battles' })).toHaveAttribute(
+      'href',
+      '/kill-team/games',
+    )
+    expect(within(nav).getByText('Battle')).toBeInTheDocument()
+  })
+
   it('offers Battles in the Kill Team page nav', async () => {
     signedIn()
 
