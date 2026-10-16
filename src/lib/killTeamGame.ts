@@ -6,7 +6,7 @@
  * comparisons over columns, and getting one wrong is a silent wrong number rather
  * than an error — so each lives here with a test, not inline in a view. */
 
-import type { KTGame_Read } from '../api/types'
+import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 
 /** The caller's victory points, totalled across their sources.
  *
@@ -143,16 +143,37 @@ export function advanceLabel(
 /** The last turning point a battle has, per `ck_kt_game_turning_point`. */
 export const LAST_TURNING_POINT = 4
 
-/** One entry in `ploys_used`: the ploy's name and the turning point it was spent in.
+/** One entry in `ploys_used` or `actions_used`: what was used, and when.
  *
- * `ploys_used` is `array<object>` in the published schema and therefore
- * `{ [key: string]: unknown }[]` in the generated types, so nothing checks that an
- * entry has either field. The backend writes exactly
- * `{"name": name, "turning_point": game.turning_point}` (`use_ploy`), and this is the
- * narrowing that turns that fact into something the view can rely on. */
-export interface PloyUse {
+ * Both columns hold the SAME shape -- the backend writes
+ * `{"name": ..., "turning_point": ...}` in `use_ploy` and the client writes it for
+ * `actions_used` -- and both are `array<object>` in the published schema, therefore
+ * `{ [key: string]: unknown }[]` in the generated types. So nothing checks that an
+ * entry has either field, and one narrowing serves both.
+ *
+ * `index` is the entry's position in the RAW array, which is what makes removal exact:
+ * the same name can legitimately appear twice (how often an action may be used is a
+ * rule, so #23 records each use rather than counting), so "remove this one" cannot be
+ * expressed by name. */
+export interface UsageEntry {
   name: string
   turningPoint: number
+  index: number
+}
+
+/** Narrow a `{name, turning_point}` list, dropping entries that are neither.
+ *
+ * Not reachable through the API today; the shape is unenforced by both the schema and
+ * zod, so a wrong entry would otherwise render as `undefined`. */
+export function usageEntries(raw: { [key: string]: unknown }[]): UsageEntry[] {
+  const out: UsageEntry[] = []
+  raw.forEach((entry, index) => {
+    const name = entry.name
+    const turningPoint = entry.turning_point
+    if (typeof name !== 'string' || typeof turningPoint !== 'number') return
+    out.push({ name, turningPoint, index })
+  })
+  return out
 }
 
 /** The ploys spent in the turning point being played, newest last.
@@ -170,13 +191,19 @@ export interface PloyUse {
  * the schema and zod, so a wrong entry would otherwise reach the screen. */
 export function ploysUsedThisTurningPoint(
   game: Pick<KTGame_Read, 'ploys_used' | 'turning_point'>,
-): PloyUse[] {
-  const used: PloyUse[] = []
-  for (const entry of game.ploys_used) {
-    const name = entry.name
-    const turningPoint = entry.turning_point
-    if (typeof name !== 'string' || typeof turningPoint !== 'number') continue
-    if (turningPoint === game.turning_point) used.push({ name, turningPoint })
-  }
-  return used
+): UsageEntry[] {
+  return usageEntries(game.ploys_used).filter((e) => e.turningPoint === game.turning_point)
+}
+
+/** Every action an operative has used, across the whole battle, oldest first.
+ *
+ * NOT filtered to the current turning point, unlike the ploys. #23's reasoning is that
+ * unique actions are abilities on the datacard whose limits differ -- once per battle,
+ * once per turning point -- so recording what was used AND WHEN lets the screen show
+ * both without the tracker knowing either rule. Filtering here would throw away the
+ * half that answers "once per battle". */
+export function actionsUsed(
+  operative: Pick<KTGameOperative_Read, 'actions_used'>,
+): UsageEntry[] {
+  return usageEntries(operative.actions_used)
 }

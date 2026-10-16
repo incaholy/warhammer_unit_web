@@ -128,9 +128,11 @@ describe('ploysUsedThisTurningPoint', () => {
         { name: 'Second Wind', turning_point: 2 },
       ],
     })
+    // `index` is the position in the RAW array, not in the filtered result -- which is
+    // what makes removal exact when the same name appears twice.
     expect(used).toEqual([
-      { name: 'Sudden Surge', turningPoint: 2 },
-      { name: 'Second Wind', turningPoint: 2 },
+      { name: 'Sudden Surge', turningPoint: 2, index: 1 },
+      { name: 'Second Wind', turningPoint: 2, index: 2 },
     ])
   })
 
@@ -158,7 +160,7 @@ describe('ploysUsedThisTurningPoint', () => {
         { name: 42, turning_point: 1 },
       ],
     })
-    expect(used).toEqual([{ name: 'Good', turningPoint: 1 }])
+    expect(used).toEqual([{ name: 'Good', turningPoint: 1, index: 0 }])
   })
 
   it('is empty for a battle that has spent none', () => {

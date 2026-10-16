@@ -4,11 +4,17 @@
  * take on. */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { OperativeRow } from './killTeamGameRow'
-import { jsonResponse, makeKTGame, makeKTGameOperative } from '../test/fixtures'
+import {
+  jsonResponse,
+  makeKTGame,
+  makeKTGameAbility,
+  makeKTGameOperative,
+  makeKTGameWeapon,
+} from '../test/fixtures'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 
 afterEach(() => {
@@ -302,5 +308,234 @@ describe('OperativeRow: where `version` is not sent', () => {
     for (const call of seen.filter((c) => c.method !== 'GET')) {
       expect(call.body ?? {}).not.toHaveProperty('version')
     }
+  })
+})
+
+/* ---- The datacard (KF4e) ----
+ *
+ * One caveat these tests are written around: **jsdom does not hide the contents of a
+ * closed `<details>`**. It has no layout engine, so everything inside is queryable
+ * whether the card is open or shut -- a defect KF3 already hit. So "collapsed" is
+ * asserted through the `open` attribute, never by querying for absent content, and the
+ * content assertions open the card first so they describe what a player sees. */
+
+describe('OperativeRow: the datacard', () => {
+  const card = () => screen.getByLabelText(`Datacard for ${WHO}`).closest('details')!
+
+  it('is collapsed until it is opened', () => {
+    stub()
+    renderRow()
+    // Through the attribute, because jsdom renders closed content anyway.
+    expect(card().open).toBe(false)
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    expect(card().open).toBe(true)
+  })
+
+  it('reads the printed stats from the game\'s own snapshot', () => {
+    stub()
+    renderRow({ apl: 2, move: 6, save: 4, wounds: 12 })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+
+    // #22, #24: these were copied when the battle started. The row above shows the
+    // LIVE wounds; this shows the wounds the card was printed with -- a reference
+    // sheet and a status sheet at once.
+    const body = card()
+    expect(within(body).getByText('APL')).toBeInTheDocument()
+    expect(within(body).getByText('6"')).toBeInTheDocument()
+    expect(within(body).getByText('4+')).toBeInTheDocument()
+  })
+
+  it('renders a melee weapon as melee, not as a 0" range', () => {
+    stub()
+    renderRow({
+      weapons: [makeKTGameWeapon({ name: 'Ravening claws', category: 'melee', range: 0 })],
+    })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+
+    const body = card()
+    expect(within(body).getByText('Ravening claws')).toBeInTheDocument()
+    // The defect this pins: a fixture that said `category: 'M'` -- a value
+    // `ck_kt_weapon_category` forbids -- made this profile print `0"`.
+    expect(within(body).getByText('melee')).toBeInTheDocument()
+    expect(within(body).queryByText('0"')).not.toBeInTheDocument()
+  })
+
+  it('prints a weapon profile\'s numbers and its rules verbatim', () => {
+    stub()
+    renderRow({
+      weapons: [
+        makeKTGameWeapon({
+          name: 'Spike rifle',
+          category: 'range',
+          range: 8,
+          attacks: 4,
+          hit: 3,
+          normal_damage: 3,
+          crit_damage: 4,
+          // #56: footnote markers are kept, so `Torrent 0"*` is its own string.
+          weapon_rules: ['Lethal 5+', 'Torrent 0"*'],
+        }),
+      ],
+    })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+
+    const body = card()
+    expect(within(body).getByText('8"')).toBeInTheDocument()
+    expect(within(body).getByText('3/4')).toBeInTheDocument()
+    expect(within(body).getByText('Lethal 5+, Torrent 0"*')).toBeInTheDocument()
+  })
+
+  it('renders a weapon with no rules as a dash', () => {
+    // An EMPTY list, which is reachable: plenty of profiles print no rules. `undefined`
+    // is not -- a defaulted response field is always sent, and both generated types
+    // require it -- which is why `WeaponProfile` requires it rather than guarding for a
+    // value that cannot arrive.
+    stub()
+    renderRow({ weapons: [makeKTGameWeapon({ name: 'Bare', weapon_rules: [] })] })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    expect(within(card()).getByText('—')).toBeInTheDocument()
+  })
+
+  it('renders the abilities and the keywords it was snapshotted with', () => {
+    stub()
+    renderRow({
+      abilities: [makeKTGameAbility({ name: 'Burrow', description: 'Goes under.' })],
+      keywords: ['RAVENER', 'TYRANID'],
+    })
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+
+    // Scoped to the Abilities block: the same name also appears as an option in the
+    // action picker below, which is correct and made a document-wide query ambiguous.
+    const abilities = screen.getByRole('heading', { name: 'Abilities' }).closest('section')!
+    expect(within(abilities).getByText('Burrow')).toBeInTheDocument()
+    expect(within(abilities).getByText('Goes under.')).toBeInTheDocument()
+    expect(within(card()).getByText('RAVENER · TYRANID')).toBeInTheDocument()
+  })
+
+  it('makes NO request to render, because it reads the snapshot', async () => {
+    const seen = stub()
+    renderRow()
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    // The whole point of #22 and #24: a battle needs no catalog request once it has
+    // started, so opening a card at a table cannot be waiting on anything.
+    await waitFor(() => expect(card().open).toBe(true))
+    expect(seen).toEqual([])
+  })
+})
+
+describe('OperativeRow: actions used', () => {
+  const openCard = () => fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+
+  it('says none used when none have been', () => {
+    stub()
+    renderRow({ actions_used: [] })
+    openCard()
+    expect(screen.getByText('None used.')).toBeInTheDocument()
+  })
+
+  it('appends the action with the turning point the server would stamp', async () => {
+    const seen = stub()
+    renderRow(
+      { actions_used: [], abilities: [makeKTGameAbility({ name: 'Burrow' })] },
+      { turning_point: 3 },
+    )
+    openCard()
+    fireEvent.change(screen.getByLabelText(`Action for ${WHO}`), { target: { value: 'Burrow' } })
+    fireEvent.click(screen.getByLabelText(`Mark the action used for ${WHO}`))
+
+    await waitFor(() => {
+      // The turning point comes from the GAME, the way an activation is stamped (#61).
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        actions_used: [{ name: 'Burrow', turning_point: 3 }],
+      })
+    })
+  })
+
+  it('offers only the abilities on THIS card', () => {
+    // `_validate_actions` refuses a name that is not on the operative's own snapshot,
+    // which is the difference between a tracker and a notepad. Building the picker
+    // from `abilities` means a refusable name cannot be chosen.
+    stub()
+    renderRow({
+      abilities: [makeKTGameAbility({ name: 'Burrow' }), makeKTGameAbility({ name: 'Scuttle' })],
+    })
+    openCard()
+    const select = screen.getByLabelText(`Action for ${WHO}`)
+    expect(within(select).getByRole('option', { name: 'Burrow' })).toBeInTheDocument()
+    expect(within(select).getByRole('option', { name: 'Scuttle' })).toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Sudden Surge' })).not.toBeInTheDocument()
+  })
+
+  it('shows every turning point an action was used in, not just this one', () => {
+    // The opposite of the ploys beside the scoreboard, and deliberately: #23 says
+    // limits differ -- once per battle, once per turning point -- so the screen shows
+    // what was used AND WHEN and lets the players apply either rule.
+    stub()
+    renderRow(
+      {
+        actions_used: [
+          { name: 'Burrow', turning_point: 1 },
+          { name: 'Burrow', turning_point: 3 },
+        ],
+        abilities: [makeKTGameAbility({ name: 'Burrow' })],
+      },
+      { turning_point: 3 },
+    )
+    openCard()
+    expect(screen.getByText('TP 1')).toBeInTheDocument()
+    expect(screen.getByText('TP 3')).toBeInTheDocument()
+  })
+
+  it('removes the right entry when two share a name', async () => {
+    const seen = stub()
+    renderRow(
+      {
+        actions_used: [
+          { name: 'Burrow', turning_point: 1 },
+          { name: 'Burrow', turning_point: 3 },
+        ],
+        abilities: [makeKTGameAbility({ name: 'Burrow' })],
+      },
+      { turning_point: 3 },
+    )
+    openCard()
+    fireEvent.click(
+      screen.getByLabelText(`Remove Burrow used in turning point 1 from ${WHO}`),
+    )
+
+    await waitFor(() => {
+      // By INDEX, never by name. A filter on the name would delete both, which is the
+      // whole reason `UsageEntry` carries the raw position.
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        actions_used: [{ name: 'Burrow', turning_point: 3 }],
+      })
+    })
+  })
+
+  it('says so when a card prints no abilities, and offers no picker', () => {
+    stub()
+    renderRow({ abilities: [], actions_used: [] })
+    openCard()
+    expect(screen.getByText('This card prints no abilities.')).toBeInTheDocument()
+    expect(screen.queryByLabelText(`Action for ${WHO}`)).not.toBeInTheDocument()
+  })
+
+  it('drops an entry whose shape is wrong rather than rendering undefined', () => {
+    stub()
+    renderRow({
+      actions_used: [{ name: 'Good', turning_point: 1 }, { turning_point: 2 }, { name: 'No TP' }],
+      abilities: [makeKTGameAbility({ name: 'Good' })],
+    })
+    openCard()
+    // Scoped to the used-actions block for the same reason: 'Good' is also an ability
+    // on the card and an option in the picker.
+    // Through the list ITEMS: 'Good' is also an option in the picker, which lives in
+    // this same section, so even a scoped text query is ambiguous.
+    const section = screen.getByRole('heading', { name: 'Actions used' }).closest('section')!
+    const items = within(section).getAllByRole('listitem')
+    // One entry survived, so the two malformed ones were dropped rather than rendered.
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Good')
+    expect(within(section).queryByText('No TP')).not.toBeInTheDocument()
   })
 })

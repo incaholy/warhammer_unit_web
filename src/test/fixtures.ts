@@ -389,7 +389,10 @@ export function makeKTRoster(over: Partial<KTRoster_Read> = {}): KTRoster_Read {
 export function makeKTGameWeapon(over: Partial<KTGameWeapon_Read> = {}): KTGameWeapon_Read {
   return {
     name: 'Ravening claws',
-    category: 'M',
+    // `ck_kt_weapon_category`: range / melee. NOT the letter the card prints -- this
+    // said 'M', which made `Weapons` render a 0" range for a melee profile. The
+    // catalog's own `makeKTWeapon`, written before this one, had it right.
+    category: 'melee',
     range: 0,
     attacks: 4,
     hit: 3,
@@ -411,7 +414,9 @@ export function makeKTGameRule(over: Partial<KTGameRule_Read> = {}): KTGameRule_
 export function makeKTGamePloy(over: Partial<KTGamePloy_Read> = {}): KTGamePloy_Read {
   return {
     name: 'Sudden Surge',
-    kind: 'strategic',
+    // `ck_kt_ploy_kind`: strategy / firefight. 'strategic' is the adjective, not the
+    // token.
+    kind: 'strategy',
     cp_cost: 1,
     description: 'A snapshotted ploy.',
     universal: false,

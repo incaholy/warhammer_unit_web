@@ -10,19 +10,63 @@
  * and a footnote marker dropped from one would be invisible in the other.
  *
  * `KTOperative_ListRead` is `KTOperative_Read` plus `kill_team_id`, so one set of
- * components serves the catalog listing, the team detail and a roster row. */
+ * components serves the catalog listing, the team detail and a roster row.
+ *
+ * KF4e adds a fourth caller, the battle screen, and it reads from the GAME's snapshot
+ * rather than the catalog (#22, #24). Those shapes are strict SUBSETS: a snapshotted
+ * weapon has no `id` and no `position`, because a copy taken for one battle needs
+ * neither — nothing addresses it and nothing reorders it. So the three components the
+ * battle screen shares now declare the fields they actually READ instead of a whole
+ * catalog row. That is a widening, so every existing caller still satisfies them.
+ *
+ * The alternative was a second weapon table for the game screen, which is the exact
+ * drift this module's first paragraph exists to prevent -- and the stakes are higher
+ * here than on the catalog page, because the game card is the one a player reads
+ * mid-activation to check a weapon rule. */
 
-import type {
-  KillTeamRule_Read,
-  KTAbility_Read,
-  KTEquipment_Read,
-  KTOperative_Read,
-  KTPloy_Read,
-  KTWeapon_Read,
-} from '../api/types'
+import type { KillTeamRule_Read, KTEquipment_Read, KTPloy_Read } from '../api/types'
 import styles from './killTeamCards.module.css'
 
-export function StatLine({ operative }: { operative: KTOperative_Read }) {
+/* ---- What the shared pieces actually read ----
+ *
+ * Declared as the minimum rather than as a catalog row, so the game's snapshot
+ * satisfies them too.
+ *
+ * `weapon_rules` is REQUIRED here, which took a correction. `openapi.json` lists it in
+ * `required` for `KTWeapon_Read` and not for `KTGameWeapon_Read`, so this first declared
+ * it optional and guarded it. But a defaulted RESPONSE field is always present, and
+ * `openapi-typescript` emits both as `weapon_rules: string[]` while the generated zod
+ * schema requires it in both -- so `undefined` was not expressible, the guard could not
+ * run, and no test could cover it. The raw `required` list is the wrong thing to read
+ * here; the generated types are what the client is held to. */
+
+/** The four numbers a stat line prints. */
+export interface StattedCard {
+  apl: number
+  move: number
+  save: number
+  wounds: number
+}
+
+/** One row of the weapon table. */
+export interface WeaponProfile {
+  name: string
+  category: string
+  range: number
+  attacks: number
+  hit: number
+  normal_damage: number
+  crit_damage: number
+  weapon_rules: string[]
+}
+
+/** One entry in the ability list. */
+export interface AbilityEntry {
+  name: string
+  description: string
+}
+
+export function StatLine({ operative }: { operative: StattedCard }) {
   return (
     <dl className={styles.stats}>
       <Stat label="APL" value={operative.apl} />
@@ -42,7 +86,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-export function Weapons({ weapons }: { weapons: KTWeapon_Read[] }) {
+export function Weapons({ weapons }: { weapons: WeaponProfile[] }) {
   return (
     <table className={styles.weapons}>
       <thead>
@@ -55,8 +99,12 @@ export function Weapons({ weapons }: { weapons: KTWeapon_Read[] }) {
         </tr>
       </thead>
       <tbody>
-        {weapons.map((weapon) => (
-          <tr key={weapon.id}>
+        {/* Keyed by name and index, not by `id`: a snapshotted weapon has none. Safe
+          * because these lists are static for the card's life -- nothing filters,
+          * reorders or inserts -- and the index alone would be less readable in
+          * devtools. Two profiles CAN share a name, which is why the index is in it. */}
+        {weapons.map((weapon, index) => (
+          <tr key={`${weapon.name}-${index}`}>
             <th scope="row" className={styles.weaponName}>
               {weapon.name}
               <span className={styles.weaponCategory}>
@@ -82,11 +130,11 @@ export function Weapons({ weapons }: { weapons: KTWeapon_Read[] }) {
   )
 }
 
-export function Abilities({ abilities }: { abilities: KTAbility_Read[] }) {
+export function Abilities({ abilities }: { abilities: AbilityEntry[] }) {
   return (
     <dl className={styles.entries}>
-      {abilities.map((ability) => (
-        <div key={ability.id} className={styles.entry}>
+      {abilities.map((ability, index) => (
+        <div key={`${ability.name}-${index}`} className={styles.entry}>
           <dt className={styles.entryName}>{ability.name}</dt>
           <dd className={styles.entryText}>{ability.description}</dd>
         </div>

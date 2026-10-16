@@ -34,8 +34,9 @@ import {
   useUpdateGameOperative,
 } from '../api/killTeamGamesQueries'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
-import { hasActivated } from '../lib/killTeamGame'
-import { Button, Input, SegmentedToggle, Tag } from '../ui'
+import { actionsUsed, hasActivated } from '../lib/killTeamGame'
+import { Button, Input, SegmentedToggle, Select, Tag } from '../ui'
+import { Abilities, Block, Keywords, StatLine, Weapons } from './killTeamCards'
 import styles from './killTeamGameRow.module.css'
 
 /** Matches `QuantityInput`'s debounce. Shared by value rather than by import because
@@ -115,7 +116,172 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
       </div>
 
       <Tokens operative={operative} who={who} update={update} suggestions={tokenSuggestions} />
+
+      <Datacard game={game} operative={operative} who={who} update={update} />
     </li>
+  )
+}
+
+/** The second of the two levels of detail `KILLTEAM.md` asks for (KF4e).
+ *
+ * The compact row above answers "how is it doing"; this answers "what can it do", and
+ * the reason both exist is the moment a player needs a weapon rule or an ability
+ * mid-activation. Collapsed by default: a battle has six to fourteen operatives and
+ * fourteen open datacards is not a list anyone can scan.
+ *
+ * Read entirely from the GAME's snapshot (#22, #24) -- the stats, the weapon profiles,
+ * the abilities and the keywords were all copied when the battle started, so this needs
+ * no catalog request and the card cannot change under a player mid-game. An operative
+ * that transforms (#19) gets its snapshot rewritten in place, so the card follows the
+ * model without the row's id moving.
+ *
+ * The pieces come from `killTeamCards.tsx`, the module the catalog and roster pages
+ * already share. Its own header says why: a second weapon table would drift from the
+ * first, and a footnote marker dropped from one would be invisible in the other. The
+ * stakes are higher here, because this is the card read mid-activation. */
+function Datacard({
+  game,
+  operative,
+  who,
+  update,
+}: {
+  game: KTGame_Read
+  operative: KTGameOperative_Read
+  who: string
+  update: UpdateMutation
+}) {
+  return (
+    <details className={styles.card}>
+      <summary className={styles.cardSummary} aria-label={`Datacard for ${who}`}>
+        Datacard
+      </summary>
+
+      <div className={styles.cardBody}>
+        {/* The stats the card was PRINTED with, beside the row's live wounds above --
+          * a reference sheet and a status sheet at once, which is what a printed
+          * datacard plus a handful of dice tokens does on the table. */}
+        <StatLine operative={operative} />
+        <Keywords keywords={operative.keywords} />
+
+        <Block title="Weapons">
+          <Weapons weapons={operative.weapons} />
+        </Block>
+
+        <Block title="Abilities">
+          <Abilities abilities={operative.abilities} />
+        </Block>
+
+        <Block title="Actions used">
+          <ActionsUsed game={game} operative={operative} who={who} update={update} />
+        </Block>
+      </div>
+    </details>
+  )
+}
+
+/** Which unique actions this operative has used, and when (#23).
+ *
+ * Shown for the WHOLE battle rather than this turning point, which is the opposite of
+ * the ploys beside the scoreboard, and deliberately so. Unique actions are abilities on
+ * the datacard whose limits differ -- once per battle, once per turning point -- and #23
+ * is that recording what was used AND WHEN lets the screen answer both without the
+ * tracker knowing either rule. Filtering to the current turning point would throw away
+ * the half that answers "once per battle".
+ *
+ * So nothing here counts or blocks. The same action twice is legitimate as far as the
+ * tracker is concerned, and the service agrees: `_validate_actions` checks only that the
+ * name is an ability on this operative's OWN snapshot, which is bookkeeping -- the
+ * difference between a tracker and a notepad -- and leaves the frequency to the players.
+ *
+ * The picker is built FROM `operative.abilities`, so a name the service would refuse
+ * cannot be chosen. Writes the whole array, like every write on this row (#7). */
+function ActionsUsed({
+  game,
+  operative,
+  who,
+  update,
+}: {
+  game: KTGame_Read
+  operative: KTGameOperative_Read
+  who: string
+  update: UpdateMutation
+}) {
+  const [name, setName] = useState('')
+  const used = actionsUsed(operative)
+
+  const write = (actions: { [key: string]: unknown }[]) =>
+    update.mutate({ rowId: operative.id, body: { actions_used: actions } })
+
+  const mark = () => {
+    if (!name) return
+    // The turning point comes from the GAME, the way the server stamps an activation
+    // (#61). An action recorded against a turning point that is not happening is a
+    // wrong row in the log.
+    write([...operative.actions_used, { name, turning_point: game.turning_point }])
+    setName('')
+  }
+
+  return (
+    <div className={styles.actions}>
+      {used.length === 0 ? (
+        <p className={styles.quiet}>None used.</p>
+      ) : (
+        <ul className={styles.actionList}>
+          {used.map((entry) => (
+            <li key={entry.index} className={styles.action}>
+              <span className={styles.actionName}>{entry.name}</span>
+              <span className={styles.actionWhen}>TP {entry.turningPoint}</span>
+              <button
+                type="button"
+                className={styles.actionRemove}
+                // Removed by its INDEX in the raw array, never by name: the same action
+                // can appear twice, so "remove this one" has no other expression.
+                aria-label={`Remove ${entry.name} used in turning point ${entry.turningPoint} from ${who}`}
+                onClick={() =>
+                  write(operative.actions_used.filter((_, i) => i !== entry.index))
+                }
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {operative.abilities.length === 0 ? (
+        <p className={styles.quiet}>This card prints no abilities.</p>
+      ) : (
+        <div className={styles.markAction}>
+          <Select
+            label="Action"
+            // The accessible name carries the ordinal like every other control on this
+            // row (#50): two open datacards would otherwise present two fields both
+            // named "Action". It CONTAINS the visible label rather than replacing it,
+            // so the name a person sees is still part of the name a screen reader
+            // announces -- an `aria-label` of just the operative's name would break
+            // that while fixing the ambiguity.
+            aria-label={`Action for ${who}`}
+            options={[
+              { value: '', label: 'Mark an action used…' },
+              ...operative.abilities.map((ability) => ({
+                value: ability.name,
+                label: ability.name,
+              })),
+            ]}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Button
+            variant="secondary"
+            aria-label={`Mark the action used for ${who}`}
+            onClick={mark}
+            disabled={!name}
+          >
+            Mark used
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -143,3 +143,133 @@
     flex: 1 1 8ch;
   }
 }
+
+/* ---- The datacard (KF4e) ----
+   The second level of detail, collapsed by default: a battle has six to fourteen
+   operatives, and fourteen open cards is not a list anyone can scan. */
+
+.card {
+  margin-top: 2px;
+}
+
+.cardSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* A generous hit area: this is tapped mid-activation with one hand. */
+  padding: 8px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.cardSummary::-webkit-details-marker {
+  display: none;
+}
+
+.cardSummary::before {
+  content: '+';
+  font-size: 12px;
+  line-height: 1;
+  color: var(--faint);
+}
+
+.card[open] > .cardSummary::before {
+  content: '−';
+}
+
+.cardSummary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px 4px 18px;
+  border-top: 1px solid var(--rule-light);
+}
+
+/* ---- Actions used ---- */
+
+.quiet {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.actionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.action {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0;
+}
+
+.action + .action {
+  border-top: 1px solid var(--rule-light);
+}
+
+.actionName {
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+
+.actionWhen {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.actionRemove {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  margin: 0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.actionRemove:hover {
+  color: var(--danger);
+}
+
+.actionRemove:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.markAction {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.markAction > :first-child {
+  flex: 1;
+  min-width: 0;
+}
