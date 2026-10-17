@@ -207,3 +207,59 @@ export function actionsUsed(
 ): UsageEntry[] {
   return usageEntries(operative.actions_used)
 }
+
+/** The STRATEGY ploys spent in the turning point being played (KF5).
+ *
+ * The quick reference the game screen keeps visible: a strategy ploy is chosen in the
+ * strategy phase and its effect runs on, so "which ones are we playing under?" is the
+ * question a player asks most often between activations.
+ *
+ * What this reports is still a FACT and not a duration. The ploy was spent, it was spent
+ * in this turning point, and its `kind` is `strategy` -- all three from data the game
+ * already carries. How long a strategy ploy lasts is a rule, and #1 leaves rules to the
+ * players, which is why the screen labels this "spent this turning point" rather than
+ * "active": the two are the same set in practice, and only one of them is a claim the
+ * tracker is entitled to make.
+ *
+ * `kind` comes from the game's own ploy snapshot (#24), so this needs no catalog read. A
+ * spent ploy the snapshot does not list is dropped rather than guessed at -- the service
+ * refuses one on the way in (`_validate_ploys_used`), so it means the snapshot changed
+ * under a row, which is not something to render. */
+export function strategyPloysThisTurningPoint(
+  game: Pick<KTGame_Read, 'ploys_used' | 'turning_point' | 'ploys'>,
+): UsageEntry[] {
+  const strategy = new Set(
+    game.ploys.filter((ploy) => ploy.kind === 'strategy').map((ploy) => ploy.name),
+  )
+  return ploysUsedThisTurningPoint(game).filter((entry) => strategy.has(entry.name))
+}
+
+/** One per-game pick the rules leave to the players: a label and what was chosen. */
+export interface GameChoice {
+  label: string
+  value: string
+}
+
+/** The game's `choices`, as named notes (KF5).
+ *
+ * The last of KF4/KF5's open shapes, and the only writable field on a game that the
+ * service does not validate AT ALL. `victory_points` gets a validator, `ploys_used` gets
+ * one, `actions_used` gets one; `choices` gets none, and `additionalProperties: true` in
+ * the schema accepts any object. That is not an oversight: #59 keeps Tac Ops and
+ * archetypes out of the project entirely -- neither is scraped, stored or gated -- so
+ * nothing here could enumerate either the labels or the values.
+ *
+ * So the client is the sole author of the shape, and the shape is a label to a line of
+ * text: the Accursed Gift a Chaos Cult took, the Tac Op a player drew. Structurally the
+ * same keyed document as `victory_points`, with strings where that has numbers.
+ *
+ * Being the sole author is exactly why the READ is narrowed. Nothing on the server would
+ * refuse `{"Tac Op": {"nested": true}}`, so a value that is not a string is dropped
+ * rather than rendered as `[object Object]`. Not reachable through this client, which is
+ * the same reason `usageEntries` guards its two lists. */
+export function gameChoices(game: Pick<KTGame_Read, 'choices'>): GameChoice[] {
+  return Object.entries(game.choices)
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+}

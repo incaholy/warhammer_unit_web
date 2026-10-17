@@ -914,44 +914,68 @@ base branch, so it must be lazy and may need splitting internally.
 
 ---
 
-## KF5. Run a battle: the reference and the log
+## KF5. Run a battle: the reference, and the log we keep
 
-**Status: Not started.** Roughly six endpoints, completing the game screen. `KILLTEAM.md` describes a
-**team tab** holding the rest of the reference: the kill team's rules, its ploys with CP costs, and the
-equipment picked for this battle — read-only, from the snapshot, with current state shown beside the
-stats it started with. "A reference sheet and a status sheet at once."
+**Status: ✅ Done.** Two tabs, the team's reference, the per-game `choices`, and a quick
+reference for the strategy ploys in play. **The event log is deliberately NOT rendered** — see below.
 
-**Equipment is per game, not per roster** (#17), revealed during play with
-`PATCH .../equipment/{row_id}`. The game read carries `equipment_limit` beside the pieces taken — the
-same shape as `Army_Read`'s `points_limit` beside `points_total` — and **the fifth piece is accepted**
-(#57). The allowance is displayed, never enforced: *"a frontend that had to hard-code 4 to warn a
-player would be holding a rule of the game."*
+**What this entry used to describe, and where it actually landed.** It was written before KF4c–KF4g
+and five of its paragraphs became history: revealing equipment with `PATCH .../equipment/{row_id}`
+and adding the datacards it grants (KF4g), spending a ploy as one operation (KF4c), transform in
+place (KF4g), and the `undo` control (KF4c). What was genuinely left was the reference half, and
+four fields of `KTGame_Read` that nothing rendered: `rules`, the full `ploys` detail, `choices` and
+`events`.
 
-**Revealing equipment does not add the operatives it grants.** The client reveals the piece, then adds
-the datacards — four generic calls, not one special one. Settled, not pending.
+**Two tabs, Battle and Reference**, which is what finally justifies the tablist KF4c shipped
+without — one tab is noise. The line between them is whether a panel can change the game:
+everything behind Battle writes, nothing behind Reference does. `KILLTEAM.md` asks for a "team tab"
+holding the rest of the reference, and this is it.
 
-**Spending a ploy is one operation** (#65): `POST .../ploys` with a name. The server reads `cp_cost`
-from the game's own snapshot and deducts it in the same event, so one undo restores both the CP and the
-log entry. The client must not send a cost. A ploy the snapshot does not list is refused, and so is one
-the CP will not cover. How often a ploy may be used is shown, not counted.
+Equipment **splits** rather than moving. KF4g's controls — take, reveal, remove, the count against
+`equipment_limit` — stay in Battle; the Reference tab shows each taken piece's snapshotted `text`,
+which nothing rendered before. No duplicated controls.
 
-**Transform happens in place** (#19): same row id, same tokens, order and board status; the catalog
-pointer moves and the datacard is re-snapshotted. It is the same miniature on the table, so the screen
-needs nothing new — and because both `add` and `transform` are event-logged, the log can show what a
-model used to be (#18).
+**`Rules` and `Ploys` widen; `EquipmentList` could not.** The same move KF4e made for `StatLine`,
+`Weapons` and `Abilities`: a snapshotted rule or ploy is a strict SUBSET of the catalog's, missing
+only `id` and `position`, so the shared components now declare the fields they read. A snapshotted
+piece of equipment is **not** a subset — the catalog calls its prose `description` and the game calls
+it `text`, and the row adds `revealed`. A rename is not a narrowing, so the battle screen renders its
+taken pieces through a new `Entries` component instead. The ploys also split on the `universal` flag
+the game read carries and the catalog shapes do not, so this needs no second request where the team
+page fetches `/universal`.
 
-**Undo, and no redo** (#8). An event payload names the fields it touched with their `before` and
-`after`; `undo` writes the `before` values back, appends a compensating event, and marks the original
-`undone_by` — so the log stays append-only and each further undo walks back to the newest
-not-yet-undone event (#58). The UI can therefore render the log and identify what has already been
-reverted.
+**`choices{}` closes the last open shape**, as a label to a line of text: the Accursed Gift, a Tac Op
+taken. It is the only writable field on a game the service validates **not at all** — `victory_points`,
+`ploys_used` and `actions_used` each get a validator and this gets none, because #59 keeps Tac Ops and
+archetypes out of the project entirely, so nothing could enumerate either the labels or the values.
+Being the sole author of the shape is why the read is narrowed and why the write drops what the read
+refused: a screen must not edit a document it is not displaying.
 
-**A finished game is closed to edits but fully readable, and `undo` is the way back out** (#66). There
-is no `reopen` route: undoing the event that finished the game reopens it. Deleting a finished game is
-allowed. A write to one answers 400 on the `status` field.
+**A quick reference for the strategy ploys spent this turning point**, in the controls band. It
+reports a fact and not a duration — the ploy was spent, it was spent in this turning point, and its
+`kind` is `strategy`, all from data the game already carries. How long one lasts is a rule and #1
+leaves rules to the players, so it is labelled "spent this turning point" rather than "active": the
+same set, and only one of them is a claim the tracker may make. Names only; a description is several
+lines and sits in the section below and in the Reference tab.
 
-**Open, and closed here:** the shape of `choices{}` — the per-game picks the rules leave to the
-players, a chosen Tac Op beside the Accursed Gift, free-form by #59.
+It rides along with the buttons rather than claiming a region. The sticky stack on this screen is
+already the app header's two rows plus the scoreboard, the controls and now the tablist; a fourth
+element would take most of a phone before an operative appeared. It is paid for by the controls
+laying out as a **row** on a phone instead of a column — two stacked buttons cost more height than
+the chip row does — and it is absent entirely when no strategy ploys are in play.
+
+**The event log is ours, not the player's.** It is a developer and debugging record, so this slice
+renders none of it. That makes a measurement worth recording rather than acting on yet:
+`KTGame_Read.events` is embedded with **no cap** (`killteam_game.py` serialises the whole
+relationship), and with a realistic `before`/`after` payload of 238 bytes an event, a 12-operative
+battle costs **8.8 kB with no log, 20.5 kB at 50 events and 56 kB at 200** — and KF4d refetches the
+game after every row write. A four-turning-point battle plausibly logs 150–250 events.
+
+So the client pays, on every write, for data it never displays. The ask of the backend is therefore
+simpler than pagination: `KTGame_Read` should drop `events`, and #91's paged collection can serve
+whoever needs them — us, and #72's polling. Deferred deliberately. It is safe to defer because
+`undone_by` is a field on each event, so "has this been reverted?" needs no cross-event computation
+and a paged read is a drop-in swap of the data source rather than a redesign.
 
 **Still deferred:** no redo, by #58. No Tac Ops or archetype gating, by #59 — gating a choice by
 archetype would be applying a rule, which #1 puts out of scope.

@@ -45,15 +45,44 @@ import {
   gameStateLabel,
   initiativeLabel,
   ploysUsedThisTurningPoint,
+  strategyPloysThisTurningPoint,
   totalVictoryPoints,
+  gameChoices,
 } from '../lib/killTeamGame'
-import { Button, EmptyState, Eyebrow, Field, Modal, SegmentedToggle, Select } from '../ui'
+import {
+  Button,
+  EmptyState,
+  Eyebrow,
+  Field,
+  Modal,
+  SegmentedToggle,
+  Select,
+  TabPanel,
+  Tabs,
+  Tag,
+  type Tab,
+} from '../ui'
+import { Block as RefBlock, Entries, Ploys, Rules } from './killTeamCards'
 import { ChipEditor, Stepper } from './killTeamControls'
 import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
 
+type TabId = 'battle' | 'reference'
+
+/** Two panels, which is what finally justifies the tablist KF4c shipped without.
+ *
+ * `KILLTEAM.md`'s Frontend section asks for a "team tab" holding the rest of the
+ * reference. The battle half writes and the reference half does not, which is the
+ * cleanest line to draw: everything behind Battle can change the game, nothing behind
+ * Reference can. */
+const TABS: Tab<TabId>[] = [
+  { id: 'battle', label: 'Battle' },
+  { id: 'reference', label: 'Reference' },
+]
+
 export default function KillTeamGameView() {
   const { gameId = '' } = useParams()
+  const [tab, setTab] = useState<TabId>('battle')
   const gameQuery = useGame(gameId)
 
   if (gameQuery.isPending) {
@@ -90,14 +119,38 @@ export default function KillTeamGameView() {
     <section className={styles.view}>
       <Scoreboard game={game} />
       <Controls game={game} />
-      <div className={styles.body}>
-        <ScoreAndCommand game={game} />
-        <Killzone game={game} />
-        <ThisTurningPoint game={game} />
-        <Equipment game={game} />
-        <Operatives game={game} />
-        <DeleteBattle game={game} />
+
+      <div className={styles.tabBar}>
+        <Tabs
+          tabs={TABS}
+          value={tab}
+          onChange={setTab}
+          aria-label="Battle sections"
+          idPrefix="game"
+        />
       </div>
+
+      {tab === 'battle' && (
+        <TabPanel id="battle" idPrefix="game">
+          <div className={styles.body}>
+            <ScoreAndCommand game={game} />
+            <Killzone game={game} />
+            <Choices game={game} />
+            <ThisTurningPoint game={game} />
+            <Equipment game={game} />
+            <Operatives game={game} />
+            <DeleteBattle game={game} />
+          </div>
+        </TabPanel>
+      )}
+
+      {tab === 'reference' && (
+        <TabPanel id="reference" idPrefix="game">
+          <div className={styles.body}>
+            <GameReference game={game} />
+          </div>
+        </TabPanel>
+      )}
     </section>
   )
 }
@@ -175,6 +228,35 @@ function Controls({ game }: { game: KTGame_Read }) {
       <Button variant="secondary" onClick={() => undo.mutate()} disabled={undo.isPending}>
         {undo.isPending ? 'Undoing…' : 'Undo'}
       </Button>
+
+      <StrategyPloys game={game} />
+    </div>
+  )
+}
+
+/** The quick reference: which strategy ploys were spent this turning point (KF5).
+ *
+ * Inside the controls band rather than as a region of its own, deliberately. The sticky
+ * stack is already the app header, this screen's scoreboard and these controls; a fourth
+ * element would take most of a phone before an operative appeared. Riding along with the
+ * buttons costs one row, which the controls paid for by laying out as a ROW on a phone
+ * instead of a column -- two stacked buttons cost more height than this does.
+ *
+ * Names only. A ploy's description is several lines and belongs in the section below and
+ * in the Reference tab, both one tap away; what a player wants at a glance is which ones
+ * are running.
+ *
+ * Absent entirely when none are spent, so a battle with no ploys in play pays nothing. */
+function StrategyPloys({ game }: { game: KTGame_Read }) {
+  const inPlay = strategyPloysThisTurningPoint(game)
+  if (inPlay.length === 0) return null
+  return (
+    <div className={styles.strategyPloys} aria-label="Strategy ploys spent this turning point">
+      {inPlay.map((entry) => (
+        <Tag key={entry.index} className={styles.strategyPloy}>
+          {entry.name}
+        </Tag>
+      ))}
     </div>
   )
 }
@@ -728,5 +810,152 @@ function FieldPicker({ game, open }: { game: KTGame_Read; open: boolean }) {
               Field
             </Button>
           </div>
+  )
+}
+
+/** The per-game picks the rules leave to the players (KF5).
+ *
+ * The last open shape, and the only writable field on a game that the service validates
+ * not at all -- #59 keeps Tac Ops and archetypes out of the project, so nothing here
+ * could enumerate the labels or the values. `gameChoices` explains the shape and why the
+ * read is narrowed.
+ *
+ * The editor is the one `ScoreAndCommand` already uses for victory points by source,
+ * because it is the same keyed document with strings where that has numbers. Writes send
+ * the whole document (#7). */
+function Choices({ game }: { game: KTGame_Read }) {
+  const update = useUpdateGame(game.id)
+  const [label, setLabel] = useState('')
+  const [value, setValue] = useState('')
+
+  const picks = gameChoices(game)
+
+  const write = (next: Record<string, string>) => update.mutateAsync({ choices: next })
+
+  const add = () => {
+    const name = label.trim()
+    const chosen = value.trim()
+    if (!name || !chosen) return
+    write({ ...asStrings(game.choices), [name]: chosen })
+    setLabel('')
+    setValue('')
+  }
+
+  return (
+    <section className={styles.section} aria-labelledby="choices-heading">
+      <h2 id="choices-heading" className={styles.sectionTitle}>
+        Choices
+      </h2>
+
+      {picks.length === 0 ? (
+        <p className={styles.quiet}>Nothing recorded. The Accursed Gift, a Tac Op taken.</p>
+      ) : (
+        <ul className={styles.sources}>
+          {picks.map((pick) => (
+            <li key={pick.label} className={styles.scoreRow}>
+              <span className={styles.scoreLabel}>{pick.label}</span>
+              <span className={styles.choiceValue}>{pick.value}</span>
+              <button
+                type="button"
+                className={styles.removeSource}
+                aria-label={`Remove the choice ${pick.label}`}
+                onClick={() => {
+                  const next = asStrings(game.choices)
+                  delete next[pick.label]
+                  write(next)
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className={styles.addChoice}>
+        <Field
+          label="Choice"
+          placeholder="Tac Op"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+        <Field
+          label="What was chosen"
+          placeholder="Seek and Destroy"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <Button variant="secondary" onClick={add} disabled={!label.trim() || !value.trim()}>
+          Record
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+/** The document to write back, with anything this client cannot have written removed.
+ *
+ * A write is absolute (#7), so it has to send the WHOLE document -- which means reading
+ * back whatever is in there. Spreading `game.choices` raw would carry a non-string value
+ * through untouched, and `gameChoices` has already decided not to show it: the screen
+ * would then be editing a document it is not displaying. Dropping it on write is the
+ * honest half of dropping it on read. */
+function asStrings(choices: KTGame_Read['choices']): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(choices)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
+/** The reference half: what this battle was given, read-only (KF5).
+ *
+ * Entirely from the game's own snapshot (#22, #24), so this tab makes no request --
+ * the same property KF4e's datacard has, and for the same reason.
+ *
+ * `Rules` and `Ploys` are the shared components the catalog and roster pages use, widened
+ * in KF5 to take the fields they read; a snapshotted rule or ploy is a subset of the
+ * catalog's, missing only `id` and `position`. The ploys split on the `universal` flag
+ * the game read carries, which the catalog shapes do not have -- so this needs no second
+ * list, unlike the team page that fetches `/universal` separately.
+ *
+ * Equipment is rendered HERE rather than through `EquipmentList`, which is the one
+ * reference component that could not widen: the catalog calls the prose `description`
+ * and a snapshot calls it `text`, and a rename is not a narrowing. The taken pieces also
+ * carry `revealed`, which no catalog row has. */
+function GameReference({ game }: { game: KTGame_Read }) {
+  const teamPloys = game.ploys.filter((ploy) => !ploy.universal)
+  const universalPloys = game.ploys.filter((ploy) => ploy.universal)
+
+  return (
+    <div className={styles.reference}>
+      <RefBlock title="Team rules">
+        <Rules rules={game.rules} />
+      </RefBlock>
+
+      <RefBlock title="Ploys">
+        <Ploys ploys={teamPloys} />
+        {universalPloys.length > 0 && (
+          <>
+            <p className={styles.subhead}>Universal — every team may use these</p>
+            <Ploys ploys={universalPloys} />
+          </>
+        )}
+      </RefBlock>
+
+      <RefBlock title="Equipment taken">
+        {/* Through `Entries` rather than `EquipmentList`: a snapshotted piece calls its
+          * prose `text` where the catalog calls it `description`, and carries `revealed`,
+          * which no catalog row has. Revealing can change what is on the table (#18), so
+          * that state belongs beside the text and not only on the control. */}
+        <Entries
+          entries={game.equipment.map((piece) => ({
+            name: piece.name,
+            text: piece.text,
+            aside: piece.revealed ? 'revealed' : null,
+          }))}
+        />
+      </RefBlock>
+    </div>
   )
 }

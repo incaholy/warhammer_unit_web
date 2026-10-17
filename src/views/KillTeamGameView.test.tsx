@@ -12,6 +12,7 @@ import {
   makeKTGameEquipment,
   makeKTGameOperative,
   makeKTGamePloy,
+  makeKTGameRule,
   makeKTOperative,
   makeUniversal,
 } from '../test/fixtures'
@@ -721,5 +722,217 @@ describe('KillTeamGameView: fielding a datacard the battle produced', () => {
       await screen.findByText('This kill team prints no datacards that arrive mid-battle.'),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Datacard')).not.toBeInTheDocument()
+  })
+})
+
+/* ---- Tabs, the reference and the quick reference (KF5) ---- */
+
+describe('KillTeamGameView: the two tabs', () => {
+  it('opens on Battle, with the reference behind its own tab', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+
+    const tabs = screen.getByRole('tablist', { name: 'Battle sections' })
+    expect(within(tabs).getByRole('tab', { name: 'Battle' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    // KF4c shipped no tablist on purpose: one tab is noise. This is the second panel
+    // that justifies it.
+    expect(within(tabs).getByRole('tab', { name: 'Reference' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
+    expect(screen.getByRole('heading', { name: 'Operatives' })).toBeInTheDocument()
+    // And the reference panel is ABSENT, not merely unselected. Asserting only that the
+    // Battle panel disappears on switching let a mutant that rendered both survive: the
+    // switch hides Battle either way, so the gap was only visible on first render.
+    expect(screen.queryByRole('heading', { name: 'Team rules' })).not.toBeInTheDocument()
+  })
+
+  it('swaps the panels rather than showing both', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+
+    expect(screen.getByRole('heading', { name: 'Team rules' })).toBeInTheDocument()
+    // The write surface is gone, which is the line the tabs draw: everything behind
+    // Battle can change the game and nothing behind Reference can.
+    expect(screen.queryByRole('heading', { name: 'Operatives' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete battle' })).not.toBeInTheDocument()
+  })
+})
+
+describe('KillTeamGameView: the reference', () => {
+  const game = makeKTGame({
+    rules: [
+      makeKTGameRule({ name: 'Swarming Instincts', description: 'A printed rule.', group: null }),
+    ],
+    ploys: [
+      makeKTGamePloy({ name: 'Sudden Surge', kind: 'strategy', cp_cost: 1, universal: false }),
+      makeKTGamePloy({ name: 'Command Re-roll', kind: 'strategy', cp_cost: 1, universal: true }),
+    ],
+    equipment: [
+      makeKTGameEquipment({ name: 'Tunnel markers', text: 'Place a marker.', revealed: true }),
+    ],
+  })
+
+  const openReference = async () => {
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+  }
+
+  it("renders the team's rules, which nothing rendered before KF5", async () => {
+    stub(game)
+    await openReference()
+    expect(screen.getByText('Swarming Instincts')).toBeInTheDocument()
+    expect(screen.getByText('A printed rule.')).toBeInTheDocument()
+  })
+
+  it('splits the ploys on the universal flag the game read carries', async () => {
+    stub(game)
+    await openReference()
+    // The catalog shapes have no `universal`, so the team page fetches `/universal`
+    // separately. A game's snapshot carries both lists in one, flagged.
+    expect(screen.getByText(/Universal — every team may use these/)).toBeInTheDocument()
+    expect(screen.getByText('Command Re-roll')).toBeInTheDocument()
+    expect(screen.getByText('Sudden Surge')).toBeInTheDocument()
+  })
+
+  it("shows each taken piece's snapshotted text and whether it is revealed", async () => {
+    stub(game)
+    await openReference()
+    // `text`, not `description` -- the rename is why `EquipmentList` could not widen.
+    expect(screen.getByText('Place a marker.')).toBeInTheDocument()
+    expect(screen.getByText('revealed')).toBeInTheDocument()
+  })
+
+  it('makes no request to render, because it reads the snapshot', async () => {
+    const seen = stubWithCatalog(game)
+    await openReference()
+    await screen.findByRole('heading', { name: 'Team rules' })
+    // #22, #24: the same property KF4e's datacard has.
+    expect(catalogCalls(seen)).toEqual([])
+  })
+})
+
+describe('KillTeamGameView: the strategy ploy quick reference', () => {
+  const ploys = [
+    makeKTGamePloy({ name: 'Sudden Surge', kind: 'strategy' }),
+    makeKTGamePloy({ name: 'Quick Reflexes', kind: 'firefight' }),
+  ]
+
+  it('names the strategy ploys spent this turning point', async () => {
+    stub(
+      makeKTGame({
+        turning_point: 2,
+        ploys,
+        ploys_used: [
+          { name: 'Sudden Surge', turning_point: 2 },
+          { name: 'Quick Reflexes', turning_point: 2 },
+        ],
+      }),
+    )
+    renderView()
+    const quick = await screen.findByLabelText('Strategy ploys spent this turning point')
+    // A strategy ploy is what a player is still playing under; a firefight ploy resolved
+    // where it was used. Both are in the log; only one answers "what are we under?".
+    expect(within(quick).getByText('Sudden Surge')).toBeInTheDocument()
+    expect(within(quick).queryByText('Quick Reflexes')).not.toBeInTheDocument()
+  })
+
+  it('is absent entirely when none are in play', async () => {
+    // Costs nothing on a battle with no ploys spent, which is most of a battle.
+    stub(makeKTGame({ turning_point: 2, ploys, ploys_used: [] }))
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    expect(
+      screen.queryByLabelText('Strategy ploys spent this turning point'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('drops one spent in an earlier turning point', async () => {
+    stub(
+      makeKTGame({
+        turning_point: 3,
+        ploys,
+        ploys_used: [{ name: 'Sudden Surge', turning_point: 2 }],
+      }),
+    )
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    expect(
+      screen.queryByLabelText('Strategy ploys spent this turning point'),
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('KillTeamGameView: choices', () => {
+  it('records a pick as a named note, writing the whole document', async () => {
+    const seen = stub(makeKTGame({ choices: { 'Accursed Gift': 'Mutation' } }))
+    renderView()
+    fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: '  Tac Op  ' } })
+    fireEvent.change(screen.getByLabelText('What was chosen'), {
+      target: { value: '  Seek and Destroy  ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        choices: { 'Accursed Gift': 'Mutation', 'Tac Op': 'Seek and Destroy' },
+        version: 7,
+      })
+    })
+  })
+
+  it('needs both halves before it will record', async () => {
+    stub(makeKTGame({ choices: {} }))
+    renderView()
+    fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: 'Tac Op' } })
+    expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled()
+  })
+
+  it('removes a pick from the document', async () => {
+    const seen = stub(makeKTGame({ choices: { 'Accursed Gift': 'Mutation', 'Tac Op': 'Hold' } }))
+    renderView()
+    fireEvent.click(await screen.findByLabelText('Remove the choice Tac Op'))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        choices: { 'Accursed Gift': 'Mutation' },
+        version: 7,
+      })
+    })
+  })
+
+  it('does not write back a value it refused to display', async () => {
+    // `choices` is the one writable field the service does not validate, so a non-string
+    // can be in there. `gameChoices` drops it on READ; writing it back untouched would
+    // mean editing a document the screen is not showing.
+    const seen = stub(
+      makeKTGame({ choices: { Good: 'yes', Nested: { a: 1 } } as Record<string, unknown> }),
+    )
+    renderView()
+    fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: 'Tac Op' } })
+    fireEvent.change(screen.getByLabelText('What was chosen'), { target: { value: 'Hold' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Record' }))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        choices: { Good: 'yes', 'Tac Op': 'Hold' },
+        version: 7,
+      })
+    })
+  })
+
+  it('says what the field is for when nothing is recorded', async () => {
+    stub(makeKTGame({ choices: {} }))
+    renderView()
+    expect(
+      await screen.findByText(/The Accursed Gift, a Tac Op taken/),
+    ).toBeInTheDocument()
   })
 })

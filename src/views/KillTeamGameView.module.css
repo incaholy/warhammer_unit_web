@@ -272,8 +272,12 @@
     width: 100%;
   }
 
+  /* A ROW, not a column. Two stacked buttons cost more height than the quick
+     reference underneath them does, and the sticky stack on this screen is already the
+     app header's two rows plus the scoreboard, the controls and the tablist. Wrapping
+     is allowed, so a long advance label still fits. */
   .controls {
-    flex-direction: column;
+    flex-wrap: wrap;
   }
 }
 
@@ -419,4 +423,73 @@
 .field > :first-child {
   flex: 1;
   min-width: 14ch;
+}
+
+/* ---- Tabs and the reference panel (KF5) ----
+   The tablist sticks with the scoreboard and the controls above it, so switching tabs
+   never means scrolling up first. That makes three sticky elements on this screen plus
+   the app header's two rows, which is why the quick reference below rides along with the
+   controls instead of claiming a fourth. */
+
+.tabBar {
+  position: sticky;
+  top: 0;
+  z-index: 38;
+  background: var(--bg);
+  padding-top: 10px;
+}
+
+.reference {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 8px;
+}
+
+.subhead {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 8px;
+}
+
+/* ---- The quick reference ---- */
+
+.strategyPloys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  /* Takes the whole row under the two buttons rather than competing with them for
+     width: a ploy name is long and a battle can have several in play. */
+  flex-basis: 100%;
+}
+
+.strategyPloy {
+  font-size: 10px;
+}
+
+/* ---- Choices ---- */
+
+.choiceValue {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.addChoice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.addChoice > :first-child,
+.addChoice > :nth-child(2) {
+  flex: 1;
+  min-width: 12ch;
 }

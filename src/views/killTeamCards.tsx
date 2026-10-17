@@ -24,7 +24,7 @@
  * here than on the catalog page, because the game card is the one a player reads
  * mid-activation to check a weapon rule. */
 
-import type { KillTeamRule_Read, KTEquipment_Read, KTPloy_Read } from '../api/types'
+import type { KTEquipment_Read } from '../api/types'
 import styles from './killTeamCards.module.css'
 
 /* ---- What the shared pieces actually read ----
@@ -63,6 +63,21 @@ export interface WeaponProfile {
 /** One entry in the ability list. */
 export interface AbilityEntry {
   name: string
+  description: string
+}
+
+/** One entry in the team-rules list (KF5). */
+export interface RuleEntry {
+  name: string
+  description: string
+  group?: string | null
+}
+
+/** One entry in the ploy list (KF5). */
+export interface PloyEntry {
+  name: string
+  kind: string
+  cp_cost: number
   description: string
 }
 
@@ -157,12 +172,15 @@ export function Block({ title, children }: { title: string; children: React.Reac
   )
 }
 
-export function Rules({ rules }: { rules: KillTeamRule_Read[] }) {
+export function Rules({ rules }: { rules: RuleEntry[] }) {
   if (rules.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
     <dl className={styles.entries}>
-      {rules.map((rule) => (
-        <div key={rule.id} className={styles.entry}>
+      {/* Keyed by name and index, not `id`: a game's snapshotted rule has none. Same
+        * reason the weapon table is (KF4e), and safe for the same reason -- these lists
+        * are static for the read's life. */}
+      {rules.map((rule, index) => (
+        <div key={`${rule.name}-${index}`} className={styles.entry}>
           <dt className={styles.entryName}>
             {rule.name}
             {/* A rule's group is printed beside it when it has one. */}
@@ -175,12 +193,12 @@ export function Rules({ rules }: { rules: KillTeamRule_Read[] }) {
   )
 }
 
-export function Ploys({ ploys }: { ploys: KTPloy_Read[] }) {
+export function Ploys({ ploys }: { ploys: PloyEntry[] }) {
   if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
     <dl className={styles.entries}>
-      {ploys.map((ploy) => (
-        <div key={ploy.id} className={styles.entry}>
+      {ploys.map((ploy, index) => (
+        <div key={`${ploy.name}-${index}`} className={styles.entry}>
           <dt className={styles.entryName}>
             {ploy.name}
             <span className={styles.aside}>
@@ -194,6 +212,44 @@ export function Ploys({ ploys }: { ploys: KTPloy_Read[] }) {
   )
 }
 
+/** One name-and-prose entry, with an optional note beside the name. */
+export interface Entry {
+  name: string
+  text: string
+  aside?: string | null
+}
+
+/** The name-and-prose list the reference blocks are built from (KF5).
+ *
+ * Exported so a caller with a shape none of the three typed lists fit can still render
+ * into the same styling rather than copying four class names into its own stylesheet.
+ * The battle screen's TAKEN equipment is that caller: its prose field is `text` where the
+ * catalog's is `description`, and it carries `revealed`, which no catalog row has. */
+export function Entries({ entries }: { entries: Entry[] }) {
+  if (entries.length === 0) return <p className={styles.quiet}>None.</p>
+  return (
+    <dl className={styles.entries}>
+      {entries.map((entry, index) => (
+        <div key={`${entry.name}-${index}`} className={styles.entry}>
+          <dt className={styles.entryName}>
+            {entry.name}
+            {entry.aside && <span className={styles.aside}>{entry.aside}</span>}
+          </dt>
+          <dd className={styles.entryText}>{entry.text}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** Catalog equipment only, and the ONE reference component that does not widen (KF5).
+ *
+ * `Rules` and `Ploys` take the fields they read, so a game's snapshotted rows satisfy
+ * them -- those are subsets, missing only `id` and `position`. A snapshotted piece of
+ * equipment is NOT a subset: the catalog calls the prose `description` and the game
+ * calls it `text`, and the game row adds `revealed` and `equipment_id`. A rename is not
+ * a narrowing, so the battle screen renders its taken pieces itself rather than this
+ * being widened into something that takes either name. */
 export function EquipmentList({ items }: { items: KTEquipment_Read[] }) {
   if (items.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
@@ -220,10 +276,10 @@ export function Reference({
   universalPloys,
   universalEquipment,
 }: {
-  rules: KillTeamRule_Read[]
-  ploys: KTPloy_Read[]
+  rules: RuleEntry[]
+  ploys: PloyEntry[]
   equipment: KTEquipment_Read[]
-  universalPloys?: KTPloy_Read[]
+  universalPloys?: PloyEntry[]
   universalEquipment?: KTEquipment_Read[]
 }) {
   return (

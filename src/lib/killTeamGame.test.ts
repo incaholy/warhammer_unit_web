@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   advanceLabel,
+  gameChoices,
   GAME_STATUSES,
   gameStateLabel,
   gameStatusLabel,
@@ -8,6 +9,7 @@ import {
   initiativeLabel,
   LAST_TURNING_POINT,
   ploysUsedThisTurningPoint,
+  strategyPloysThisTurningPoint,
   totalVictoryPoints,
 } from './killTeamGame'
 
@@ -212,5 +214,81 @@ describe('gameStateLabel', () => {
     expect(gameStateLabel({ status: 'in progress', turning_point: 2, phase: 'firefight' })).toBe(
       'in progress',
     )
+  })
+})
+
+describe('strategyPloysThisTurningPoint', () => {
+  const ploys = [
+    { name: 'Sudden Surge', kind: 'strategy', cp_cost: 1, description: 'x', universal: false },
+    { name: 'Quick Reflexes', kind: 'firefight', cp_cost: 1, description: 'y', universal: false },
+  ]
+
+  it('keeps the strategy ploys spent in the turning point being played', () => {
+    const used = strategyPloysThisTurningPoint({
+      turning_point: 2,
+      ploys,
+      ploys_used: [
+        { name: 'Sudden Surge', turning_point: 2 },
+        { name: 'Quick Reflexes', turning_point: 2 },
+      ],
+    })
+    // Firefight ploys resolve where they are used; a strategy ploy is what a player is
+    // still playing under, which is the question the quick reference answers.
+    expect(used.map((e) => e.name)).toEqual(['Sudden Surge'])
+  })
+
+  it('drops a strategy ploy spent in an EARLIER turning point', () => {
+    const used = strategyPloysThisTurningPoint({
+      turning_point: 3,
+      ploys,
+      ploys_used: [{ name: 'Sudden Surge', turning_point: 2 }],
+    })
+    expect(used).toEqual([])
+  })
+
+  it('reads `kind` from the game\'s own snapshot, not from a vocabulary', () => {
+    // Same spent entry, and the snapshot says it is a firefight ploy -- so it is one.
+    // #24: the snapshot is the game's truth about what its ploys are.
+    const used = strategyPloysThisTurningPoint({
+      turning_point: 1,
+      ploys: [{ name: 'Sudden Surge', kind: 'firefight', cp_cost: 1, description: 'x', universal: false }],
+      ploys_used: [{ name: 'Sudden Surge', turning_point: 1 }],
+    })
+    expect(used).toEqual([])
+  })
+
+  it('drops a spent ploy the snapshot does not list', () => {
+    // `_validate_ploys_used` refuses one on the way in, so this means the snapshot moved
+    // under a row -- not something to render a guess for.
+    const used = strategyPloysThisTurningPoint({
+      turning_point: 1,
+      ploys,
+      ploys_used: [{ name: 'Not A Ploy', turning_point: 1 }],
+    })
+    expect(used).toEqual([])
+  })
+})
+
+describe('gameChoices', () => {
+  it('reads the per-game picks as named notes, sorted by label', () => {
+    expect(
+      gameChoices({ choices: { 'Tac Op': 'Seek and Destroy', 'Accursed Gift': 'Mutation' } }),
+    ).toEqual([
+      { label: 'Accursed Gift', value: 'Mutation' },
+      { label: 'Tac Op', value: 'Seek and Destroy' },
+    ])
+  })
+
+  it('drops a value that is not a string', () => {
+    // `choices` is the one writable field the service does not validate at all, and
+    // `additionalProperties: true` accepts any object -- so a non-string would otherwise
+    // render as `[object Object]`.
+    expect(
+      gameChoices({ choices: { Good: 'yes', Nested: { a: 1 }, Numeric: 3, Nothing: null } }),
+    ).toEqual([{ label: 'Good', value: 'yes' }])
+  })
+
+  it('is empty for a battle that has recorded none', () => {
+    expect(gameChoices({ choices: {} })).toEqual([])
   })
 })
