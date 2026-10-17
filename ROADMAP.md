@@ -826,7 +826,7 @@ reachable from a stale page and needs a message.
 
 ## KF4. Run a battle: the state half
 
-**Status: In progress.** Built: KF4a (the data layer and the 409 flow), KF4b (the battles list and
+**Status: ✅ Done.** Built: KF4a (the data layer and the 409 flow), KF4b (the battles list and
 the create overlay), KF4c (the battle screen's frame, scoreboard, advance and undo), KF4d (the
 writes on an operative row), KF4e (the datacard behind a card) and KF4f (the score, the killzone
 markers, deleting a battle, and the cache and concurrency work the writes needed).
@@ -836,7 +836,11 @@ snapshot does not carry: `KTGame_Read.equipment` is what has been TAKEN and `ope
 been FIELDED, unlike `ploys`, which IS the team's whole list — which is why spending a ploy needs
 nothing extra. So those three read the catalog, which narrows the claim below rather than fitting
 inside it.
-Roughly nine endpoints, at `/kill-team/games` and `/kill-team/games/:id`.
+11 paths carrying 15 operations, at `/kill-team/games` and `/kill-team/games/:id`. (This read
+"roughly nine endpoints", which was wrong twice over: the figure, and the word. `endpoint` reads as
+both a path and a method-plus-path, so a count beside it cannot be re-derived — the backend's own
+`tests/test_docs_style.py` refuses the pairing for exactly that reason, and this repo has no
+equivalent gate.)
 This is the screen the feature exists for, and `KILLTEAM.md`'s own Frontend section specifies it:
 **phone-first**, for use at the table. Large touch targets, one card per operative, and turning point,
 CP and VP always visible.
