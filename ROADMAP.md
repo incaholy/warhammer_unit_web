@@ -1031,6 +1031,32 @@ log gains an actor, and the undo control must NAME the actor and the event befor
 (#70). Deleting a battle and minting an invite become host-only, and a participant refused one gets
 **403** rather than the house 404 (#82).
 
+**Reported from use, and mostly already designed.** Someone played a battle against an "opponent"
+and hit three things. Two of them are what K8 and K9 exist to fix, and the third is ours alone:
+
+1. *"The creator has to know the opponent's account name."* — They do not, and never will: `#71`
+   specifies an **invite code**, and its details read as if written for exactly this moment. Eight
+   characters from `secrets`, with `O`/`0` and `I`/`1`/`l` removed from the alphabet — an alphabet
+   chosen so a code can be read off one screen to a person standing next to you. ONE slot, cleared on
+   redemption, so it is single use; a 15-minute lifetime; redeemed by `POST /me/kill-team/joins` with
+   the code in the BODY, because a code in a path lands in access logs, browser history and every
+   proxy between.
+2. *"The opponent could not pick their own roster."* — `#69`: a side carries its own `roster_id`, and
+   its datacards are snapshotted at join exactly as `#22` snapshots the creator's.
+3. *"Both players could change the creator's team, and the opponent had no team of their own."* — Two
+   different things. Having no team of their own is `#67`/`#69`, unbuilt. Editing each other's side
+   is `#87` and **deliberate**: "a write is NOT scoped to the writer's own side", because one person
+   holding one phone is the ordinary case at a table and the opponent asking you to tick their
+   operative down is not an edge case. The actor is recorded (`#70`) so the write is visible rather
+   than silent.
+
+**The third finding is the client's, and it is live today.** Nothing is built on either side — zero
+invite or join operations are published, and `opponent_name` is a nullable string. But
+`NewGameModal` asks for "Opponent" as free text, which *reads* as naming a person who will join. The
+field is a LABEL on a battle, and the screen does not say so, which is why a tester reasonably
+expected a person on the other end of it. That is a wording problem this repo can fix before any of
+K8 or K9 lands, and it should not wait for them.
+
 **What KF4f already did for it.** `useGame` carries a `structuralSharing` guard that refuses any
 read which would regress the game's `version`. Polling makes that necessary rather than tidy: every
 3 seconds is another chance for a read issued before a write to land after it, and `versionFrom`
