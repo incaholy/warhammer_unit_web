@@ -301,9 +301,12 @@ describe('KillTeamView', () => {
       // either, until it started printing the firefight ploy first.
       const ploys = screen.getByRole('heading', { name: 'Ploys', level: 2 }).parentElement
       expect(ploys).not.toBeNull()
+      // Read off each entry's SUMMARY, not a `<dt>`: KF7 group B made every reference
+      // entry collapsible, so the list is `<li><details><summary>` now. The intent is
+      // unchanged -- printed order, with the name and its aside together.
       const names = within(ploys as HTMLElement)
-        .getAllByRole('term')
-        .map((t) => t.textContent)
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('summary')?.textContent ?? '')
 
       // Firefight first, because that is the printed order (#25). A view grouping by
       // kind would put the strategy ploy first and fail here.

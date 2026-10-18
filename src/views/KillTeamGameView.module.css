@@ -297,11 +297,13 @@
   border-top: 1px solid var(--rule-light);
 }
 
+/* The setup sections sit at the bottom now and should not compete with the operative
+   list for attention: a victory-point source is a label on a control, not a heading. */
 .scoreLabel {
   flex: 1;
   min-width: 12ch;
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .sources {

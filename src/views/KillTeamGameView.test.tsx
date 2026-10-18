@@ -1074,3 +1074,141 @@ describe('KillTeamGameView: the final score', () => {
     expect(screen.queryByRole('heading', { name: 'Battle finished' })).not.toBeInTheDocument()
   })
 })
+
+/* ---- Reading the screen while playing (KF7 group B) ---- */
+
+describe('KillTeamGameView: the order of the battle tab', () => {
+  it('puts the operatives first and the setup sections last', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+
+    // Read off the labelled sections in DOM order. Not `getAllByRole('heading')`: the
+    // datacard's own blocks are level-2 headings too, and jsdom does not hide a closed
+    // `<details>`, so they would appear in that list.
+    const ids = Array.from(document.querySelectorAll('section[aria-labelledby]')).map((el) =>
+      el.getAttribute('aria-labelledby'),
+    )
+    // Ordered by how often a player touches it, which is NOT the order they were built
+    // in. Operatives moved from fifth to first.
+    expect(ids).toEqual([
+      'operatives-heading',
+      'ploys-heading',
+      'equipment-heading',
+      'score-heading',
+      'killzone-heading',
+      'choices-heading',
+    ])
+  })
+
+  it('puts the final score above everything once a battle is over', async () => {
+    stub(makeKTGame({ status: 'finished' }))
+    renderView()
+    await screen.findByRole('heading', { name: 'Battle finished' })
+
+    const ids = Array.from(document.querySelectorAll('section[aria-labelledby]')).map((el) =>
+      el.getAttribute('aria-labelledby'),
+    )
+    expect(ids[0]).toBe('final-heading')
+  })
+})
+
+describe('KillTeamGameView: the reference collapses per entry', () => {
+  const game = makeKTGame({
+    rules: [
+      makeKTGameRule({ name: 'Swarming Instincts', description: 'A printed rule.', group: null }),
+    ],
+    ploys: [
+      makeKTGamePloy({ name: 'Sudden Surge', kind: 'strategy', cp_cost: 1, universal: false }),
+      makeKTGamePloy({ name: 'Second Wind', kind: 'firefight', cp_cost: 2, universal: false }),
+    ],
+    equipment: [makeKTGameEquipment({ name: 'Tunnel markers', text: 'Place a marker.' })],
+  })
+
+  const openReference = async () => {
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+  }
+
+  /** The `<details>` whose summary names this entry. */
+  const entryFor = (name: string) =>
+    screen.getByText(name).closest('details') as HTMLDetailsElement
+
+  it('starts every entry closed, so the tab is a list of lines', async () => {
+    stub(game)
+    await openReference()
+    // Through the `open` attribute: jsdom has no layout engine and does not hide a
+    // closed `<details>`, so querying for the prose proves nothing either way.
+    expect(entryFor('Sudden Surge').open).toBe(false)
+    expect(entryFor('Second Wind').open).toBe(false)
+    expect(entryFor('Swarming Instincts').open).toBe(false)
+    expect(entryFor('Tunnel markers').open).toBe(false)
+  })
+
+  it('opens one without opening the rest', async () => {
+    // The complaint this answers: remembering one rule should not leave it in the way of
+    // the next. Per ENTRY, not per block -- a single `<details>` around "Ploys" would
+    // still open the eight paragraphs every team has.
+    stub(game)
+    await openReference()
+    fireEvent.click(screen.getByText('Sudden Surge'))
+
+    expect(entryFor('Sudden Surge').open).toBe(true)
+    expect(entryFor('Second Wind').open).toBe(false)
+  })
+
+  it('keeps a ploy\'s kind and cost on the line, so it is scannable closed', async () => {
+    stub(game)
+    await openReference()
+    const summary = entryFor('Sudden Surge').querySelector('summary')
+    expect(summary?.textContent).toContain('strategy · 1 CP')
+  })
+})
+
+describe('KillTeamGameView: rules group where a group exists', () => {
+  it('renders a group heading and its members under it', async () => {
+    // Measured over the real scrape: 30 of 127 team rules carry a group, across 6 of the
+    // 48 teams -- three Aspect Techniques sets and three Upgrade sets, five rules each.
+    stub(
+      makeKTGame({
+        rules: [
+          makeKTGameRule({ name: 'Loose', description: 'x', group: null }),
+          makeKTGameRule({ name: 'Technique A', description: 'y', group: 'Aspect Techniques' }),
+          makeKTGameRule({ name: 'Technique B', description: 'z', group: 'Aspect Techniques' }),
+        ],
+      }),
+    )
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+
+    const group = screen.getByText('Aspect Techniques').closest('section') as HTMLElement
+    expect(within(group).getByText('Technique A')).toBeInTheDocument()
+    expect(within(group).getByText('Technique B')).toBeInTheDocument()
+    // The ungrouped rule sits outside, not swept under a heading it does not belong to.
+    expect(within(group).queryByText('Loose')).not.toBeInTheDocument()
+    expect(screen.getByText('Loose')).toBeInTheDocument()
+  })
+
+  it('prints no group heading for a team whose rules have none', async () => {
+    // The common case by a wide margin: a median team has TWO rules and no group, so
+    // grouping them would be noise.
+    stub(
+      makeKTGame({
+        rules: [
+          makeKTGameRule({ name: 'One', description: 'x', group: null }),
+          makeKTGameRule({ name: 'Two', description: 'y', group: null }),
+        ],
+      }),
+    )
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+
+    const rules = screen.getByRole('heading', { name: 'Team rules' }).closest('section') as HTMLElement
+    expect(within(rules).queryAllByRole('listitem')).toHaveLength(2)
+    // No subhead, so no nested section inside the Team rules block.
+    expect(rules.querySelectorAll('section')).toHaveLength(0)
+  })
+})

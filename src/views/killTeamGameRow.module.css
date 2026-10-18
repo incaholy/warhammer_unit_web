@@ -47,19 +47,24 @@
   color: var(--faint);
 }
 
+/* "Has it gone yet?" is the most-read fact on this screen, so the state that still needs
+   action carries the weight and the one that is done recedes (KF7 group B). Both were
+   11px with only a colour between them, which reads as two labels rather than one
+   answer. */
 .activated,
 .notActivated {
   font-family: var(--font-mono);
-  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .activated {
+  font-size: 10px;
   color: var(--faint);
 }
 
 .notActivated {
+  font-size: 12px;
   color: var(--ink);
 }
 

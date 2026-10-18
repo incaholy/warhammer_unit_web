@@ -174,41 +174,100 @@ export function Block({ title, children }: { title: string; children: React.Reac
 
 export function Rules({ rules }: { rules: RuleEntry[] }) {
   if (rules.length === 0) return <p className={styles.quiet}>None printed.</p>
+
+  // Grouped under a heading where a group exists, flat where it does not -- and the
+  // second case is the common one. Measured over the real scrape: 30 of 127 team rules
+  // carry a group, and they belong to 6 of the 48 teams (three Aspect Techniques sets and
+  // three Upgrade sets, five rules each). A median team has TWO rules, and grouping two
+  // things is noise. So this is a real improvement for six teams and invisible for the
+  // other forty-two, which is the opposite of how it was first planned.
+  const ungrouped = rules.filter((rule) => !rule.group)
+  const groups = new Map<string, RuleEntry[]>()
+  for (const rule of rules) {
+    if (!rule.group) continue
+    const existing = groups.get(rule.group)
+    if (existing) existing.push(rule)
+    else groups.set(rule.group, [rule])
+  }
+
   return (
-    <dl className={styles.entries}>
-      {/* Keyed by name and index, not `id`: a game's snapshotted rule has none. Same
-        * reason the weapon table is (KF4e), and safe for the same reason -- these lists
-        * are static for the read's life. */}
-      {rules.map((rule, index) => (
-        <div key={`${rule.name}-${index}`} className={styles.entry}>
-          <dt className={styles.entryName}>
-            {rule.name}
-            {/* A rule's group is printed beside it when it has one. */}
-            {rule.group && <span className={styles.aside}>{rule.group}</span>}
-          </dt>
-          <dd className={styles.entryText}>{rule.description}</dd>
-        </div>
+    <>
+      {ungrouped.length > 0 && (
+        <ul className={styles.entries}>
+          {/* Keyed by name and index, not `id`: a game's snapshotted rule has none. Same
+            * reason the weapon table is (KF4e), and safe for the same reason -- these
+            * lists are static for the read's life. */}
+          {ungrouped.map((rule, index) => (
+            <Disclosure
+              key={`${rule.name}-${index}`}
+              name={rule.name}
+              text={rule.description}
+            />
+          ))}
+        </ul>
+      )}
+
+      {[...groups].map(([group, members]) => (
+        <section key={group}>
+          <p className={styles.subhead}>{group}</p>
+          <ul className={styles.entries}>
+            {members.map((rule, index) => (
+              <Disclosure
+                key={`${rule.name}-${index}`}
+                name={rule.name}
+                text={rule.description}
+              />
+            ))}
+          </ul>
+        </section>
       ))}
-    </dl>
+    </>
   )
 }
 
 export function Ploys({ ploys }: { ploys: PloyEntry[] }) {
   if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
-    <dl className={styles.entries}>
+    <ul className={styles.entries}>
       {ploys.map((ploy, index) => (
-        <div key={`${ploy.name}-${index}`} className={styles.entry}>
-          <dt className={styles.entryName}>
-            {ploy.name}
-            <span className={styles.aside}>
-              {ploy.kind} · {ploy.cp_cost} CP
-            </span>
-          </dt>
-          <dd className={styles.entryText}>{ploy.description}</dd>
-        </div>
+        <Disclosure
+          key={`${ploy.name}-${index}`}
+          name={ploy.name}
+          aside={`${ploy.kind} · ${ploy.cp_cost} CP`}
+          text={ploy.description}
+        />
       ))}
-    </dl>
+    </ul>
+  )
+}
+
+/** One collapsible reference entry: a line you can scan, prose you can open (KF7 group B).
+ *
+ * Collapsed per ENTRY rather than per block, which is the level that matters. A single
+ * `<details>` around "Ploys" still opens nine paragraphs at once, and nine is what every
+ * team has; the complaint was that remembering one rule leaves it in the way of the next.
+ *
+ * The numbers that decided this, measured over the real scrape: every team has exactly 8
+ * ploys and 4 pieces of equipment, and a RULE's prose runs to a median of 470 characters
+ * against a ploy's 282 — so the rules are the densest text on the tab even though a median
+ * team has only two of them. Volume per entry, not count, is the reading problem.
+ *
+ * The same pattern the datacard has used since KF4e, one level further in.
+ *
+ * A `<ul>` of `<details>` rather than the `<dl>` these lists used to be: `<details>` is not
+ * valid inside a `<dl>`, and list semantics give a reader a count before they open
+ * anything. */
+function Disclosure({ name, aside, text }: { name: string; aside?: string | null; text: string }) {
+  return (
+    <li className={styles.entryItem}>
+      <details>
+        <summary className={styles.entrySummary}>
+          <span className={styles.entryName}>{name}</span>
+          {aside && <span className={styles.aside}>{aside}</span>}
+        </summary>
+        <p className={styles.entryText}>{text}</p>
+      </details>
+    </li>
   )
 }
 
@@ -228,17 +287,16 @@ export interface Entry {
 export function Entries({ entries }: { entries: Entry[] }) {
   if (entries.length === 0) return <p className={styles.quiet}>None.</p>
   return (
-    <dl className={styles.entries}>
+    <ul className={styles.entries}>
       {entries.map((entry, index) => (
-        <div key={`${entry.name}-${index}`} className={styles.entry}>
-          <dt className={styles.entryName}>
-            {entry.name}
-            {entry.aside && <span className={styles.aside}>{entry.aside}</span>}
-          </dt>
-          <dd className={styles.entryText}>{entry.text}</dd>
-        </div>
+        <Disclosure
+          key={`${entry.name}-${index}`}
+          name={entry.name}
+          aside={entry.aside}
+          text={entry.text}
+        />
       ))}
-    </dl>
+    </ul>
   )
 }
 
@@ -253,14 +311,11 @@ export function Entries({ entries }: { entries: Entry[] }) {
 export function EquipmentList({ items }: { items: KTEquipment_Read[] }) {
   if (items.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
-    <dl className={styles.entries}>
+    <ul className={styles.entries}>
       {items.map((item) => (
-        <div key={item.id} className={styles.entry}>
-          <dt className={styles.entryName}>{item.name}</dt>
-          <dd className={styles.entryText}>{item.description}</dd>
-        </div>
+        <Disclosure key={item.id} name={item.name} text={item.description} />
       ))}
-    </dl>
+    </ul>
   )
 }
 

@@ -133,14 +133,19 @@ export default function KillTeamGameView() {
 
       {tab === 'battle' && (
         <TabPanel id="battle" idPrefix="game">
+          {/* Ordered by how often a player touches it, which is NOT the order these
+            * were built in (KF7 group B). Operatives moved from fifth to first: they are
+            * the most-touched thing on the screen and they sat under two sections that
+            * are set once. Killzone markers and `choices` are setup, so they drop to the
+            * bottom; deleting stays last. */}
           <div className={styles.body}>
             <FinalScore game={game} />
+            <Operatives game={game} />
+            <ThisTurningPoint game={game} />
+            <Equipment game={game} />
             <ScoreAndCommand game={game} />
             <Killzone game={game} />
             <Choices game={game} />
-            <ThisTurningPoint game={game} />
-            <Equipment game={game} />
-            <Operatives game={game} />
             <DeleteBattle game={game} />
           </div>
         </TabPanel>

@@ -566,3 +566,21 @@ describe('KillTeamRosterView: the gaps the audit found', () => {
     resolvePatch?.()
   })
 })
+
+describe('KillTeamRosterView: the reference reads as a list (KF7 group B)', () => {
+  it('collapses every entry, so finding one rule does not mean reading the others', async () => {
+    // The roster's Reference tab is where this was reported. It renders through the same
+    // shared components the battle screen uses, so the fix arrives here without this
+    // view changing -- which is worth asserting rather than assuming, since "shared"
+    // is a claim about two call sites and only one of them was touched.
+    stubFetch()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    fireEvent.click(screen.getByRole('tab', { name: 'Reference' }))
+
+    const entries = document.querySelectorAll('li > details')
+    expect(entries.length).toBeGreaterThan(0)
+    // Through the `open` attribute: jsdom does not hide a closed `<details>`.
+    expect(Array.from(entries).every((d) => !(d as HTMLDetailsElement).open)).toBe(true)
+  })
+})

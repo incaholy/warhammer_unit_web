@@ -114,8 +114,12 @@
 
 /* ---- Abilities, rules, ploys, equipment ---- */
 
+/* A `<ul>` since KF7 group B, not the `<dl>` it was: `<details>` is not valid inside a
+   `<dl>`, and list semantics give a reader a count before they open anything. */
 .entries {
+  list-style: none;
   margin: 0;
+  padding: 0;
 }
 
 .entry + .entry {
@@ -209,4 +213,49 @@
   .cards {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- Collapsible reference entries (KF7 group B) ----
+   Per ENTRY, not per block. One `<details>` around "Ploys" would still open the nine
+   paragraphs every team has; the point is that remembering one rule should not leave it
+   in the way of the next. */
+
+.entryItem {
+  border-top: 1px solid var(--rule-light);
+}
+
+.entryItem:first-child {
+  border-top: 0;
+}
+
+.entrySummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  /* A generous hit area: these are tapped mid-activation with one hand. */
+  padding: 11px 4px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.entrySummary::-webkit-details-marker {
+  display: none;
+}
+
+.entrySummary::before {
+  content: '+';
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--faint);
+}
+
+details[open] > .entrySummary::before {
+  content: '−';
+}
+
+.entrySummary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
 }
