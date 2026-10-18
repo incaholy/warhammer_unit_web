@@ -1036,3 +1036,111 @@ read which would regress the game's `version`. Polling makes that necessary rath
 3 seconds is another chance for a read issued before a write to land after it, and `versionFrom`
 reads that cache to decide what the next write asserts. The guard was added before the polling
 existed because retrofitting it later means auditing every path that touches the key instead of one.
+
+---
+
+## KF7. Finish a battle, and read the screen while playing one
+
+**Status: Not started.** Everything here came from playing a battle through rather than from a
+review. Four groups, in the order they hurt.
+
+### A. Ending a battle is a dead end
+
+Finishing works and then the screen has nothing to offer: no summary of what the battle came to, and
+no way back to the list. The breadcrumb does link to `Battles`, but it lives in `AppLayout` above the
+view and is not sticky, so it is gone the moment a long battle screen is scrolled — which is how five
+slices of testing missed it. The only `← Battles` link is in the error state.
+
+**The finish becomes two steps, and that is forced rather than preferred.** #66 closes a finished
+game to edits: `_require_game` refuses one by default and exactly four callers opt out — the shallow
+read, `delete_game`, `advance` (which refuses with its own message) and `undo`. So a victory-point
+write after the finish answers **400**, and "adjust the final score" is not something a later screen
+can offer. The adjustment has to happen before the write that closes the record.
+
+So `Finish battle` opens a summary instead of mutating: both scores, the victory points broken down
+by source, and the steppers still live, then a confirm. Afterwards the top of the Battle tab becomes
+the result — the score, `Undo to reopen` (#66's only way back), and `← Battles`.
+
+**A back link that survives scrolling** goes inline with the scoreboard's eyebrow. The scoreboard is
+already sticky and the eyebrow row has space, so it costs no height.
+
+**One decision left open.** A final-score screen naturally wants to name a winner, and higher VP is
+the basic win condition — but declaring it is an inference, and #1 is that the tracker records while
+the players apply. The plan is to show both scores neutrally (`You 6 · Kesh 4`) and print no verdict.
+Revisit if that reads as evasive in use.
+
+### B. Reading the screen while playing
+
+Reported from use, and it is presentation rather than behaviour.
+
+**The roster's Reference tab is not organised for reading.** It renders three flat `<dl>` lists —
+team rules, ploys, equipment — each a name and a paragraph, with the universal rows appended under a
+subhead. Nothing is grouped and nothing collapses, so finding one rule means reading past the others.
+`KTGameRule_Read` and `KillTeamRule_Read` both carry `group`, which `Rules` currently prints as an
+aside beside the name; grouping BY it is a change this data already supports.
+
+**The battle screen's information is in the wrong order and the wrong sizes.** The Battle tab stacks
+score and command, killzone, choices, this turning point, equipment, operatives, then delete — which
+is roughly the order the slices were built in and not the order a player uses. Operatives are the
+most-touched thing on the screen and they are fifth. Setup-ish sections (choices, killzone) sit above
+the ones used every activation.
+
+**The battle's reference blocks must collapse.** Once a player remembers a rule they do not want it
+in the way of the one they are still looking up. The datacard already works this way (KF4e, a
+`<details>` per operative) and the reference tab does not.
+
+Scope note: this is layout, ordering, type scale and disclosure state — not new data and no new
+requests. Nothing here changes what is written or read.
+
+### C. Composition beside the operatives a roster holds
+
+Building a roster gives no sight of what the kill team is allowed to field. The rules exist and are
+already rendered — `Composition` is a component in `KillTeamView`, fed by
+`KillTeam_Detail.selection_rules` (#44: composition is TEXT, the page's own words in the page's own
+order). They are simply not on the screen where a roster is built.
+
+**Not a third tab**, which was the first plan and the wrong one. The whole point is that a player
+deciding what to add should not have to navigate away to remember what is valid — and a tab is
+navigating away. It belongs on the Operatives tab, between the rows already saved and
+`AddOperative`, so the question and the answer are in one place.
+
+**Shape.** `KTSelectionRule_Read` carries `kind` (`heading`, `line`, `restriction`, `note`) and
+`depth`, so the list is already structured for a compact rendering: the `heading` rows read as the
+shape of a legal team and the rest is the detail under them. So the headings show by default and the
+full text expands — which also satisfies B's collapsible-reference rule rather than fighting it.
+
+**Cost, stated rather than discovered.** `KTRoster_Read` does not carry `selection_rules`, so this
+needs `useKillTeam(roster.kill_team_id)` — the team detail, 16–46 KB and a median of 24 over all 48
+teams (#52). Putting it on the DEFAULT tab means fetching it whenever a roster is opened, where the
+tab version would have fetched only if someone looked. That is the price of the thing being there
+when it is wanted, and it is paid at most once per session per team: the read carries
+`staleTime: Infinity`, which #21 and #49 make a statement of fact rather than a tuning choice.
+
+`Composition` gets promoted out of `KillTeamView` into the shared card module, which is the move
+`Tabs` made when the roster page became its second caller.
+
+### D. Two fields the screen reads and cannot write — **deferred**
+
+Found by enumerating every writable field against the controls built, not by using the screen, and
+held back deliberately: the groups above affect every battle and these two affect some.
+
+**Initiative cannot be set.** `KTGame_Update` accepts it and the scoreboard displays it, but nothing
+writes it — so it reads "Not rolled" for a whole battle. Worse than a missing control: `advance`
+resets it to null every turning point (#62), so the field is actively cleared and never fillable. It
+needs a THREE-state control, because null is a real state and not an absence; `SegmentedToggle` takes
+a string, so `player` / `opponent` / `none` with `none` written as null.
+
+**An operative's board status cannot be set.** `reserve` / `on_board` / `incapacitated`, and the only
+thing that moves it is the service coupling zero wounds to `incapacitated`. So a team that starts
+operatives off the board — Raveners' Burrow, which `KILLTEAM.md` names — cannot record it. The
+control is a two-state toggle; `incapacitated` stays read-only and derived, because the service
+couples it in BOTH directions and its own comment warns that asymmetric automation is worse than
+none.
+
+### Dropped
+
+**Equipment chosen on a roster.** Asked for, then withdrawn. There is nowhere to store it: #52 says
+the two equipment lists are the pool a game CHOOSES from and "the choice itself stays per game (#17),
+so there is no `KTRosterEquipment`" — confirmed in the schema, where `KTRoster_Create` and
+`KTRoster_Update` take only `kill_team_id`, `name` and `description`. Persisting a selection is a
+backend decision that partly retires #17, not a frontend slice.
