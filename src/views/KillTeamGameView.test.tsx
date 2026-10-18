@@ -936,3 +936,141 @@ describe('KillTeamGameView: choices', () => {
     ).toBeInTheDocument()
   })
 })
+
+/* ---- Ending a battle (KF7 group A) ---- */
+
+describe('KillTeamGameView: getting back to the list', () => {
+  it('offers a way back that is not the breadcrumb', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    // The breadcrumb links to Battles too, and is not wrong -- it just lives above the
+    // view and is not sticky, so it is gone once a long battle screen is scrolled. This
+    // one shares the scoreboard's eyebrow row, which IS sticky.
+    expect(screen.getByRole('link', { name: '← Battles' })).toHaveAttribute(
+      'href',
+      '/kill-team/games',
+    )
+  })
+})
+
+describe('KillTeamGameView: the two-step finish', () => {
+  const lastPhase = { turning_point: 4, phase: 'firefight' }
+
+  it('advances straight through when it would NOT finish the battle', async () => {
+    const seen = stub(makeKTGame({ turning_point: 2, phase: 'strategy' }))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Advance to firefight' }))
+
+    // Only the advance that ENDS a battle asks first; the other two would be a dialog on
+    // the most-pressed control in the app.
+    await waitFor(() => expect(seen.some((c) => c.url.endsWith('/advance'))).toBe(true))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('asks before the advance that finishes, and sends nothing yet', async () => {
+    const seen = stub(makeKTGame(lastPhase))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish battle' }))
+
+    const dialog = await screen.findByRole('dialog')
+    // #66: a finished game is closed to edits, so a victory-point write afterwards
+    // answers 400. The adjustment can only happen before this write.
+    expect(dialog).toHaveAccessibleDescription(/closed to changes/i)
+    expect(seen.some((c) => c.url.endsWith('/advance'))).toBe(false)
+  })
+
+  it('shows the score and REAL controls, not a read-only recap', async () => {
+    stub(makeKTGame({ ...lastPhase, victory_points: { Hold: 3 }, opponent_victory_points: 4 }))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish battle' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Final score, you 3, opponent 4')).toBeInTheDocument()
+    // The whole point of the step: the last chance to correct the score is here.
+    expect(within(dialog).getByLabelText('Score a victory point from Hold')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Victory point source')).toBeInTheDocument()
+  })
+
+  it('writes a late victory point from inside the dialog', async () => {
+    const seen = stub(makeKTGame({ ...lastPhase, victory_points: { Hold: 3 } }))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish battle' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByLabelText('Score a victory point from Hold'))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({
+        victory_points: { Hold: 4 },
+        version: 7,
+      })
+    })
+  })
+
+  it('finishes on confirmation', async () => {
+    const seen = stub(makeKTGame(lastPhase))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish battle' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Finish battle' })[0])
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.url.endsWith('/advance'))?.method).toBe('POST')
+    })
+  })
+
+  it('keeps playing without sending anything', async () => {
+    const seen = stub(makeKTGame(lastPhase))
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish battle' }))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep playing' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(seen.some((c) => c.url.endsWith('/advance'))).toBe(false)
+  })
+})
+
+describe('KillTeamGameView: the final score', () => {
+  const finished = makeKTGame({
+    status: 'finished',
+    victory_points: { Hold: 3, Kills: 3 },
+    opponent_victory_points: 4,
+    opponent_name: 'Kesh',
+  })
+
+  it('shows what the battle came to', async () => {
+    stub(finished)
+    renderView()
+    expect(await screen.findByRole('heading', { name: 'Battle finished' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Final score, you 6, opponent 4')).toBeInTheDocument()
+    expect(screen.getByText(/Kesh 4/)).toBeInTheDocument()
+  })
+
+  it('prints no verdict', async () => {
+    stub(finished)
+    renderView()
+    await screen.findByRole('heading', { name: 'Battle finished' })
+    // Higher VP is the basic win condition, so naming a winner is an inference -- and #1
+    // is that the tracker records while the players apply. The numbers are the fact.
+    expect(screen.queryByText(/\b(won|win|lost|loss|defeat|victor)\b/i)).not.toBeInTheDocument()
+  })
+
+  it('names Undo as the way back, because there is no reopen route', async () => {
+    const seen = stub(finished)
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo to reopen' }))
+    // #66: the finish is an event like any other and always the newest, so undoing it IS
+    // reopening. The control says so rather than leaving a player to discover it.
+    await waitFor(() => {
+      expect(seen.find((c) => c.url.endsWith('/undo'))?.method).toBe('POST')
+    })
+  })
+
+  it('is absent while a battle is being played', async () => {
+    stub(makeKTGame({ status: 'in_progress' }))
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('heading', { name: 'Battle finished' })).not.toBeInTheDocument()
+  })
+})

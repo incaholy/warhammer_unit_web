@@ -140,6 +140,28 @@ export function advanceLabel(
   return 'Finish battle'
 }
 
+/** Will the next `advance` END the battle? (KF7 group A.)
+ *
+ * A PREDICATE rather than a comparison against `advanceLabel`'s output, which is the
+ * obvious implementation and a trap: branching on the string `'Finish battle'` would make
+ * the button's copy load-bearing, so rewording it would silently turn the confirmation
+ * off without failing a test.
+ *
+ * Both functions read the same condition and a test asserts they agree across every phase
+ * of every turning point, which is what keeps two functions over one rule honest.
+ *
+ * Why the caller needs this at all: #66 closes a finished game to edits -- the loader
+ * refuses one by default and only the shallow read, `delete_game`, `advance` and `undo`
+ * opt out -- so a victory-point write after the finish answers 400. Any adjustment has to
+ * happen BEFORE the write that closes the record, which means this advance, alone among
+ * the three, has to ask first. */
+export function advanceFinishes(
+  game: Pick<KTGame_Read, 'status' | 'turning_point' | 'phase'>,
+): boolean {
+  if (game.status === 'finished') return false
+  return game.phase !== 'strategy' && game.turning_point >= LAST_TURNING_POINT
+}
+
 /** The last turning point a battle has, per `ck_kt_game_turning_point`. */
 export const LAST_TURNING_POINT = 4
 

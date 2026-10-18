@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  advanceFinishes,
   advanceLabel,
   gameChoices,
   GAME_STATUSES,
@@ -108,6 +109,21 @@ describe('advanceLabel', () => {
     expect(advanceLabel({ status: 'setup', turning_point: 1, phase: 'strategy' })).toBe(
       'Advance to firefight',
     )
+  })
+
+  it('agrees with `advanceFinishes` in every state', () => {
+    // Two functions over one rule, so they have to be held together. Branching on the
+    // LABEL would have been one function -- and would make the button's copy
+    // load-bearing, so a reword would silently drop the confirmation #66 requires.
+    for (const [turning_point, phase, expected] of cases) {
+      const game = { status: 'in_progress', turning_point, phase }
+      expect(advanceFinishes(game)).toBe(expected === 'Finish battle')
+    }
+  })
+
+  it('never finishes a battle that is already finished', () => {
+    // `advance` refuses one with its own message, so there is nothing to confirm.
+    expect(advanceFinishes({ status: 'finished', turning_point: 4, phase: 'firefight' })).toBe(false)
   })
 
   it('agrees with the turning point the backend caps at', () => {

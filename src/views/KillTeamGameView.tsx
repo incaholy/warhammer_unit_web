@@ -41,6 +41,7 @@ import type { KTGame_Read } from '../api/types'
 import { ApiError } from '../api/client'
 import { withReference } from '../lib/errors'
 import {
+  advanceFinishes,
   advanceLabel,
   gameStateLabel,
   initiativeLabel,
@@ -133,6 +134,7 @@ export default function KillTeamGameView() {
       {tab === 'battle' && (
         <TabPanel id="battle" idPrefix="game">
           <div className={styles.body}>
+            <FinalScore game={game} />
             <ScoreAndCommand game={game} />
             <Killzone game={game} />
             <Choices game={game} />
@@ -166,7 +168,16 @@ function Scoreboard({ game }: { game: KTGame_Read }) {
   return (
     <header className={styles.scoreboard}>
       <div className={styles.identity}>
-        <Eyebrow>{gameStateLabel(game)}</Eyebrow>
+        {/* Inline with the eyebrow, so the one way back is always on screen and costs no
+          * height. The breadcrumb links to `Battles` too and is not wrong -- it just
+          * lives above the view and is not sticky, so it is gone the moment a long
+          * battle screen is scrolled, which is how five slices of testing missed it. */}
+        <div className={styles.eyebrowRow}>
+          <Eyebrow>{gameStateLabel(game)}</Eyebrow>
+          <Link to="/kill-team/games" className={styles.back}>
+            ← Battles
+          </Link>
+        </div>
         <h1 className={styles.title}>
           {game.kill_team_name}
           {game.opponent_name ? ` vs ${game.opponent_name}` : ''}
@@ -212,16 +223,29 @@ function Scoreboard({ game }: { game: KTGame_Read }) {
 function Controls({ game }: { game: KTGame_Read }) {
   const advance = useAdvanceGame(game.id)
   const undo = useUndoGame(game.id)
+  const [confirming, setConfirming] = useState(false)
   const finished = game.status === 'finished'
+  // A PREDICATE, never a comparison against the label: branching on the string
+  // 'Finish battle' would make the button's copy load-bearing, so a reword would
+  // silently drop the confirmation. `advanceFinishes` carries the reasoning.
+  const willFinish = advanceFinishes(game)
 
   return (
     <div className={styles.controls}>
       <Button
-        onClick={() => advance.mutate()}
+        onClick={() => (willFinish ? setConfirming(true) : advance.mutate())}
         disabled={advance.isPending || finished}
       >
         {advance.isPending ? 'Advancing…' : advanceLabel(game)}
       </Button>
+
+      <FinishSummary
+        game={game}
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={() => advance.mutate(undefined, { onSuccess: () => setConfirming(false) })}
+        pending={advance.isPending}
+      />
       {/* Not disabled on a finished battle: finishing is an ordinary event, so undo
         * reopens a game ended by accident (#58). That is the one thing a player most
         * needs from this control. */}
@@ -405,6 +429,38 @@ function Operatives({ game }: { game: KTGame_Read }) {
  * redundant and easier to misuse than to use. */
 function ScoreAndCommand({ game }: { game: KTGame_Read }) {
   const update = useUpdateGame(game.id)
+
+  return (
+    <section className={styles.section} aria-labelledby="score-heading">
+      <h2 id="score-heading" className={styles.sectionTitle}>
+        Score and command
+      </h2>
+
+      <div className={styles.scoreRow}>
+        <span className={styles.scoreLabel}>Command points</span>
+        <Stepper
+          label="Command points"
+          downLabel="Spend a command point"
+          upLabel="Gain a command point"
+          value={game.command_points}
+          onCommit={(command_points) => update.mutateAsync({ command_points })}
+        />
+      </div>
+
+      <VictoryPoints game={game} />
+    </section>
+  )
+}
+
+/** The victory points, editable: each source, the opponent's total, and a way to add one.
+ *
+ * Extracted (KF7 group A) because the finish summary needs exactly these controls. #66
+ * closes a finished game to edits, so the only moment a player can correct the score is
+ * BEFORE the advance that ends the battle -- which means the summary has to offer real
+ * controls rather than a read-only recap. Two copies of them would drift, and the one in
+ * the dialog is the copy that matters. */
+function VictoryPoints({ game }: { game: KTGame_Read }) {
+  const update = useUpdateGame(game.id)
   const [source, setSource] = useState('')
 
   const sources = Object.keys(game.victory_points).sort()
@@ -426,22 +482,7 @@ function ScoreAndCommand({ game }: { game: KTGame_Read }) {
   }
 
   return (
-    <section className={styles.section} aria-labelledby="score-heading">
-      <h2 id="score-heading" className={styles.sectionTitle}>
-        Score and command
-      </h2>
-
-      <div className={styles.scoreRow}>
-        <span className={styles.scoreLabel}>Command points</span>
-        <Stepper
-          label="Command points"
-          downLabel="Spend a command point"
-          upLabel="Gain a command point"
-          value={game.command_points}
-          onCommit={(command_points) => update.mutateAsync({ command_points })}
-        />
-      </div>
-
+    <>
       {sources.length === 0 ? (
         <p className={styles.quiet}>No victory points scored yet.</p>
       ) : (
@@ -507,7 +548,7 @@ function ScoreAndCommand({ game }: { game: KTGame_Read }) {
           onCommit={(opponent_victory_points) => update.mutateAsync({ opponent_victory_points })}
         />
       </div>
-    </section>
+    </>
   )
 }
 
@@ -957,5 +998,121 @@ function GameReference({ game }: { game: KTGame_Read }) {
         />
       </RefBlock>
     </div>
+  )
+}
+
+/** The last chance to correct the score, because #66 means there is no later one.
+ *
+ * `advance` out of the last turning point's firefight phase FINISHES the battle, and a
+ * finished game is closed to edits: the loader refuses one by default and only the shallow
+ * read, `delete_game`, `advance` and `undo` opt out. So a victory-point write afterwards
+ * answers 400 and "adjust the final score" is not something a later screen can offer.
+ *
+ * Which makes this a confirmation that EDITS rather than one that merely warns: the same
+ * `VictoryPoints` controls the Battle tab has, so a player can add what they forgot and
+ * then close the record. The dialog's `description` carries the consequence, which `Modal`
+ * wires to `aria-describedby` -- so it is announced with the title rather than being body
+ * text nothing points at. */
+function FinishSummary({
+  game,
+  open,
+  onClose,
+  onConfirm,
+  pending,
+}: {
+  game: KTGame_Read
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  pending: boolean
+}) {
+  const yours = totalVictoryPoints(game.victory_points)
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Finish this battle?"
+      description="A finished battle is closed to changes. Add any last victory points now; afterwards only Undo can reopen it."
+    >
+      <div className={styles.finish}>
+        <ScoreLine game={game} yours={yours} />
+        <VictoryPoints game={game} />
+
+        <div className={styles.confirmActions}>
+          <Button variant="secondary" onClick={onClose}>
+            Keep playing
+          </Button>
+          <Button onClick={onConfirm} disabled={pending}>
+            {pending ? 'Finishing…' : 'Finish battle'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/** What the battle came to, once it is over (KF7 group A).
+ *
+ * Renders nothing while a battle is being played, so it costs the common case nothing.
+ *
+ * Both scores, and NO verdict. Higher victory points is the basic win condition, so
+ * naming a winner would be a small inference -- and #1 is that the tracker records while
+ * the players apply. The numbers are the fact; who won is the players' to say. Revisit if
+ * that reads as evasive in use rather than as careful.
+ *
+ * `Undo to reopen` is the only way back and there is no `reopen` route, deliberately:
+ * #66 makes the finish an event like any other and always the newest one, so undoing it
+ * IS reopening. The control names that rather than leaving a player to discover it. */
+function FinalScore({ game }: { game: KTGame_Read }) {
+  const undo = useUndoGame(game.id)
+  if (game.status !== 'finished') return null
+
+  return (
+    <section className={styles.finalScore} aria-labelledby="final-heading">
+      <h2 id="final-heading" className={styles.sectionTitle}>
+        Battle finished
+      </h2>
+      <ScoreLine game={game} yours={totalVictoryPoints(game.victory_points)} large />
+      {/* No `← Battles` here, though it is the moment a player most wants it: the
+        * scoreboard's own link is STICKY and therefore already on screen beside this
+        * panel, and two links with the same accessible name on one screen is the
+        * duplicate-name problem KF4e had to fix on the action picker. */}
+      <div className={styles.finalActions}>
+        <Button
+          variant="secondary"
+          onClick={() => undo.mutate()}
+          disabled={undo.isPending}
+        >
+          {undo.isPending ? 'Reopening…' : 'Undo to reopen'}
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+/** Both scores side by side, named rather than numbered. */
+function ScoreLine({
+  game,
+  yours,
+  large = false,
+}: {
+  game: KTGame_Read
+  yours: number
+  large?: boolean
+}) {
+  return (
+    <p
+      className={large ? styles.scoreLineLarge : styles.scoreLine}
+      aria-label={`Final score, you ${yours}, opponent ${game.opponent_victory_points}`}
+    >
+      <span>You {yours}</span>
+      <span className={styles.scoreDash} aria-hidden="true">
+        ·
+      </span>
+      <span>
+        {game.opponent_name ?? 'Opponent'} {game.opponent_victory_points}
+      </span>
+    </p>
   )
 }

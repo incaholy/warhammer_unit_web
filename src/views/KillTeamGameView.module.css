@@ -493,3 +493,54 @@
   flex: 1;
   min-width: 12ch;
 }
+
+/* ---- Ending a battle (KF7 group A) ---- */
+
+/* The back link shares the eyebrow's row, so the one way out of a long battle screen is
+   always on screen and costs no height. The sticky stack is already the app header's two
+   rows plus the scoreboard, the controls and the tablist. */
+.eyebrowRow {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.finish {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.finalScore {
+  padding: 18px 16px 20px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+.scoreLine,
+.scoreLineLarge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.scoreLine {
+  font-size: 17px;
+}
+
+/* The one number a finished battle is about, so it is the biggest thing on the panel. */
+.scoreLineLarge {
+  font-size: 28px;
+  margin: 4px 0 18px;
+}
+
+.finalActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
