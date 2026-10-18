@@ -6,9 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import KillTeamRosterView from './KillTeamRosterView'
 import {
   jsonResponse,
+  makeKillTeamDetail,
   makeKTOperative,
   makeKTRoster,
   makeKTRosterOperative,
+  makeKTSelectionRule,
   page,
 } from '../test/fixtures'
 import type { KTOperative_ListRead, KTRoster_Read } from '../api/types'
@@ -31,6 +33,23 @@ function stubFetch(roster: KTRoster_Read = makeKTRoster(), pool = POOL) {
     if (/\/me\/kill-team\/rosters\/[^/]+$/.test(u)) return jsonResponse(roster)
     if (u.includes('/kill-team/operatives')) {
       return jsonResponse(page<KTOperative_ListRead>(pool, { total: pool.length }))
+    }
+    // The team DETAIL, which KF7 group C added: the roster read carries no
+    // `selection_rules`. Until this branch existed the composition errored in every test
+    // in this file and nothing noticed, because nothing asserted it -- the stub threw on
+    // the unexpected request and the component turned that into a message. F4's defect
+    // exactly: a stub answers whatever the author expected.
+    if (/\/kill-team\/teams\/[^/]+$/.test(u)) {
+      return jsonResponse(
+        makeKillTeamDetail({
+          selection_rules: [
+            makeKTSelectionRule({ id: 'sr1', position: 0, depth: 0, kind: 'line', text: '1 RAVENER PRIME operative' }),
+            makeKTSelectionRule({ id: 'sr2', position: 1, depth: 0, kind: 'line', text: '5 RAVENER operatives selected from the following list:' }),
+            makeKTSelectionRule({ id: 'sr3', position: 2, depth: 1, kind: 'line', text: 'HORMAGAUNT' }),
+            makeKTSelectionRule({ id: 'sr4', position: 3, depth: 0, kind: 'restriction', text: 'Still counts as one selection' }),
+          ],
+        }),
+      )
     }
     throw new Error(`unexpected request: ${u}`)
   })
@@ -582,5 +601,71 @@ describe('KillTeamRosterView: the reference reads as a list (KF7 group B)', () =
     expect(entries.length).toBeGreaterThan(0)
     // Through the `open` attribute: jsdom does not hide a closed `<details>`.
     expect(Array.from(entries).every((d) => !(d as HTMLDetailsElement).open)).toBe(true)
+  })
+})
+
+describe('KillTeamRosterView: the composition, beside the operatives (KF7 group C)', () => {
+  it('shows what the kill team may field, without changing tab', async () => {
+    stubFetch()
+    renderView()
+    await screen.findByRole('heading', { level: 1 })
+
+    // Awaited, because the team detail is a SECOND request: the roster read carries no
+    // `selection_rules`, so there is a moment where the disclosure shows its loading
+    // state. A synchronous query here passed only while the stub was throwing.
+    expect(await screen.findByText('1 RAVENER PRIME operative')).toBeInTheDocument()
+
+    // On the OPERATIVES tab, which is the whole point: deciding what to add should not
+    // mean navigating away to remember what is valid.
+    const panel = screen.getByRole('tabpanel')
+    expect(
+      within(panel).getByText('5 RAVENER operatives selected from the following list:'),
+    ).toBeInTheDocument()
+  })
+
+  it('is open on arrival, and can be closed', async () => {
+    stubFetch()
+    renderView()
+    const summary = await screen.findByText('What this kill team may field')
+    const details = summary.closest('details') as HTMLDetailsElement
+    // The one place this disagrees with group B's collapsed reference, and deliberately:
+    // this is a list read WHILE choosing, not paragraphs hidden once read.
+    expect(details.open).toBe(true)
+
+    fireEvent.click(summary)
+    expect(details.open).toBe(false)
+  })
+
+  it('indents by `depth`, which is the only thing that restores the printed shape', async () => {
+    stubFetch()
+    renderView()
+    const nested = await screen.findByText('HORMAGAUNT')
+    // A re-measure settled this: `kind` has four values and only 6 `heading` rows exist
+    // in the whole catalog, all in one team of 48 -- while 549 of 897 rows sit at depth 1.
+    expect(nested).toHaveStyle({ paddingLeft: '22px' })
+    expect(screen.getByText('1 RAVENER PRIME operative')).toHaveStyle({ paddingLeft: '0px' })
+  })
+
+  it('marks a restriction apart from an option a player can take', async () => {
+    stubFetch()
+    renderView()
+    const restriction = await screen.findByText('Still counts as one selection')
+    // #44 stores the kinds separately because they mean different things: a restriction
+    // is a condition on the list above it, not something you can field.
+    expect(restriction.className).not.toBe(
+      screen.getByText('1 RAVENER PRIME operative').className,
+    )
+  })
+
+  it('sits between the saved rows and the picker', async () => {
+    stubFetch()
+    renderView()
+    await screen.findByText('What this kill team may field')
+    const panel = screen.getByRole('tabpanel')
+    const order = Array.from(panel.children).map((el) => el.tagName.toLowerCase())
+    // The rows, then the composition, then "+ Add" -- the question and its answer in one
+    // place rather than at opposite ends of the tab.
+    expect(order.indexOf('details')).toBeGreaterThan(0)
+    expect(order.indexOf('details')).toBeLessThan(order.length - 1)
   })
 })

@@ -21,10 +21,10 @@ import { Link, useParams } from 'react-router-dom'
 
 import { useKillTeam, useKTFactions, useUniversal } from '../api/killTeamQueries'
 import { ApiError } from '../api/client'
-import type { KTOperative_Read, KTSelectionRule_Read } from '../api/types'
+import type { KTOperative_Read } from '../api/types'
 import { withReference } from '../lib/errors'
 import { Eyebrow, TabPanel, Tabs, Tag, type Tab } from '../ui'
-import { Abilities, Keywords, Reference, StatLine, Weapons } from './killTeamCards'
+import { Abilities, Composition, Keywords, Reference, StatLine, Weapons } from './killTeamCards'
 import cards from './killTeamCards.module.css'
 import styles from './KillTeamView.module.css'
 
@@ -139,24 +139,6 @@ function Datacards({ operatives }: { operatives: KTOperative_Read[] }) {
           {operative.weapons.length > 0 && <Weapons weapons={operative.weapons} />}
           {operative.abilities.length > 0 && <Abilities abilities={operative.abilities} />}
           <Keywords keywords={operative.keywords} />
-        </li>
-      ))}
-    </ul>
-  )
-}
-function Composition({ rules }: { rules: KTSelectionRule_Read[] }) {
-  if (rules.length === 0) return <p className={styles.quiet}>No composition printed.</p>
-  return (
-    <ul className={styles.composition}>
-      {rules.map((rule) => (
-        <li
-          key={rule.id}
-          className={[styles.compRow, styles[`comp_${rule.kind}`]].filter(Boolean).join(' ')}
-          // Indent from `depth`, which is the only thing that restores the printed
-          // shape. Inline because the depth is data, not one of a fixed set.
-          style={{ paddingLeft: `${rule.depth * 22}px` }}
-        >
-          {rule.text}
         </li>
       ))}
     </ul>

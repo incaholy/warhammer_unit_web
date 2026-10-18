@@ -252,3 +252,43 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* ---- The composition, beside the roster being built (KF7 group C) ----
+   Open by default and collapsible: a short indented list a player reads WHILE choosing,
+   unlike group B's reference paragraphs, which are hidden once read. */
+
+.composition {
+  margin: 26px 0 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+}
+
+.compositionSummary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  padding-bottom: 8px;
+}
+
+.compositionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.compositionSummary::before {
+  content: '−  ';
+  color: var(--faint);
+}
+
+.composition:not([open]) > .compositionSummary::before {
+  content: '+  ';
+}
+
+.compositionSummary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

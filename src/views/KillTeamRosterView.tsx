@@ -20,6 +20,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   useAddRosterOperative,
   useDeleteRoster,
+  useKillTeam,
   useKTOperatives,
   useMoveRosterOperative,
   useRemoveRosterOperative,
@@ -31,7 +32,7 @@ import type { KTRoster_Read, KTRosterOperative_Read, UUID } from '../api/types'
 import { withReference } from '../lib/errors'
 import { pluralize } from '../lib/format'
 import { Button, Eyebrow, Input, Modal, TabPanel, Tabs, Tag, type Tab } from '../ui'
-import { Abilities, Keywords, Reference, StatLine, Weapons } from './killTeamCards'
+import { Abilities, Composition, Keywords, Reference, StatLine, Weapons } from './killTeamCards'
 import styles from './KillTeamRosterView.module.css'
 
 type TabId = 'operatives' | 'reference'
@@ -105,6 +106,11 @@ export default function KillTeamRosterView() {
       {tab === 'operatives' && (
         <TabPanel id="operatives" idPrefix="roster">
           <Operatives rosterId={roster.id} rows={roster.operatives} />
+          {/* Between the rows and the picker, so the question "what can I still take?"
+            * and its answer are in one place. It was first planned as a third tab, which
+            * was wrong: the point is not having to navigate away to remember what is
+            * valid, and a tab IS navigating away. */}
+          <RosterComposition killTeamId={roster.kill_team_id} />
           <AddOperative rosterId={roster.id} killTeamId={roster.kill_team_id} />
         </TabPanel>
       )}
@@ -396,5 +402,49 @@ function DeleteRoster({ roster }: { roster: KTRoster_Read }) {
         </div>
       </Modal>
     </>
+  )
+}
+
+/** What this kill team may field, beside the roster being built (KF7 group C).
+ *
+ * **Open by default**, which is the one place this disagrees with group B's collapsed
+ * reference — and deliberately, because the content differs. Group B hides paragraphs a
+ * player has finished reading; this is a short indented list they are reading WHILE
+ * choosing, so it has to be there on arrival. Collapsible all the same, for the one team
+ * that prints 101 rows.
+ *
+ * `KTRoster_Read` carries no `selection_rules`, so this needs the team detail — 16–46 KB,
+ * a median of 24 over all 48 teams (#52). On the DEFAULT tab that means fetching whenever
+ * a roster is opened, where a tab would have fetched only if someone looked. That is the
+ * price of the thing being there when it is wanted, and it is paid at most once per
+ * session per team: the read carries `staleTime: Infinity`, which #21 and #49 make a
+ * statement of fact rather than a tuning choice — the Kill Team catalog has no write
+ * route at all. */
+function RosterComposition({ killTeamId }: { killTeamId: UUID }) {
+  // Controlled rather than a bare `<details open>`: `open` is a DOM attribute React
+  // re-applies on every render, so a roster write that re-renders this view would pop a
+  // disclosure the player had closed back open.
+  const [open, setOpen] = useState(true)
+  const team = useKillTeam(killTeamId)
+
+  return (
+    <details
+      className={styles.composition}
+      open={open}
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className={styles.compositionSummary}>What this kill team may field</summary>
+      {team.isPending ? (
+        <p role="status" className={styles.quiet}>
+          Loading the composition…
+        </p>
+      ) : team.isError ? (
+        <p role="alert" className={styles.quiet}>
+          Couldn’t load the composition.
+        </p>
+      ) : (
+        <Composition rules={team.data?.selection_rules ?? []} />
+      )}
+    </details>
   )
 }

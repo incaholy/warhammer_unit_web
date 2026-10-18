@@ -259,3 +259,52 @@ details[open] > .entrySummary::before {
   outline: 2px solid var(--ink);
   outline-offset: -2px;
 }
+
+/* ---- Composition (KF7 group C) ----
+   Moved here with the component, now that the roster page renders it too. The inline
+   `padding-left` from `depth` stays in the component: the depth is data, not one of a
+   fixed set of classes. */
+
+.composition {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 72ch;
+}
+
+.compRow {
+  font-size: 15px;
+  line-height: 1.6;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+/* The four `kind`s the backend stores, each rendered as the page prints it. */
+
+.comp_heading {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-top: 22px;
+  padding-bottom: 6px;
+}
+
+.comp_heading:first-child {
+  margin-top: 0;
+}
+
+.comp_line {
+  color: var(--ink);
+}
+
+.comp_restriction {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.comp_note {
+  font-size: 13px;
+  color: var(--faint);
+}

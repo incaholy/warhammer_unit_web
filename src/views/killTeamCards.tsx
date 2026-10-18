@@ -24,7 +24,7 @@
  * here than on the catalog page, because the game card is the one a player reads
  * mid-activation to check a weapon rule. */
 
-import type { KTEquipment_Read } from '../api/types'
+import type { KTEquipment_Read, KTSelectionRule_Read } from '../api/types'
 import styles from './killTeamCards.module.css'
 
 /* ---- What the shared pieces actually read ----
@@ -363,5 +363,44 @@ export function Reference({
         )}
       </Block>
     </div>
+  )
+}
+
+/** A kill team's printed composition — what a legal team may field (#44, #47).
+ *
+ * Promoted out of `KillTeamView` (KF7 group C) now the roster page is a second caller,
+ * which is the move `Tabs` and this module itself both made at the same point.
+ *
+ * **Indentation IS the information**, which a re-measure of the scrape settled. `kind`
+ * has four values and only one of them is structural, so an earlier plan built on
+ * `heading` rows — and there are **6 heading rows in the whole catalog, all in one team
+ * of 48**. `depth` is the real shape: 204 rows at depth 0, 549 at 1, 144 at 2, with only
+ * 2 of the 48 teams flat. Depth 0 is a requirement ("1 INTERROGATOR operative", "5
+ * operatives selected from the following list:") and depth 1 the options under it.
+ *
+ * So nothing is derived and nothing is collapsed per row. #44's own stance is that
+ * composition is text, "the page's own words in the page's own order", and a rendering
+ * that keyed off a kind the pages mostly do not print would be deriving structure that
+ * decision refused to derive. The rows are short — a median of 25 characters — so a
+ * median team's 18 of them simply fit.
+ *
+ * `restriction` and `note` are styled apart from `line` because they are not options a
+ * player can take: "still counts as one selection" is a condition on the list above it. */
+export function Composition({ rules }: { rules: KTSelectionRule_Read[] }) {
+  if (rules.length === 0) return <p className={styles.quiet}>No composition printed.</p>
+  return (
+    <ul className={styles.composition}>
+      {rules.map((rule) => (
+        <li
+          key={rule.id}
+          className={[styles.compRow, styles[`comp_${rule.kind}`]].filter(Boolean).join(' ')}
+          // Indent from `depth`, which is the only thing that restores the printed
+          // shape. Inline because the depth is data, not one of a fixed set.
+          style={{ paddingLeft: `${rule.depth * 22}px` }}
+        >
+          {rule.text}
+        </li>
+      ))}
+    </ul>
   )
 }
