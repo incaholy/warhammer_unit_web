@@ -1041,8 +1041,12 @@ existed because retrofitting it later means auditing every path that touches the
 
 ## KF7. Finish a battle, and read the screen while playing one
 
-**Status: Not started.** Everything here came from playing a battle through rather than from a
-review. Four groups, in the order they hurt.
+**Status: In progress.** **A** (finishing and leaving a battle) and **B** (a reference you can scan,
+and a battle tab in use-order) are built. **C** is planned and its plan needs re-measuring — see the
+note in it. **D** is deferred.
+
+Everything here came from playing a battle through rather than from a review. Four groups, in the
+order they hurt.
 
 ### A. Ending a battle is a dead end
 
@@ -1077,7 +1081,16 @@ Reported from use, and it is presentation rather than behaviour.
 team rules, ploys, equipment — each a name and a paragraph, with the universal rows appended under a
 subhead. Nothing is grouped and nothing collapses, so finding one rule means reading past the others.
 `KTGameRule_Read` and `KillTeamRule_Read` both carry `group`, which `Rules` currently prints as an
-aside beside the name; grouping BY it is a change this data already supports.
+aside beside the name, so grouping BY it needs no new data.
+
+**Corrected after measuring (group B, built).** That paragraph pitched grouping as the cheap big win
+and it is not. Over the real scrape: **30 of 127** team rules carry a group, across **6 of the 48
+teams** — three Aspect Techniques sets and three Upgrade sets, five rules each — and a median team
+has **two** rules. Grouping two things is noise. What the same measurement did show is that rules are
+the DENSEST prose on the tab, a median of 470 characters against a ploy's 282, while every team has
+exactly 8 ploys and 4 pieces of equipment. So volume per entry was the reading problem, collapsing
+each entry was the fix, and grouping stayed as a footnote that is right for six teams and invisible
+for forty-two. Recorded here because the claim above is what a reader scans.
 
 **The battle screen's information is in the wrong order and the wrong sizes.** The Battle tab stacks
 score and command, killzone, choices, this turning point, equipment, operatives, then delete — which
