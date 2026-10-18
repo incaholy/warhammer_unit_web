@@ -1050,12 +1050,17 @@ and hit three things. Two of them are what K8 and K9 exist to fix, and the third
    operative down is not an edge case. The actor is recorded (`#70`) so the write is visible rather
    than silent.
 
-**The third finding is the client's, and it is live today.** Nothing is built on either side — zero
+**The third finding is the client's, and it is FIXED.** Nothing is built on either side — zero
 invite or join operations are published, and `opponent_name` is a nullable string. But
-`NewGameModal` asks for "Opponent" as free text, which *reads* as naming a person who will join. The
-field is a LABEL on a battle, and the screen does not say so, which is why a tester reasonably
-expected a person on the other end of it. That is a wording problem this repo can fix before any of
-K8 or K9 lands, and it should not wait for them.
+`NewGameModal` asked for "Opponent" as free text, which *reads* as naming a person who will join.
+The field is a LABEL on a battle, and the screen did not say so, which is why a tester reasonably
+expected a person on the other end of it.
+
+It now reads "Opponent's name", placeheld "a label for this battle", with the modal's note adding
+that naming an opponent does not invite them. A test pins both, so the field cannot drift back to
+promising a feature two backend slices away — which is the general hazard: a free-text field costs
+nothing to build and every placeholder for future work is also a claim to a user about what exists.
+To be reworded again when K9 makes this a side with an occupant (#67, #74).
 
 **What KF4f already did for it.** `useGame` carries a `structuralSharing` guard that refuses any
 read which would regress the game's `version`. Polling makes that necessary rather than tidy: every

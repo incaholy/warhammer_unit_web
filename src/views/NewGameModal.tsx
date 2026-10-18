@@ -128,9 +128,15 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
             disabled={rostersQuery.isPending}
           />
 
+          {/* "Opponent" alone read as naming a person who would JOIN, which a tester
+            * reasonably expected and which does not exist: this is a label on the
+            * battle, `opponent_name` is a nullable string, and no invite or join
+            * operation is published on either side yet. A free-text field costs nothing
+            * to build and promises a feature two backend slices away, so the label says
+            * what it is. Reworded when K9 makes it a side with an occupant (#67, #74). */}
           <Field
-            label="Opponent"
-            placeholder="Optional"
+            label="Opponent's name"
+            placeholder="Optional — a label for this battle"
             value={opponentName}
             onChange={(e) => setOpponentName(e.target.value)}
           />
@@ -140,7 +146,8 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
             * roster a game was played from cannot be deleted (#60). */}
           <p className={styles.note}>
             The roster is copied into the battle. Changing it later will not affect this
-            game.
+            game. Naming an opponent does not invite them — you track both sides yourself
+            for now.
           </p>
 
           {error && (

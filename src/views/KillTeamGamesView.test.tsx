@@ -245,7 +245,9 @@ describe('KillTeamGamesView: starting a battle', () => {
     fireEvent.change(await within(dialog).findByLabelText('Roster'), {
       target: { value: 'ktr-1' },
     })
-    fireEvent.change(within(dialog).getByLabelText('Opponent'), { target: { value: '  Kesh  ' } })
+    fireEvent.change(within(dialog).getByLabelText("Opponent's name"), {
+      target: { value: '  Kesh  ' },
+    })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
 
     await waitFor(() => {
@@ -313,5 +315,22 @@ describe('KillTeamGamesView: starting a battle', () => {
       )
       expect(gets.length).toBeGreaterThan(1)
     })
+  })
+})
+
+describe('KillTeamGamesView: the opponent field does not promise a join', () => {
+  it("says the name is a label, not an invitation", async () => {
+    // A tester read "Opponent" as naming a person who would JOIN, which does not exist:
+    // `opponent_name` is a nullable string and no invite or join operation is published
+    // on either side. #71 specifies an invite code and #67/#74 the side that would hold
+    // an occupant; both are unbuilt. A free-text field costs nothing to build and
+    // promises a feature two backend slices away.
+    stubFetch()
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: '+ New Battle' }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText("Opponent's name")).toBeInTheDocument()
+    expect(within(dialog).getByText(/does not invite them/i)).toBeInTheDocument()
   })
 })
