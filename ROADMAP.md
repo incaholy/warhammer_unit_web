@@ -1041,9 +1041,21 @@ existed because retrofitting it later means auditing every path that touches the
 
 ## KF7. Finish a battle, and read the screen while playing one
 
-**Status: In progress.** **A** (finishing and leaving a battle) and **B** (a reference you can scan,
-and a battle tab in use-order) are built. **C** is planned and its plan needs re-measuring — see the
-note in it. **D** is deferred.
+**How this entry is maintained.** The status marker and any corrected claim change in the SAME
+commit as the code, not in a follow-up. Five markers went stale in the course of building KF4–KF7,
+always the same way: an entry's body is written while planning, the plan is tested by building it,
+the correction goes into a commit message, and the entry a reader scans still says the old thing. A
+commit message is not what anyone greps. `ARCHITECTURE` §6 already puts docs in the same PR as the
+code; this tightens it to the same commit, which removes the window where the entry contradicts the
+repo.
+
+It also argues for writing these entries THINNER up front — the problem and the constraint, not the
+rendering. Measuring has overturned a KF7 plan twice and confirmed existing code once, so the parts
+written before measuring are the parts that go stale.
+
+**Status: In progress.** **A** (finishing and leaving a battle), **B** (a reference you can scan, and
+a battle tab in use-order) and **C** (the composition beside the roster being built) are built. **D**
+is deferred.
 
 Everything here came from playing a battle through rather than from a review. Four groups, in the
 order they hurt.
@@ -1117,10 +1129,23 @@ deciding what to add should not have to navigate away to remember what is valid 
 navigating away. It belongs on the Operatives tab, between the rows already saved and
 `AddOperative`, so the question and the answer are in one place.
 
-**Shape.** `KTSelectionRule_Read` carries `kind` (`heading`, `line`, `restriction`, `note`) and
-`depth`, so the list is already structured for a compact rendering: the `heading` rows read as the
-shape of a legal team and the rest is the detail under them. So the headings show by default and the
-full text expands — which also satisfies B's collapsible-reference rule rather than fighting it.
+**Shape — and this paragraph was wrong, corrected when it was built.** It said
+`KTSelectionRule_Read`'s `kind` gives a compact rendering, with the `heading` rows reading as the
+shape of a legal team and the detail expanding under them. Measured over the real scrape: there are
+**6 heading rows in the whole catalog, all in one team of 48**, so that would have produced an
+unstyled flat list for forty-seven teams.
+
+`depth` is the actual structure — 204 rows at depth 0, 549 at depth 1, 144 at depth 2, with only 2 of
+the 48 teams flat — and the rows are SHORT, a median of 25 characters, so a median team's 18 of them
+simply fit with nothing collapsed per row. Depth 0 is a requirement ("1 INTERROGATOR operative", "5
+operatives selected from the following list:") and depth 1 the options under it.
+
+`Composition` already indented inline from `depth`, written from the data in an earlier slice. #44
+had warned about this directly — composition is text, "the page's own words in the page's own order",
+nothing derived — and keying a rendering off a kind the pages mostly do not print is deriving
+structure that decision refused to derive. The whole BLOCK is a disclosure, open on arrival, which is
+the one place this disagrees with B: B hides paragraphs a player has finished reading, this is a list
+they read while choosing.
 
 **Cost, stated rather than discovered.** `KTRoster_Read` does not carry `selection_rules`, so this
 needs `useKillTeam(roster.kill_team_id)` — the team detail, 16–46 KB and a median of 24 over all 48
