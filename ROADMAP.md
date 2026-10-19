@@ -1266,3 +1266,44 @@ tablist); whether the finish summary scrolls with its steppers reachable; and lo
 **The breakpoint asymmetry says where to look first.** The 40k views are tuned at four widths
 (360/480/720/768px) and every Kill Team view at one (640px). So the screens most likely to need
 attention are the newest ones, which is the opposite of the usual assumption.
+
+### The sticky regions overlap — a defect, found on a phone
+
+**All four sticky elements are pinned at `top: 0`**: the app header (`z-index: 50`), the battle
+screen's scoreboard (40), its controls (39) and its tablist (38). `position: sticky` does not stack —
+each element independently pins to the offset it is given — so all four claim the same strip of
+screen and `z-index` decides which one is visible. On a phone that reads as the app header covering
+the battle's own title, and as body text passing through the gaps between three of my own regions.
+
+The constraint on any fix: the offsets cannot be hardcoded. The scoreboard's title wraps, the
+controls wrap, the quick-reference chip row appears and disappears, and the app header is two rows on
+most routes and one on `/`. So cumulative offsets would be three numbers that are already known to
+change. One sticky region rather than four is the shape that needs no numbers kept in sync.
+
+**How it got here, because the reasoning was not absent — it was answering the wrong question.** KF4c
+added two sticky regions, KF5 added the tablist, KF7 B put the chip row inside the controls. Every
+one of those steps reasoned carefully about the HEIGHT budget and none about whether `sticky`
+stacks. The budget argument was real and it was not the question.
+
+### Operative rows and sections should collapse
+
+Reported in the same session: a player looks at one operative, or one section, at a time, so the rest
+should be possible to put away. The same instinct that drove KF7 B's per-entry collapse, one level
+out — and it reduces the problem above directly, since less open content means less scrolling past a
+sticky region.
+
+### Why these escape every gate this repo has
+
+`jsdom` implements the DOM and parses CSS; it does not lay anything out. Measured: an element
+declared `position: sticky; top: 0; height: 120px` reports `computedPosition: "sticky"` and
+`computedTop: "0px"` — the values it was GIVEN — alongside a bounding rect of `0x0` and
+`offsetHeight: 0`. So jsdom knows what was declared and nothing about what it does.
+
+That one fact explains four defects found by eye rather than by test: these overlapping sticky
+regions, the 16px auto-zoom, tap targets under 44px, and a closed `<details>` whose content stays
+queryable. None is reachable from a suite without a layout engine.
+
+What a real engine WOULD catch, if one were added: two sticky regions intersecting after a scroll (a
+rect comparison), a control's rendered height under 44px, and content inside a closed disclosure
+having zero height. What it still would NOT catch is the 16px zoom — that is an iOS Safari keyboard
+behaviour, not a geometry fact, which is why KF8 states it as a static CSS rule instead.
