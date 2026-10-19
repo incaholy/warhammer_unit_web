@@ -1213,3 +1213,56 @@ the two equipment lists are the pool a game CHOOSES from and "the choice itself 
 so there is no `KTRosterEquipment`" — confirmed in the schema, where `KTRoster_Create` and
 `KTRoster_Update` take only `kill_team_id`, `name` and `description`. Persisting a selection is a
 backend decision that partly retires #17, not a frontend slice.
+
+---
+
+## KF8. Hold the phone to the same standard as the desktop
+
+**Status: Not started.** Written thin on purpose, per KF7's maintenance note: the problem and the
+constraint, not the rendering.
+
+**Why this is an entry and not a review.** The Kill Team screens ARE phone-aware — every one of
+their stylesheets carries a `max-width: 640px` block, and `Modal` is fluid (`width: 100%` with a
+`max-width`). What is missing is not responsive CSS. It is that three platform constraints with
+NUMBERS attached are currently unmet and nothing checks them, so they will be met and then drift.
+
+### The three mechanical ones, and the test that keeps them met
+
+Each is a fixed rule, so each belongs in a static test over the tree in the style of
+`src/styles/cssModules.test.ts` — not in a style guide and not in a review.
+
+1. **No interactive control under 16px.** iOS Safari auto-zooms the page when a field under 16px
+   takes focus, leaving the player scrolled somewhere they did not ask to be. `Input` is 13px and
+   `Select`'s control is 13px, and this app puts fields across the battle screen: a token field on
+   every operative, the marker field, the victory-point source, both `choices` fields, every picker.
+   At a table that fires constantly.
+2. **Tap targets of at least 44px**, Apple's minimum. `Button` is `font-size: 11px` with `11px`
+   padding — roughly **35px** — and its small variant is `10px` with `7px`, roughly **25px**.
+3. **Every animation needs a `prefers-reduced-motion` escape.** 14 stylesheets animate and **8 have
+   none**. All six Kill Team ones are the gap, and the convention already existed in the same
+   folder: every 40k view pairs its shimmer with an escape. It did not propagate because nothing
+   enforced it, which is the argument for the test rather than the guide.
+
+### Three stylesheets with no phone block that need one
+
+14 have none; most are primitives that are intrinsically fluid (`Tag`, `Eyebrow`, `Toast`) and
+genuinely do not want one. These three are not:
+
+- **`NewGameModal` and `NewRosterModal`** — the create flows. `NewGameModal` puts a roster picker and
+  two fields in a row, which will be cramped at 390px.
+- **`SectionView`** — the `/` chooser, 12 rules and no phone block. It is the first screen anyone
+  sees.
+- **`SegmentedToggle`** — three segments for the equipment/rule source, which may overflow its row at
+  phone width.
+
+### What the test cannot do
+
+Everything above is a number. The rest needs a device, so it is a checklist rather than a gate: no
+horizontal scroll; every control reachable with one thumb and none of them under the sticky stack;
+how much of the screen is chrome before the first operative (app header, scoreboard, controls,
+tablist); whether the finish summary scrolls with its steppers reachable; and long content — a
+101-row composition, the one 18-rule team, 14 operatives.
+
+**The breakpoint asymmetry says where to look first.** The 40k views are tuned at four widths
+(360/480/720/768px) and every Kill Team view at one (640px). So the screens most likely to need
+attention are the newest ones, which is the opposite of the usual assumption.
