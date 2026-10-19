@@ -1307,3 +1307,65 @@ What a real engine WOULD catch, if one were added: two sticky regions intersecti
 rect comparison), a control's rendered height under 44px, and content inside a closed disclosure
 having zero height. What it still would NOT catch is the 16px zoom — that is an iOS Safari keyboard
 behaviour, not a geometry fact, which is why KF8 states it as a static CSS rule instead.
+
+---
+
+## KF9. A deliberately tiny browser suite — a CANDIDATE, not a commitment
+
+**Status: Candidate.** Recorded so the decision exists when it is wanted, with the cost written down
+beside the return. Not started and not agreed.
+
+**The one honest argument for it.** `KILLTEAM.md` asks the battle screen for "turning point, CP and
+VP **always visible**", and `KillTeamGameView.tsx`'s own header admits that claim is "verified by
+eye" because `position: sticky` cannot be asserted here. 580 tests say nothing about the requirement
+the screen exists to satisfy. Everything else below is a nice-to-have; this is the part that is
+currently unverifiable.
+
+**Why jsdom cannot do it.** Measured: an element declared `position: sticky; top: 0; height: 120px`
+reports `computedPosition: "sticky"` and `computedTop: "0px"` — the values it was given — with a
+bounding rect of `0x0` and `offsetHeight: 0`. jsdom implements the DOM and parses CSS; it lays
+nothing out, so it knows what was declared and nothing about what it does.
+
+### Scope: five assertions, one file, one viewport
+
+390 × 844 (iPhone 14/15) driving **WebKit**, because testing sticky behaviour in Chromium and
+shipping to iPhones tests the wrong engine. It renders a seeded screen and measures boxes: it never
+signs in, never creates a battle, never asserts on copy.
+
+1. **After scrolling, no two pinned regions' bounding rects intersect.** Four sticky regions exist
+   today and three of them overlapped for three slices before a phone preview found it.
+2. **The chrome above the first operative is under a budget** — say 45% of the viewport. That is
+   "phone-first, for use at the table" as a number.
+3. **Every rendered button is at least 44px tall.** Apple's minimum; `Button` is roughly 35px today
+   and its small variant roughly 25px.
+4. **`document.scrollWidth <= clientWidth` on each main route** — "no horizontal scroll", from KF8's
+   checklist, promoted to a gate.
+5. **Content inside a closed `<details>` has zero height.** This replaces a tax already being paid:
+   the suite carries **12 assertions on the `open` attribute** and **6 comments** explaining that
+   jsdom does not hide a closed disclosure, written three separate times (KF4e, KF5, KF7 B). Each is
+   a proxy for the thing it actually cares about.
+
+**The discipline that keeps it tiny:** every assertion must name a requirement from `KILLTEAM.md` or
+this roadmap. If it cannot, it belongs in jsdom or nowhere. Every browser suite starts as "just a few
+layout checks"; that rule is the only thing that stops this one growing into a slow second suite
+duplicating what jsdom already covers well.
+
+### What it would NOT buy
+
+- **The 16px auto-zoom**, which is an iOS Safari keyboard behaviour and not a geometry fact. It stays
+  a static CSS rule in KF8.
+- **Appearance.** No screenshots, so "does it look right" remains someone's eyes. Visual regression
+  is a different and much larger commitment.
+- **Real touch** — momentum scrolling, or the address bar collapsing and changing `vh`.
+- **Anything about correctness.** The existing suite stays the one that matters for behaviour.
+
+### The cost, against this repo's stated stance
+
+`src/styles/cssModules.test.ts` says the dependency list is "deliberately tiny" and walks the tree
+with `node:fs` rather than add a glob library. The totals today are **5 runtime dependencies and 21
+dev**. This would add `@vitest/browser` and a Playwright provider, a **WebKit binary of roughly
+100–300 MB** to install in CI, a second vitest config (jsdom and browser mode cannot share one), a
+dev server running during the run, slower CI, and a new flakiness class in scroll settling.
+
+Scoped to five geometric assertions that each name a requirement, that looks like a fair trade.
+Scoped as "test the app in a real browser", it is not.
