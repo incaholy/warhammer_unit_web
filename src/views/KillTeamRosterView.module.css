@@ -292,3 +292,12 @@
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+/* An escape for anyone who asked not to be moved (KF8b). The 40k views have paired every
+   animation with this since they were written; these eight had not, which is why the rule
+   is a test now rather than a convention. */
+@media (prefers-reduced-motion: reduce) {
+  .skeletonBlock {
+    animation: none;
+  }
+}

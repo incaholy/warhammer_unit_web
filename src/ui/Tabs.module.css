@@ -42,3 +42,13 @@
     gap: 18px;
   }
 }
+
+@media (pointer: coarse) {
+  /* A tab is 37px from its padding alone, and on the battle screen it is the control a
+     player hits mid-turn to get from Battle to Reference. The label stays 10px mono: it
+     is not a text field, so it cannot trigger the iOS focus zoom that the 16px rule in
+     `Input`/`Select` exists for. Only the target grows. */
+  .tab {
+    min-height: 44px;
+  }
+}

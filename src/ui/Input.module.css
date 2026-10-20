@@ -26,3 +26,19 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* ---- Touch (KF8b) ----
+   Scoped to `pointer: coarse`, not to a width. The problem is a TOUCH behaviour, not a
+   narrow one: iOS Safari auto-zooms the page when a control under 16px takes focus,
+   leaving the player scrolled somewhere they did not ask to be — and this app puts fields
+   across the battle screen, so at a table it fires constantly. A width breakpoint would
+   miss a tablet in landscape and would change a desktop design that has no such problem.
+
+   `min-height: 44px` is Apple's minimum target. Measured in a browser before this: 9 of
+   34 controls on the catalog were under it, the smallest 24px. */
+@media (pointer: coarse) {
+  .input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+}

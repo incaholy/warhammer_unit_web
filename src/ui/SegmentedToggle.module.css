@@ -38,3 +38,20 @@
   background: var(--ink);
   color: var(--paper);
 }
+
+@media (max-width: 640px) {
+  /* Three segments do not fit a 390px row beside a label, so the group wraps rather
+     than overflowing it. */
+  .group {
+    flex-wrap: wrap;
+  }
+}
+
+@media (pointer: coarse) {
+  /* Measured at 31px, and there are twelve of these on a two-team battle screen — one
+     Conceal/Engage toggle per operative, which makes it the most-tapped control in the
+     app. It gains the target but not the 16px font, for the reason `Tabs` gives. */
+  .segment {
+    min-height: 44px;
+  }
+}

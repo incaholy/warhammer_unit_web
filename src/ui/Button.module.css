@@ -77,3 +77,14 @@
   background: var(--danger-hover);
   border-color: var(--danger-hover);
 }
+
+/* ---- Touch (KF8b) ----
+   The LABEL stays small: it is mono uppercase by design and 16px there would not be the
+   same control. What changes is the target, which is Apple's 44px minimum — measured at
+   roughly 35px for the default and 24px for the small variant. Scoped to `pointer:
+   coarse` so the desktop design is untouched. */
+@media (pointer: coarse) {
+  .button {
+    min-height: 44px;
+  }
+}

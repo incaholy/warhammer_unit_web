@@ -1218,8 +1218,9 @@ backend decision that partly retires #17, not a frontend slice.
 
 ## KF8. Hold the phone to the same standard as the desktop
 
-**Status: Not started.** Written thin on purpose, per KF7's maintenance note: the problem and the
-constraint, not the rendering.
+**Status: KF8a and KF8b built, KF8c planned.** Slice 1 fixed the sticky overlap and the current
+stage; slice 2 built the three mechanical rules and their test. Written thin on purpose, per KF7's
+maintenance note: the problem and the constraint, not the rendering.
 
 **Why this is an entry and not a review.** The Kill Team screens ARE phone-aware — every one of
 their stylesheets carries a `max-width: 640px` block, and `Modal` is fluid (`width: 100%` with a
@@ -1231,6 +1232,16 @@ NUMBERS attached are currently unmet and nothing checks them, so they will be me
 Each is a fixed rule, so each belongs in a static test over the tree in the style of
 `src/styles/cssModules.test.ts` — not in a style guide and not in a review.
 
+**Built as `src/styles/platformRules.test.ts` (slice 2)**, 9 tests. It reads the stylesheets off disk
+because none of this is reachable from a rendering test: jsdom implements the DOM and parses CSS but
+lays nothing out, so an element declared `position: sticky; top: 0; height: 120px` reports those
+values back and a bounding rect of `0x0`. Heights, overlap and media queries are all invisible to the
+suite, which is KF9's whole argument.
+
+All three rules are scoped to `@media (pointer: coarse)` rather than to a width. The problem is a
+TOUCH behaviour, not a narrow one: a width breakpoint would miss a tablet in landscape and would
+change a desktop design that has no such problem.
+
 1. **No interactive control under 16px.** iOS Safari auto-zooms the page when a field under 16px
    takes focus, leaving the player scrolled somewhere they did not ask to be. `Input` is 13px and
    `Select`'s control is 13px, and this app puts fields across the battle screen: a token field on
@@ -1241,8 +1252,24 @@ Each is a fixed rule, so each belongs in a static test over the tree in the styl
    LABELS — `Field` at 10/11px and `Select`'s label at 10/11px — which do not trigger zoom. Only the
    `Input` and the `select` itself do. Worth stating, because a rule written as "no font under 16px"
    would fail on four values it has no business touching.
+
+   **FIXED (slice 2), and measured in a browser on a live two-team battle**: 17 text-entry controls
+   rendered at 13px before, and 0 under 16px after. The test asserts the 16px floor on `Input` and
+   `Select` only, for the same reason — a `Button`, `Tabs` or `SegmentedToggle` label takes no text,
+   so it cannot take focus and cannot trigger the zoom. Those three get the target without the font.
 2. **Tap targets of at least 44px**, Apple's minimum. `Button` is `font-size: 11px` with `11px`
    padding — roughly **35px** — and its small variant is `10px` with `7px`, roughly **25px**.
+
+   **Measured on the battle screen, every control failed: 82 of 82 under 44px.** Inputs and selects
+   at 41px, buttons from 26px to 37px. The estimates above were close for `Button` and the count was
+   the surprise.
+
+   **Five primitives carry the rule, not three (slice 2).** `Input`, `Select` and `Button` were
+   chosen by reasoning about which primitives existed, and that was wrong: applying the rules in a
+   browser left **23 controls still under 44px**. Two were primitives the list had missed — `Tabs` at
+   37px, and `SegmentedToggle` at 31px with **twelve instances on one battle screen**, one
+   Conceal/Engage toggle per operative, which makes it the most-tapped control in the app. With all
+   five covered the count is **9**.
 3. **Every animation needs a `prefers-reduced-motion` escape.** 14 stylesheets animate and **8 have
    none**: the six Kill Team views, plus `ui/Modal` and `ui/Toast`. The convention existed in the
    same folder — every 40k view pairs its shimmer with an escape — and did not propagate because
@@ -1252,10 +1279,15 @@ Each is a fixed rule, so each belongs in a static test over the tree in the styl
    drifted from a 40k convention". `Modal` and `Toast` predate all of the Kill Team work, so the
    convention was never universal in the first place.
 
-### Three stylesheets with no phone block that need one
+   **FIXED (slice 2): 14 animate, 14 carry an escape, 0 missing.**
+
+### Four stylesheets with no phone block that need one — FIXED (slice 2)
+
+Four, not three: the heading said three while the list below it named four, which is the count error
+this repo's documentation rule exists to catch.
 
 14 have none; most are primitives that are intrinsically fluid (`Tag`, `Eyebrow`, `Toast`) and
-genuinely do not want one. These three are not:
+genuinely do not want one. These four are not:
 
 - **`NewGameModal` and `NewRosterModal`** — the create flows. `NewGameModal` puts a roster picker and
   two fields in a row, which will be cramped at 390px.
@@ -1263,6 +1295,31 @@ genuinely do not want one. These three are not:
   sees.
 - **`SegmentedToggle`** — three segments for the equipment/rule source, which may overflow its row at
   phone width.
+
+### The nine controls slice 2 left under 44px, on purpose
+
+**Status: Planned.** Every one is a navigation `<a>`, and all nine are in the header or the
+breadcrumb trail. Measured on a live battle screen with the coarse-pointer rules applied:
+
+| control | file | height |
+|---|---|---|
+| `.crumb` ×2 | `src/ui/Breadcrumbs.module.css` | 15px |
+| `.back` | the view's own stylesheet | 20px |
+| `.brand` | `src/ui/Header.module.css` | 24px |
+| `.navLink` ×5 | `src/ui/Header.module.css` | 31–34px |
+
+**Why a `min-height` is the wrong fix here, which is the whole reason this is a separate entry.**
+A taller header is exactly the complaint KF8a answered. The report was that the nav "did not go away
+fast enough" and covered the battle heading, and slice 1's own measurement found the app header
+occupying a 96px band. Giving five nav links 44px each MAKES that worse, and on a phone the header is
+the scarcest space on the screen.
+
+So this is a layout decision about the phone header, not a number: collapse the nav behind a control,
+hide it on scroll, or accept small targets for navigation specifically on the grounds that a player
+hits Conceal/Engage every turn and the nav twice a session. The five primitives were a number and are
+built; this is a design question and is not.
+
+`.crumb` at 15px is the one that is hard to defend under any of those options.
 
 ### What the test cannot do
 
@@ -1542,8 +1599,8 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 
 | # | Slice | Contents |
 |---|---|---|
-| 1 | **KF8a — the battle screen's chrome** | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
-| 2 | **KF8b — three rules and the test** | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; three stylesheets needing a phone block |
+| 1 | **KF8a — the battle screen's chrome** — BUILT | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
+| 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
 | 3 | **F12 — the 40k half** | Catalog `factionId` from the target; `CatalogView` error state; `CollectionView` live region; one delete treatment across three screens |
 | 4 | **KF8c — collapsing** | Operative rows and sections collapse |
 | 5 | **KF7 D** | Initiative and board status |
