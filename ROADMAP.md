@@ -1438,11 +1438,28 @@ figure `docs/api/conventions.md` uses — with no constraint to the army's facti
 `ArmyCatalog` passes only `target={{ kind: 'army', armyId }}` and never the army's faction, while the
 view initialises `factionId` to a sentinel meaning "all factions".
 
+**Measured in a real browser, against a Space Marines army**, and the screen is worse than
+"unfiltered":
+
+- Its own eyebrow reads **"ADDING TO AUDIT SPACE MARINES"**, so it knows the destination army.
+- The faction rail shows **All units 1332** selected, with **Space Marines 267** one row beneath it,
+  unselected.
+- The first six units offered are Chaos, Xenos, Xenos, Imperium, Imperium, Chaos. **Not one Space
+  Marine unit appears on the opening page of a Space Marine army's "add from catalog".**
+
+**So the fix is smaller than this entry first assumed.** The rail already drives the query and
+already has the right faction in it; nothing needs passing through `CatalogView`. What is needed is
+that `factionId` initialises from the target instead of from the all-factions sentinel.
+
 **The consequence is the serious half, and it is the reason this is not cosmetic.** This app does
 bookkeeping and not rules — it will not tell anyone a list is illegal. So an unfiltered catalog does
 not merely add noise: it IMPLIES those units are available to that army, and nothing downstream will
-contradict it. The same failure as the "Opponent" field promising a join that did not exist: cheap to
-build, and a claim to the user that no other layer will correct.
+contradict it. The eyebrow makes that worse rather than better — a catalog that did not know the army
+would merely be unhelpful; one that announces the army and then offers Chaos units is asserting those
+are available to it.
+
+That is the same failure as the "Opponent" field promising a join that did not exist, and it is now
+the third of its kind: cheap to build, and a claim to the user that no other layer will correct.
 
 **Two decisions before it is built.** Whether the faction filter is LOCKED to the army's faction or
 merely DEFAULTS to it with the rail still usable — defaulting is more consistent with an app that
@@ -1472,7 +1489,9 @@ hardest to find:
 
 - **`ArmyView`** — `variant="ghost"`, which is `color: var(--muted)` and nothing else. No border, no
   background, faint grey text. The red only appears on the confirm button INSIDE the dialog, which is
-  where it was noticed.
+  where it was noticed. Seen on screen, `DELETE ARMY` is the least visible control on a page that
+  renders `+ ADD FROM CATALOG` twice, once as a solid black bar — so the destructive action has the
+  least weight of anything there.
 - **`KillTeamRosterView`** — `variant="danger" size="sm"`, a filled red trigger.
 - **`KillTeamGameView`** — `variant="secondary"` with a local `.danger` class, so a bordered button
   with red text and a red border.
