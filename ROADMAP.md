@@ -1394,3 +1394,52 @@ dev server running during the run, slower CI, and a new flakiness class in scrol
 
 Scoped to five geometric assertions that each name a requirement, that looks like a fair trade.
 Scoped as "test the app in a real browser", it is not.
+
+---
+
+## F12. The 40k half, from using it
+
+**Status: Not started.** Reported from use, like KF7 and KF8 were. The `F` series rather than `KF`
+because this is the army-list half.
+
+### Adding from the catalog offers the whole catalog
+
+Opening "add from catalog" from an army shows every unit in the database — **1,331** of them, the
+figure `docs/api/conventions.md` uses — with no constraint to the army's faction.
+
+**Everything needed already exists**, so this is wiring rather than capability. `Army_Read` carries
+`faction_id` AND `subfaction_id`; `Unit_Read` carries both; `GET /units` accepts both as filters; and
+`CatalogView` already sends `faction_id` to that filter from its left rail. What is missing is that
+`ArmyCatalog` passes only `target={{ kind: 'army', armyId }}` and never the army's faction, while the
+view initialises `factionId` to a sentinel meaning "all factions".
+
+**The consequence is the serious half, and it is the reason this is not cosmetic.** This app does
+bookkeeping and not rules — it will not tell anyone a list is illegal. So an unfiltered catalog does
+not merely add noise: it IMPLIES those units are available to that army, and nothing downstream will
+contradict it. The same failure as the "Opponent" field promising a join that did not exist: cheap to
+build, and a claim to the user that no other layer will correct.
+
+**Two decisions before it is built.** Whether the faction filter is LOCKED to the army's faction or
+merely DEFAULTS to it with the rail still usable — defaulting is more consistent with an app that
+does not enforce rules, locking is more honest about the constraint. And `subfaction_id`, which is
+the quieter question: does a Space Marines army adding units see every Space Marine unit, or only its
+chapter's? Both the army and the unit carry the column and the endpoint filters on it, so getting
+this wrong is possible in either direction.
+
+### One action, three treatments
+
+The delete control is styled differently on every screen that has one, and the 40k one is the
+hardest to find:
+
+- **`ArmyView`** — `variant="ghost"`, which is `color: var(--muted)` and nothing else. No border, no
+  background, faint grey text. The red only appears on the confirm button INSIDE the dialog, which is
+  where it was noticed.
+- **`KillTeamRosterView`** — `variant="danger" size="sm"`, a filled red trigger.
+- **`KillTeamGameView`** — `variant="secondary"` with a local `.danger` class, so a bordered button
+  with red text and a red border.
+
+There is a real trade-off underneath, which is why this is recorded rather than assumed: a faint
+trigger for a destructive action is defensible — it is hard to hit by accident, and `Button`'s own
+comment says the emphasis belongs on "the button in a dialog whose title asks the question". But
+`ghost` tips that into undiscoverable, and three treatments for one action means nobody decided; each
+screen chose locally. Pick one and apply it to all three.
