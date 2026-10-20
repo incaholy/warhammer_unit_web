@@ -1285,6 +1285,31 @@ added two sticky regions, KF5 added the tablist, KF7 B put the chip row inside t
 one of those steps reasoned carefully about the HEIGHT budget and none about whether `sticky`
 stacks. The budget argument was real and it was not the question.
 
+### The current stage loses to the one you are advancing to
+
+Found in the same phone preview, and the diagnosis matters because it has two causes.
+
+The current stage IS on screen — `gameStateLabel` renders `TP 2 · firefight` into the scoreboard's
+`Eyebrow`. But an eyebrow is `font-size: 10px`, `color: var(--faint)`, letter-spacing 0.28em, while
+the button naming the NEXT stage is 11px with 11px padding inside a bordered control. So the
+loudest text on the screen names the stage a player is going TO, and the quietest names the one they
+are IN. "Advance to firefight" then reads as a statement rather than an action, which is exactly how
+it was reported.
+
+And it may not have been visible at all: the eyebrow sits in the scoreboard, which is pinned
+underneath the app header by the overlap above — the same strip that was covering "Raveners". So fix
+the overlap first and judge the hierarchy after, or the symptoms get chased instead of the cause.
+
+The hierarchy is wrong either way. A 10px faint label against an 11px bordered button misorders the
+one fact a player needs at a glance, and the state is already derived, so this is presentation only:
+promote the current stage to real weight near the title, and demote the control relative to it.
+
+**The label itself is not the bug.** KF4c chose a button naming its destination over a bare
+"Advance" deliberately, and `advanceFinishes` exists so that copy cannot drift into load-bearing.
+What is wrong is its prominence relative to the current state — which is the same accident as KF7
+B's section order: two elements added by different slices for different reasons, with nobody ever
+comparing their weights.
+
 ### Operative rows and sections should collapse
 
 Reported in the same session: a player looks at one operative, or one section, at a time, so the rest
