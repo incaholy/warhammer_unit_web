@@ -1501,3 +1501,51 @@ trigger for a destructive action is defensible — it is hard to hit by accident
 comment says the emphasis belongs on "the button in a dialog whose title asks the question". But
 `ghost` tips that into undiscoverable, and three treatments for one action means nobody decided; each
 screen chose locally. Pick one and apply it to all three.
+
+---
+
+## The plan of record
+
+Everything open, sequenced. The ordering is by **screen and file**, not by the order things were
+reported: several reported items share a stylesheet, and one of them changes what another is measured
+against. Sequencing purely by "what hurts most" would mean editing
+`KillTeamGameView.module.css` in three separate slices.
+
+Each slice updates its own entry in the same commit as the code (see KF7's maintenance note), and
+each is verified in a real browser against the `audit_bot` test account on the local database — not
+only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
+
+| # | Slice | Contents |
+|---|---|---|
+| 1 | **KF8a — the battle screen's chrome** | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
+| 2 | **KF8b — three rules and the test** | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; three stylesheets needing a phone block |
+| 3 | **F12 — the 40k half** | Catalog `factionId` from the target; `CatalogView` error state; `CollectionView` live region; one delete treatment across three screens |
+| 4 | **KF8c — collapsing** | Operative rows and sections collapse |
+| 5 | **KF7 D** | Initiative and board status |
+
+**Why 1 and the hierarchy go together.** The overlap and the stage-versus-button weights are the same
+strip of screen and the same stylesheet; fixing one then revisiting the other is two passes over
+identical rules.
+
+**Why 4 comes after 1.** Collapsing changes how much content scrolls past the sticky region, so
+measuring the sticky fix against content that is about to change would be wasted.
+
+**Why 2 is worth protecting if effort gets cut.** It is the only slice that leaves the codebase
+measurably harder to regress. The others fix specific defects, which stay fixed; those three rules
+have already drifted once.
+
+### Decisions these need, and who owns them
+
+- **Slice 3**: is the faction filter LOCKED to the army's faction or merely DEFAULTED, with the rail
+  still usable? And the `subfaction_id` question — does a Space Marines army see every Space Marine
+  unit or only its chapter's? Also which delete treatment wins: filled red, bordered red, or ghost.
+- **KF9**: whether the browser suite is adopted at all.
+- **F8**: the deploy step needs a Firebase credential as a repository secret.
+
+### Outstanding but not schedulable here
+
+**KF6** is blocked until the backend publishes its events, invite and join operations. Two asks of
+the backend are recorded rather than raised: drop `events` from `KTGame_Read` (56 kB on a long
+battle, for a log no player sees) and return the new version or an `ETag` on a write response, which
+has now dictated client behaviour in two opposite directions. **F4** is unblocked — its stated
+dependency landed — and needs scoping rather than a decision.
