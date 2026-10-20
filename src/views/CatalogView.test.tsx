@@ -121,6 +121,41 @@ describe('CatalogView', () => {
     vi.unstubAllGlobals()
   })
 
+  /** Fails one path and leaves the rest working, so the test shows which region
+   *  reports the fault rather than only that something broke. */
+  function failPath(target: string) {
+    const working = makeFetchMock()
+    fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+      const path = new URL(input, 'http://localhost').pathname.replace(/^\/api\/v1/, '')
+      if (path === target) return jsonResponse({ detail: 'boom' }, { status: 500 })
+      return working(input, init)
+    }) as ReturnType<typeof makeFetchMock>
+    vi.stubGlobal('fetch', fetchMock)
+  }
+
+  it('reports a failed units fetch as a fault, not as "no units match"', async () => {
+    // The regression this guards is a WRONG MESSAGE, not a missing one. A failed
+    // fetch also leaves the list empty, so before this branch existed the view told
+    // the player their search matched nothing — on the screen that runs four queries.
+    failPath('/units')
+    renderView()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/couldn't load the catalog/i)
+    expect(screen.queryByText(/no units match/i)).not.toBeInTheDocument()
+  })
+
+  it('reports a failed factions fetch in the rail and still renders the units', async () => {
+    // The rail failing is not the catalog failing: the main column is unaffected, so
+    // the view must not escalate it into a whole-screen error.
+    failPath('/factions')
+    renderView()
+
+    const rail = screen.getByRole('complementary', { name: /faction filter/i })
+    expect(await within(rail).findByRole('alert')).toHaveTextContent(/couldn't load factions/i)
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+  })
+
   it('shows loading skeletons while the units query is pending', async () => {
     renderView()
 

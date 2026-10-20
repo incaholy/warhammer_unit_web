@@ -133,19 +133,26 @@ export function CollectionView() {
       </header>
 
       {armiesQuery.isLoading ? (
-        layout === 'list' ? (
-          <div className={styles.list} aria-busy="true" aria-label="Loading armies">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonRow key={i} />
-            ))}
-          </div>
-        ) : (
-          <div className={styles.grid} aria-busy="true" aria-label="Loading armies">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        )
+        /* The skeletons are `aria-hidden` and were the only thing here, so a screen
+           reader was told nothing at all between request and render. `aria-busy` says
+           a region is updating; it does not announce anything. The `srOnly` line is
+           what actually gets read, which is why every Kill Team view pairs the two. */
+        <div role="status" aria-label="Loading armies">
+          <span className={styles.srOnly}>Loading armies…</span>
+          {layout === 'list' ? (
+            <div className={styles.list} aria-busy="true">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonRow key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.grid} aria-busy="true">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          )}
+        </div>
       ) : armiesQuery.isError ? (
         <EmptyState
           message="Could not load your armies."

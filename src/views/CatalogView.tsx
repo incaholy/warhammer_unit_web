@@ -20,6 +20,7 @@ import {
 import type { UUID } from '../api/types'
 import { Button, EmptyState, Eyebrow, Input, SegmentedToggle, Tag } from '../ui'
 import { deriveRole } from '../lib/roles'
+import { withReference } from '../lib/errors'
 import styles from './CatalogView.module.css'
 
 /** Where "+ Add" sends a unit — an army or the user's inventory. */
@@ -158,6 +159,11 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
               }}
             />
           ))}
+          {factionsQuery.isError && (
+            <p role="alert" className={styles.error}>
+              {withReference("Couldn't load factions.", factionsQuery.error)}
+            </p>
+          )}
         </aside>
 
         <div className={styles.main}>
@@ -203,6 +209,14 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
                 ))}
               </ul>
             </div>
+          ) : unitsQuery.isError ? (
+            /* Above the empty check on purpose. A failed fetch also leaves
+               `visibleUnits` empty, so without this branch the screen reported a
+               server fault as "No units match." — blaming the player's search for
+               it, on the view that runs the most queries of any in the app. */
+            <p role="alert" className={styles.error}>
+              {withReference("Couldn't load the catalog.", unitsQuery.error)}
+            </p>
           ) : visibleUnits.length === 0 ? (
             <EmptyState
               message="No units match."

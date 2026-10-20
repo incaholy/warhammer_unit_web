@@ -1543,14 +1543,49 @@ are available to it.
 That is the same failure as the "Opponent" field promising a join that did not exist, and it is now
 the third of its kind: cheap to build, and a claim to the user that no other layer will correct.
 
-**Two decisions before it is built.** Whether the faction filter is LOCKED to the army's faction or
-merely DEFAULTS to it with the rail still usable — defaulting is more consistent with an app that
-does not enforce rules, locking is more honest about the constraint. And `subfaction_id`, which is
-the quieter question: does a Space Marines army adding units see every Space Marine unit, or only its
-chapter's? Both the army and the unit carry the column and the endpoint filters on it, so getting
-this wrong is possible in either direction.
+**Decided: the filter matches on faction KEYWORDS, not on `faction_id` or `subfaction_id`.** A unit
+belongs in the list when it carries at least one of the army's faction keywords. "Locked" means the
+list shows only those units. A list of the chapter faction keywords is part of the work.
 
-### Two gaps a static audit found, in the oldest 40k screens
+**The foreign keys were the wrong instrument, and measuring them is what showed it.** Counts from the
+local dev database on 2026-10-19, with `GET /api/v1/units` filters read from the live
+`openapi.json`:
+
+| faction | units | units with no subfaction |
+|---|---|---|
+| Xenos | 500 | 0 |
+| Imperium | 311 | 0 |
+| Chaos | 253 | 0 |
+| Space Marines | 267 | 141 |
+
+The table holds 5 factions and 34 subfactions, so a `faction` here is a grand alliance and not an
+army: Orks, Necrons, T'au and Tyranids all sit under Xenos. Filtering a Tyranids army by its
+`faction_id` offers 500 units drawn from eight unrelated armies, which is barely narrower than the
+1,332 it offers today.
+
+The 1,332 above and the 1,331 at the top of this entry are both right. The dev database carries one
+extra unit under the junk `SM 19104` faction, which accounts for the difference exactly; the browser
+rail and `select count(*) from units` both read 1,332 on 2026-10-19.
+
+**And the subfaction filter cannot express the right set.** `app/core/services/service_unit.py:161`
+in the backend applies `Unit.subfaction_id == subfaction_id`, an exact match that excludes units
+carrying no subfaction. For an Ultramarines army:
+
+| filter | units offered |
+|---|---|
+| none, as shipped | 1,332 |
+| `faction_id` | 267, including 126 belonging to other chapters |
+| `subfaction_id` | **13**, losing all 141 generic Space Marine units |
+| generic + chapter | 154, and no single request returns it |
+
+So both columns are wrong in opposite directions, and keywords are the instrument that is not. Four
+of the seven armies in the dev database carry no subfaction at all, which the FK approach also had no
+answer for.
+
+**Still open: whether the filter is LOCKED or merely DEFAULTED**, with the rail still usable. The
+rail lists factions only, so a defaulted filter needs a visible way to see and clear what is active.
+
+### Two gaps a static audit found, in the oldest 40k screens — FIXED (slice 3)
 
 Not reported from use — turned up by walking every route against the states it handles.
 
@@ -1560,9 +1595,72 @@ has the most ways to fail. Every other data-backed view in the app handles it; t
 convention the Kill Team views follow. It is also the screen the faction-filter gap above is on,
 which is not a coincidence: it is the oldest and busiest view in the 40k half.
 
+**FIXED (slice 3): two `role="alert"` regions, not one.** The units failure replaces the rows; the
+faction failure renders inside the rail and leaves the units alone, because a rail that did not load
+is not a catalog that did not load.
+
+**The units branch MUST sit above the empty check**, which is the part worth keeping. A failed fetch
+also leaves the list empty, so below it the screen reported a server fault as "No units match." —
+blaming the player's search for it. The test asserts the ABSENCE of that copy, not only the presence
+of the alert, because a branch in the wrong order still renders an alert on some other path.
+
+**What it does not cover: an unreachable server.** See the next subsection.
+
 **`/army-list` announces nothing while it loads.** `CollectionView`'s skeleton rows and cards are
 marked `aria-hidden="true"` — correct on its own — but there is no `role="status"` beside them, so a
 screen reader is told nothing between request and render. Every Kill Team view pairs the two.
+
+`aria-busy="true"` was already on the container and does not help: it marks a region as updating and
+announces nothing. The hidden skeletons are the one element that CANNOT carry the announcement, so
+the fix is a visually-hidden line inside a `role="status"` wrapper.
+
+**FIXED (slice 3) and verified in a browser** on a slowed response: the region carries the accessible
+name `Loading armies` and the text "Loading armies…", the four skeletons all sit inside an
+`aria-hidden` subtree, and the region disappears once the armies render. That last check matters — a
+status region that survives its own load keeps announcing a load that finished.
+
+### An unreachable API leaves a screen loading forever
+
+**Status: Planned.** Found while verifying slice 3's error states in a browser, and it is the reason
+that verification could not be completed: the error branch never rendered, because no error was ever
+recorded.
+
+**Two failures that look identical to a player are different to React Query.** A server that ANSWERS
+with an error rejects the query, counts a failure, retries, and reaches `status: 'error'` — which
+slice 3 now renders. A server that cannot be REACHED is classified as offline instead: `networkMode`
+defaults to `'online'`, so the query is suspended rather than failed.
+
+**Measured on `/army-list/catalog`** with the local API stopped, the page already mounted, native
+`fetch`, `navigator.onLine` reporting `true`, and the filter changed by a real click:
+
+| reading | value |
+|---|---|
+| `status` | `pending` |
+| `fetchStatus` | `paused` |
+| `failureCount` | **0** |
+| on screen | `Loading units… 0 OF 0`, indefinitely |
+
+Three consequences, in the order they matter:
+
+1. **It does not recover when the API returns.** Still stuck more than a minute after the server came
+   back, because the query waits for a reconnection event that never fires — the browser was never
+   offline.
+2. **It recovers only on a user action that changes the query key.** Clicking "All units" refetched
+   (`25 OF 1332`), and clicking back to Space Marines then worked (`25 OF 267`).
+3. **`failureCount` is 0**, so no retry policy and no error boundary can see this. It is invisible to
+   every mechanism that handles failure.
+
+**This is the same defect class as the entries above and it survives their fix.** The screen asserts
+something false — here, that a request is in flight when nothing is in flight. It is listed
+separately because the fix is not a branch in a view: it is a `QueryClient` policy (a `networkMode`
+choice) or a rendered `fetchStatus === 'paused'` state, and it reaches **every** query in the app
+rather than the catalog's four.
+
+**A decision belongs to this, not a default.** `networkMode: 'always'` would make a dead API produce
+a real error and show the alert slice 3 added, at the cost of removing the offline-pause behaviour
+everywhere — including the Kill Team battle screen, where a player at a table on a bad connection may
+be better served by a paused write than by a failed one. The battle screen's writes are the reason
+this is not obvious.
 
 ### One action, three treatments
 
@@ -1601,7 +1699,7 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 |---|---|---|
 | 1 | **KF8a — the battle screen's chrome** — BUILT | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
 | 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
-| 3 | **F12 — the 40k half** | Catalog `factionId` from the target; `CatalogView` error state; `CollectionView` live region; one delete treatment across three screens |
+| 3 | **F12 — the 40k half** — PART DONE | `CatalogView` error states and `CollectionView` live region are fixed. Still open: the catalog's faction filter (now a KEYWORD question, see below), one delete treatment across three screens, and the paused-query finding |
 | 4 | **KF8c — collapsing** | Operative rows and sections collapse |
 | 5 | **KF7 D** | Initiative and board status |
 
@@ -1618,9 +1716,9 @@ have already drifted once.
 
 ### Decisions these need, and who owns them
 
-- **Slice 3**: is the faction filter LOCKED to the army's faction or merely DEFAULTED, with the rail
-  still usable? And the `subfaction_id` question — does a Space Marines army see every Space Marine
-  unit or only its chapter's? Also which delete treatment wins: filled red, bordered red, or ghost.
+- **Slice 3**: the filter matches faction keywords, and that is settled. Open: whether it is LOCKED
+  or DEFAULTED; which delete treatment wins (filled red, bordered red, or ghost); and the
+  `networkMode` choice the paused-query finding needs.
 - **KF9**: whether the browser suite is adopted at all.
 - **F8**: the deploy step needs a Firebase credential as a repository secret.
 

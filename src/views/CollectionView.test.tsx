@@ -104,6 +104,14 @@ describe('CollectionView', () => {
     expect(screen.getAllByTestId('army-skeleton').length).toBeGreaterThan(0)
     // No real army rows or empty state while loading.
     expect(screen.queryByText('No armies mustered yet.')).not.toBeInTheDocument()
+
+    // And a screen reader is told something (F12). The skeletons are `aria-hidden`,
+    // so they are the one thing that CANNOT carry the announcement, and `aria-busy`
+    // marks a region as updating without saying anything. Asserting the accessible
+    // NAME and the text content is the point: a bare `role="status"` with no text
+    // would satisfy a presence check and still announce nothing.
+    const status = screen.getByRole('status', { name: /loading armies/i })
+    expect(status).toHaveTextContent(/loading armies/i)
   })
 
   it('shows the empty state when there are no armies', () => {

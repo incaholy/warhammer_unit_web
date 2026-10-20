@@ -300,3 +300,18 @@
     font-size: 22px;
   }
 }
+
+/* The visually-hidden label for the loading `role="status"` region (F12). Same
+   declarations as every other view's copy; `clip` rather than `display: none`,
+   because a hidden element is not announced. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
