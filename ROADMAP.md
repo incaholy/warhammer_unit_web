@@ -1281,8 +1281,24 @@ attention are the newest ones, which is the opposite of the usual assumption.
 **All four sticky elements are pinned at `top: 0`**: the app header (`z-index: 50`), the battle
 screen's scoreboard (40), its controls (39) and its tablist (38). `position: sticky` does not stack —
 each element independently pins to the offset it is given — so all four claim the same strip of
-screen and `z-index` decides which one is visible. On a phone that reads as the app header covering
-the battle's own title, and as body text passing through the gaps between three of my own regions.
+screen and `z-index` decides which one is visible.
+
+**Measured in a real browser, and it is worse than "jumbled".** After scrolling, on a live battle:
+
+| region | top | bottom | z-index |
+|---|---|---|---|
+| scoreboard | 0 | 96 | 40 |
+| controls | 0 | **64** | 39 |
+| tablist | 0 | **48** | 38 |
+
+Three overlapping pairs. The controls and the tablist sit ENTIRELY inside the scoreboard's 96px band,
+so **Advance, Undo and the Battle/Reference tabs are completely occluded** once a player scrolls —
+not merely crowded. The app header behaves differently again: at desktop width it scrolls away
+(`top: -221` after a 900px scroll), so it covers the scoreboard during the transition rather than
+permanently, which is what "did not go away fast enough" described.
+
+This is KF9's assertion #1 run by hand, and it took one call: three lines of geometry catching a
+defect that survived four slices and 580 tests.
 
 The constraint on any fix: the offsets cannot be hardcoded. The scoreboard's title wraps, the
 controls wrap, the quick-reference chip row appears and disappears, and the app header is two rows on
