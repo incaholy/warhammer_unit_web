@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Button } from './Button'
 import styles from './Header.module.css'
@@ -67,9 +68,41 @@ function sectionFor(pathname: string): Section | undefined {
  *  Presentational — nav targets are routes; log-out is the `onLogout` prop. */
 export function Header({ pathname = '/', signedIn = false, onLogout }: HeaderProps) {
   const section = sectionFor(pathname)
+  const ref = useRef<HTMLElement>(null)
+
+  // Publishes its own height as `--app-header-h`, because a screen with its own sticky
+  // region has to sit BELOW this one and the number is not knowable in CSS: the bar is
+  // two rows inside a section and one on `/`, and either row wraps at narrow widths.
+  // Measured rather than hardcoded for the same reason KF8a stopped hardcoding offsets.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // Only publishes a REAL measurement. jsdom lays nothing out, so `offsetHeight` is 0
+    // there; writing `0px` would override the stylesheet's own fallback and pin a second
+    // region flush against this one in every test. Leaving the property unset lets the
+    // fallback apply, which is the honest result when nothing has been measured.
+    // `getBoundingClientRect` rather than `offsetHeight`: the rows measure 60.5 and 34.5,
+    // and two truncations compound into a gap a second sticky region sits inside.
+    // Rounded UP, because being a pixel low overlaps and being a pixel high does not.
+    const publish = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height)
+      if (h > 0) document.documentElement.style.setProperty('--app-header-h', `${h}px`)
+    }
+    publish()
+    // Web fonts change the row heights after first paint. Observed in a browser: the
+    // value published at mount was 91px against a real 96px, so the battle screen's
+    // sticky region sat 5px inside the header. A ResizeObserver alone did not catch it.
+    document.fonts?.ready.then(publish).catch(() => {})
+    // Absent in jsdom. Guarded rather than polyfilled: with no layout engine there is
+    // nothing for it to observe, so a polyfill would only make the test pass louder.
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [section])
 
   return (
-    <header className={styles.header}>
+    <header ref={ref} className={styles.header}>
       <div className={styles.inner}>
         <Link to="/" className={styles.brand}>
           <span className={styles.wordmark}>Muster</span>

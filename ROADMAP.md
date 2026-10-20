@@ -1276,7 +1276,7 @@ tablist); whether the finish summary scrolls with its steppers reachable; and lo
 (360/480/720/768px) and every Kill Team view at one (640px). So the screens most likely to need
 attention are the newest ones, which is the opposite of the usual assumption.
 
-### The sticky regions overlap — a defect, found on a phone
+### The sticky regions overlap — FIXED (slice 1)
 
 **All four sticky elements are pinned at `top: 0`**: the app header (`z-index: 50`), the battle
 screen's scoreboard (40), its controls (39) and its tablist (38). `position: sticky` does not stack —
@@ -1300,6 +1300,28 @@ permanently, which is what "did not go away fast enough" described.
 This is KF9's assertion #1 run by hand, and it took one call: three lines of geometry catching a
 defect that survived four slices and 580 tests.
 
+**The root cause was one line in `global.css`, not the four `top: 0` values.** `html, body, #root`
+carried `height: 100%`, which makes the root box exactly one viewport tall while the document is
+longer — so content OVERFLOWS it, and a sticky element sticks only within its containing block.
+Measured on the 2611px battle screen: `#root` was 775px and the app header **detached at
+`top: -521`** after a 1200px scroll. That is what "the header did not go away fast enough" was. It
+also capped every sticky element in the app at one viewport, so it had to be fixed before the battle
+screen's own region could work at all. `min-height` is the fix.
+
+**Then one sticky region replaced three**, pinned at the app header's MEASURED height. The Header
+publishes `--app-header-h` itself, because the number is not knowable in CSS: two rows inside a
+section, one on `/`, and either wraps at narrow widths. Cumulative offsets were the alternative and
+the wrong one — three numbers already known to change.
+
+Measuring it properly mattered twice. `offsetHeight` published **91px against a real 96px**, because
+the rows measure 60.5 and 34.5 and two truncations compound; and the value published at mount was
+stale because **web fonts change the row heights after first paint**, which a `ResizeObserver` alone
+did not catch. So it measures `getBoundingClientRect`, rounds up, and re-publishes on
+`document.fonts.ready`.
+
+**Verified in a browser after a 1200px scroll**: 4 sticky regions became 2, three overlapping pairs
+became **zero**, and Advance, Undo and the tablist are all visible where they were fully occluded.
+
 The constraint on any fix: the offsets cannot be hardcoded. The scoreboard's title wraps, the
 controls wrap, the quick-reference chip row appears and disappears, and the app header is two rows on
 most routes and one on `/`. So cumulative offsets would be three numbers that are already known to
@@ -1310,7 +1332,7 @@ added two sticky regions, KF5 added the tablist, KF7 B put the chip row inside t
 one of those steps reasoned carefully about the HEIGHT budget and none about whether `sticky`
 stacks. The budget argument was real and it was not the question.
 
-### The current stage loses to the one you are advancing to
+### The current stage loses to the one you are advancing to — FIXED (slice 1)
 
 Found in the same phone preview, and the diagnosis matters because it has two causes.
 
@@ -1328,6 +1350,9 @@ the overlap first and judge the hierarchy after, or the symptoms get chased inst
 The hierarchy is wrong either way. A 10px faint label against an 11px bordered button misorders the
 one fact a player needs at a glance, and the state is already derived, so this is presentation only:
 promote the current stage to real weight near the title, and demote the control relative to it.
+
+Fixed by promoting the stage rather than touching the control: it was an `Eyebrow` at 10px and
+`--faint` and is now 15px in `--ink`, beside the back link above the title.
 
 **The label itself is not the bug.** KF4c chose a button naming its destination over a bare
 "Advance" deliberately, and `advanceFinishes` exists so that copy cannot drift into load-bearing.

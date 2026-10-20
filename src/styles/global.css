@@ -11,10 +11,18 @@
   margin: 0;
 }
 
+/* `min-height`, not `height` (KF8a). With `height: 100%` the root box is exactly one
+   viewport tall while the document is longer, so content OVERFLOWS it -- and a sticky
+   element sticks only within its containing block. Measured on a 2611px battle screen:
+   `#root` was 775px and the app header detached at `top: -521` after a 1200px scroll.
+   With `min-height` the root grows to 2611 and the header pins for the whole page.
+
+   This capped every sticky element in the app at one viewport, so it had to be fixed
+   before the battle screen's own sticky region could work at all. */
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {

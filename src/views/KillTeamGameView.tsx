@@ -53,7 +53,6 @@ import {
 import {
   Button,
   EmptyState,
-  Eyebrow,
   Field,
   Modal,
   SegmentedToggle,
@@ -118,10 +117,18 @@ export default function KillTeamGameView() {
 
   return (
     <section className={styles.view}>
-      <Scoreboard game={game} />
-      <Controls game={game} />
-
-      <div className={styles.tabBar}>
+      {/* ONE sticky region, not three (KF8a). `position: sticky` does not stack: three
+        * elements each given `top: 0` all pinned to the same strip and `z-index` decided
+        * which was visible, so the controls and the tablist were entirely occluded by the
+        * scoreboard once a player scrolled. Measured: scoreboard 0–96, controls 0–64,
+        * tablist 0–48.
+        *
+        * Cumulative offsets were the alternative and the wrong one — the title wraps, the
+        * controls wrap, the quick-reference chips come and go, so it would be three
+        * numbers already known to change. One region needs none. */}
+      <div className={styles.chrome}>
+        <Scoreboard game={game} />
+        <Controls game={game} />
         <Tabs
           tabs={TABS}
           value={tab}
@@ -178,7 +185,13 @@ function Scoreboard({ game }: { game: KTGame_Read }) {
           * lives above the view and is not sticky, so it is gone the moment a long
           * battle screen is scrolled, which is how five slices of testing missed it. */}
         <div className={styles.eyebrowRow}>
-          <Eyebrow>{gameStateLabel(game)}</Eyebrow>
+          {/* The current stage, at real weight. It was an `Eyebrow` — 10px and `--faint`
+            * — while the button naming the stage a player is advancing TO is a filled
+            * control. So the loudest text named where you are going and the quietest
+            * named where you are, and "Advance to firefight" read as a statement rather
+            * than an action. The label was never the bug; its prominence relative to
+            * this was. */}
+          <span className={styles.stage}>{gameStateLabel(game)}</span>
           <Link to="/kill-team/games" className={styles.back}>
             ← Battles
           </Link>

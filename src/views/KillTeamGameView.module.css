@@ -15,21 +15,26 @@
 
 /* ---- The scoreboard ---- */
 
-.scoreboard {
+/* ---- The one sticky region (KF8a) ----
+   Everything a player must keep seeing travels together: three separate sticky elements
+   each pinned at `top: 0` overlapped instead of stacking. `top` is the app header's
+   MEASURED height, published as `--app-header-h` by the Header itself, because the bar is
+   two rows in a section and one on `/` and either wraps at narrow widths. */
+.chrome {
   position: sticky;
-  /* Below the app header rather than under it. The header is translucent with a blur,
-     so an element scrolling beneath it stays legible; this one must not, because it is
-     the thing being read. */
-  top: 0;
+  top: var(--app-header-h, 96px);
   z-index: 40;
+  background: var(--bg);
+  border-bottom: 1px solid var(--ink);
+}
+
+.scoreboard {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 0 16px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--ink);
+  padding: 20px 0 10px;
 }
 
 .identity {
@@ -84,17 +89,12 @@
 
 /* ---- The controls ---- */
 
+/* Travels with the scoreboard inside `.chrome`: `advance` is the most-pressed control
+   in the app and a player should never scroll to reach it. */
 .controls {
-  position: sticky;
-  /* Travels with the scoreboard: `advance` is the most-pressed control in the app and
-     a player should never scroll to reach it. */
-  top: 0;
-  z-index: 39;
   display: flex;
   gap: 10px;
-  padding: 14px 0;
-  background: var(--bg);
-  border-bottom: 1px solid var(--rule);
+  padding: 10px 0;
 }
 
 /* ---- The body ---- */
@@ -433,14 +433,6 @@
    the app header's two rows, which is why the quick reference below rides along with the
    controls instead of claiming a fourth. */
 
-.tabBar {
-  position: sticky;
-  top: 0;
-  z-index: 38;
-  background: var(--bg);
-  padding-top: 10px;
-}
-
 .reference {
   display: flex;
   flex-direction: column;
@@ -503,8 +495,19 @@
    rows plus the scoreboard, the controls and the tablist. */
 .eyebrowRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 14px;
+}
+
+/* The one fact a player needs at a glance, so it carries weight the control naming the
+   NEXT stage does not borrow from it. Was a 10px `--faint` eyebrow. */
+.stage {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
 }
 
 .finish {
