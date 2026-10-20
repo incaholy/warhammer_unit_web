@@ -1236,12 +1236,21 @@ Each is a fixed rule, so each belongs in a static test over the tree in the styl
    `Select`'s control is 13px, and this app puts fields across the battle screen: a token field on
    every operative, the marker field, the victory-point source, both `choices` fields, every picker.
    At a table that fires constantly.
+
+   **Exactly two controls, not six.** A static audit counted six sub-16px values and four of them are
+   LABELS — `Field` at 10/11px and `Select`'s label at 10/11px — which do not trigger zoom. Only the
+   `Input` and the `select` itself do. Worth stating, because a rule written as "no font under 16px"
+   would fail on four values it has no business touching.
 2. **Tap targets of at least 44px**, Apple's minimum. `Button` is `font-size: 11px` with `11px`
    padding — roughly **35px** — and its small variant is `10px` with `7px`, roughly **25px**.
 3. **Every animation needs a `prefers-reduced-motion` escape.** 14 stylesheets animate and **8 have
-   none**. All six Kill Team ones are the gap, and the convention already existed in the same
-   folder: every 40k view pairs its shimmer with an escape. It did not propagate because nothing
-   enforced it, which is the argument for the test rather than the guide.
+   none**: the six Kill Team views, plus `ui/Modal` and `ui/Toast`. The convention existed in the
+   same folder — every 40k view pairs its shimmer with an escape — and did not propagate because
+   nothing enforced it, which is the argument for the test rather than the guide.
+
+   **It reaches `src/ui/`, which changes who owns it.** This was first written as "the newest code
+   drifted from a 40k convention". `Modal` and `Toast` predate all of the Kill Team work, so the
+   convention was never universal in the first place.
 
 ### Three stylesheets with no phone block that need one
 
@@ -1425,6 +1434,20 @@ does not enforce rules, locking is more honest about the constraint. And `subfac
 the quieter question: does a Space Marines army adding units see every Space Marine unit, or only its
 chapter's? Both the army and the unit carry the column and the endpoint filters on it, so getting
 this wrong is possible in either direction.
+
+### Two gaps a static audit found, in the oldest 40k screens
+
+Not reported from use — turned up by walking every route against the states it handles.
+
+**`/army-list/catalog` has no error state at all.** Zero matches for `isError`, `role="alert"` or any
+error copy, on the view that runs **four** queries (factions, inventory, units, facets) and therefore
+has the most ways to fail. Every other data-backed view in the app handles it; this one predates the
+convention the Kill Team views follow. It is also the screen the faction-filter gap above is on,
+which is not a coincidence: it is the oldest and busiest view in the 40k half.
+
+**`/army-list` announces nothing while it loads.** `CollectionView`'s skeleton rows and cards are
+marked `aria-hidden="true"` — correct on its own — but there is no `role="status"` beside them, so a
+screen reader is told nothing between request and render. Every Kill Team view pairs the two.
 
 ### One action, three treatments
 
