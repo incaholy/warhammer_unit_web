@@ -117,6 +117,49 @@
   margin: 0 0 12px;
 }
 
+/* The section's disclosure control (KF8c). Inside the `<h2>` rather than replacing it, so
+   the heading keeps its id for `aria-labelledby` and for the battle tab's order test. It
+   inherits the heading's type: this is the heading, and also the thing you press. */
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sectionToggle:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* `+` / `−`, the disclosure marker this screen already uses for the datacard and the
+   pools. `aria-hidden`: `aria-expanded` on the button is what is announced. */
+.sectionMarker {
+  font-size: 13px;
+  color: var(--muted);
+  width: 10px;
+  flex: none;
+}
+
+@media (pointer: coarse) {
+  /* A section heading is now a tap target, so it takes the same floor as the rest
+     (KF8b). The label stays 11px mono: it carries no text input, so no focus zoom. */
+  .sectionToggle {
+    min-height: 44px;
+  }
+}
+
 .quiet {
   font-size: 14px;
   line-height: 1.5;

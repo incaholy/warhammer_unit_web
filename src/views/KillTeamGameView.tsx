@@ -22,6 +22,7 @@
  * no way to use one would be empty on every new battle. */
 
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -165,6 +166,60 @@ export default function KillTeamGameView() {
           </div>
         </TabPanel>
       )}
+    </section>
+  )
+}
+
+/** A battle-tab section that folds away (KF8c).
+ *
+ *  Measured at a 390px content width: the app header and the sticky chrome take 437px of
+ *  an 844px phone, so 407px is left for everything else, and the six sections plus their
+ *  operatives ran the page to 3,008px for a SIX-operative battle. A player reads one
+ *  section at a time, so the rest should be possible to put away.
+ *
+ *  **The button lives inside the `<h2>`, which is the part worth not changing.** The
+ *  heading element and its id have to survive, because `aria-labelledby` on the section
+ *  points at it and the battle tab's order is asserted through
+ *  `section[aria-labelledby]`. `InventoryView` solved this by replacing the heading with
+ *  a bare `<button>`, which loses the document outline; putting the control inside the
+ *  heading keeps both.
+ *
+ *  **`aria-expanded` and conditional rendering rather than `<details>`**, for two
+ *  reasons. This view re-renders on every write, and `open` is a DOM attribute React
+ *  re-applies each render -- the trap `KillTeamRosterView`'s `RosterComposition` records.
+ *  And a closed `<details>` keeps its children in the DOM, so the saving would be a lie
+ *  and no test could see it; here a closed section genuinely is not rendered. */
+function CollapsibleSection({
+  headingId,
+  title,
+  defaultOpen,
+  children,
+}: {
+  headingId: string
+  title: ReactNode
+  defaultOpen: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const bodyId = `${headingId}-body`
+
+  return (
+    <section className={styles.section} aria-labelledby={headingId}>
+      <h2 id={headingId} className={styles.sectionTitle}>
+        <button
+          type="button"
+          className={styles.sectionToggle}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={styles.sectionMarker} aria-hidden="true">
+            {open ? '−' : '+'}
+          </span>
+          {title}
+        </button>
+      </h2>
+      {open && <div id={bodyId}>{children}</div>}
     </section>
   )
 }
@@ -336,10 +391,7 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   }
 
   return (
-    <section className={styles.section} aria-labelledby="ploys-heading">
-      <h2 id="ploys-heading" className={styles.sectionTitle}>
-        This turning point
-      </h2>
+    <CollapsibleSection headingId="ploys-heading" title="This turning point" defaultOpen={true}>
 
       {used.length === 0 ? (
         <p className={styles.quiet}>No ploys spent this turning point.</p>
@@ -368,7 +420,7 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
           {usePloy.isPending ? 'Spending…' : 'Spend'}
         </Button>
       </div>
-    </section>
+    </CollapsibleSection>
   )
 }
 
@@ -392,20 +444,14 @@ function Operatives({ game }: { game: KTGame_Read }) {
 
   if (game.operatives.length === 0) {
     return (
-      <section className={styles.section} aria-labelledby="operatives-heading">
-        <h2 id="operatives-heading" className={styles.sectionTitle}>
-          Operatives
-        </h2>
+      <CollapsibleSection headingId="operatives-heading" title="Operatives" defaultOpen={true}>
         <EmptyState message="No operatives in this battle." />
-      </section>
+      </CollapsibleSection>
     )
   }
 
   return (
-    <section className={styles.section} aria-labelledby="operatives-heading">
-      <h2 id="operatives-heading" className={styles.sectionTitle}>
-        Operatives
-      </h2>
+    <CollapsibleSection headingId="operatives-heading" title="Operatives" defaultOpen={true}>
       <ul className={styles.rows}>
         {game.operatives.map((operative, index) => (
           <OperativeRow
@@ -418,7 +464,7 @@ function Operatives({ game }: { game: KTGame_Read }) {
         ))}
       </ul>
       <FieldOperative game={game} />
-    </section>
+    </CollapsibleSection>
   )
 }
 
@@ -449,10 +495,7 @@ function ScoreAndCommand({ game }: { game: KTGame_Read }) {
   const update = useUpdateGame(game.id)
 
   return (
-    <section className={styles.section} aria-labelledby="score-heading">
-      <h2 id="score-heading" className={styles.sectionTitle}>
-        Score and command
-      </h2>
+    <CollapsibleSection headingId="score-heading" title="Score and command" defaultOpen={true}>
 
       <div className={styles.scoreRow}>
         <span className={styles.scoreLabel}>Command points</span>
@@ -466,7 +509,7 @@ function ScoreAndCommand({ game }: { game: KTGame_Read }) {
       </div>
 
       <VictoryPoints game={game} />
-    </section>
+    </CollapsibleSection>
   )
 }
 
@@ -579,10 +622,7 @@ function VictoryPoints({ game }: { game: KTGame_Read }) {
 function Killzone({ game }: { game: KTGame_Read }) {
   const update = useUpdateGame(game.id)
   return (
-    <section className={styles.section} aria-labelledby="killzone-heading">
-      <h2 id="killzone-heading" className={styles.sectionTitle}>
-        Killzone
-      </h2>
+    <CollapsibleSection headingId="killzone-heading" title="Killzone" defaultOpen={false}>
       <ChipEditor
         noun="marker"
         on="the killzone"
@@ -591,7 +631,7 @@ function Killzone({ game }: { game: KTGame_Read }) {
         pending={update.isPending}
         onChange={(markers) => update.mutate({ markers })}
       />
-    </section>
+    </CollapsibleSection>
   )
 }
 
@@ -699,10 +739,7 @@ function Equipment({ game }: { game: KTGame_Read }) {
   const remove = useRemoveGameEquipment(game.id)
 
   return (
-    <section className={styles.section} aria-labelledby="equipment-heading">
-      <h2 id="equipment-heading" className={styles.sectionTitle}>
-        Equipment · {game.equipment.length} of {game.equipment_limit}
-      </h2>
+    <CollapsibleSection headingId="equipment-heading" title={<>Equipment · {game.equipment.length} of {game.equipment_limit}</>} defaultOpen={false}>
 
       {game.equipment.length === 0 ? (
         <p className={styles.quiet}>No equipment taken.</p>
@@ -740,7 +777,7 @@ function Equipment({ game }: { game: KTGame_Read }) {
       <PoolDisclosure summary="Take equipment">
         {(open) => <TakeEquipment game={game} open={open} />}
       </PoolDisclosure>
-    </section>
+    </CollapsibleSection>
   )
 }
 
@@ -901,10 +938,7 @@ function Choices({ game }: { game: KTGame_Read }) {
   }
 
   return (
-    <section className={styles.section} aria-labelledby="choices-heading">
-      <h2 id="choices-heading" className={styles.sectionTitle}>
-        Choices
-      </h2>
+    <CollapsibleSection headingId="choices-heading" title="Choices" defaultOpen={false}>
 
       {picks.length === 0 ? (
         <p className={styles.quiet}>Nothing recorded. The Accursed Gift, a Tac Op taken.</p>
@@ -948,7 +982,7 @@ function Choices({ game }: { game: KTGame_Read }) {
           Record
         </Button>
       </div>
-    </section>
+    </CollapsibleSection>
   )
 }
 

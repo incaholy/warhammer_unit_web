@@ -62,6 +62,24 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
   const update = useUpdateGameOperative(game.id)
   const activate = useActivateGameOperative(game.id)
 
+  // Collapsed by default (KF8c). Measured at a 390px content width before this existed:
+  // the app header and the sticky chrome take 437px of an 844px phone, leaving 407px, and
+  // one row was 241px -- so 1.7 operatives fitted on screen and a 13-operative battle ran
+  // to 3,133px of rows alone.
+  //
+  // What stays visible is set by `KILLTEAM.md`: the list is "compact enough to see the
+  // whole team at a glance -- name, wounds, order, activated". Wounds and order are not
+  // text on this screen, they ARE the controls, so collapsing cannot hide them. Tokens and
+  // the datacard are the two parts a player reads occasionally rather than every
+  // activation, so those are what folds away.
+  //
+  // State, not `<details>`: this view re-renders on every write, and `open` is a DOM
+  // attribute React re-applies each time -- the trap `KillTeamRosterView`'s
+  // `RosterComposition` already records, and this screen writes far more often than that
+  // one does.
+  const [open, setOpen] = useState(false)
+  const detailsId = `operative-${operative.id}-details`
+
   // "At position N" on every control's accessible name, because two rows can hold the
   // same datacard (#50) and the tests address rows by it. The ordinal is the row's
   // place in the list the server sent, never `operative.position` (#53).
@@ -73,12 +91,21 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
   return (
     <li className={`${styles.row} ${incapacitated ? styles.rowOut : ''}`} aria-label={who}>
       <div className={styles.head}>
-        <span className={styles.name}>
+        <button
+          type="button"
+          className={styles.name}
+          aria-expanded={open}
+          aria-controls={detailsId}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={styles.marker} aria-hidden="true">
+            {open ? '−' : '+'}
+          </span>
           <span className={styles.ordinal} data-testid="row-ordinal">
             {index + 1}
           </span>
           {operative.name}
-        </span>
+        </button>
         {/* Spelled out rather than a tick: a glyph alone has no accessible name, and
           * "has it gone yet?" is the most-read fact on this screen. */}
         <span className={activated ? styles.activated : styles.notActivated}>
@@ -126,18 +153,26 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
         </Button>
       </div>
 
-      {/* Tokens: the shared chip editor. No vocabulary, because tokens are
-        * team-specific and numbered (#1, #21) -- see `killTeamChips`. */}
-      <ChipEditor
-        noun="token"
-        on={who}
-        chips={operative.tokens}
-        suggestions={tokenSuggestions}
-        pending={update.isPending}
-        onChange={(tokens) => update.mutate({ rowId: operative.id, body: { tokens } })}
-      />
+      {/* Rendered only when open, rather than hidden with CSS. Removing it from the tree
+        * is what makes the saving real -- and it is also the only form a test can see,
+        * because jsdom lays nothing out and keeps a closed `<details>`'s children
+        * queryable. */}
+      {open && (
+        <div id={detailsId} className={styles.details}>
+          {/* Tokens: the shared chip editor. No vocabulary, because tokens are
+            * team-specific and numbered (#1, #21) -- see `killTeamChips`. */}
+          <ChipEditor
+            noun="token"
+            on={who}
+            chips={operative.tokens}
+            suggestions={tokenSuggestions}
+            pending={update.isPending}
+            onChange={(tokens) => update.mutate({ rowId: operative.id, body: { tokens } })}
+          />
 
-      <Datacard game={game} operative={operative} who={who} update={update} />
+          <Datacard game={game} operative={operative} who={who} update={update} />
+        </div>
+      )}
     </li>
   )
 }

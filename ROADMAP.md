@@ -1218,7 +1218,7 @@ backend decision that partly retires #17, not a frontend slice.
 
 ## KF8. Hold the phone to the same standard as the desktop
 
-**Status: KF8a and KF8b built, KF8c planned.** Slice 1 fixed the sticky overlap and the current
+**Status: KF8a, KF8b and KF8c built.** Slice 1 fixed the sticky overlap and the current
 stage; slice 2 built the three mechanical rules and their test. Written thin on purpose, per KF7's
 maintenance note: the problem and the constraint, not the rendering.
 
@@ -1417,12 +1417,73 @@ What is wrong is its prominence relative to the current state — which is the s
 B's section order: two elements added by different slices for different reasons, with nobody ever
 comparing their weights.
 
-### Operative rows and sections should collapse
+### Operative rows and sections collapse — BUILT (slice 4)
 
 Reported in the same session: a player looks at one operative, or one section, at a time, so the rest
 should be possible to put away. The same instinct that drove KF7 B's per-entry collapse, one level
 out — and it reduces the problem above directly, since less open content means less scrolling past a
 sticky region.
+
+**Measured first, at a 390px content width.** Chrome will not make a window narrower than ~566px of
+viewport, so `#root` was constrained instead; the `max-width: 640px` phone stylesheet was already in
+force at 566px, so this changed wrapping and not which rules apply. It is not a cosmetic difference —
+the per-operative control strip measures **35px at 566px and 80px at 390px**, because it wraps.
+
+| band | height |
+|---|---|
+| app header | 128px (two rows at narrow width; 96px at desktop) |
+| sticky chrome — scoreboard 142, controls 100, tabs 38 | 309px |
+| **chrome before any content** | **437px of an 844px phone — 52%** |
+| one operative row | 241px |
+| **rows that fit below the chrome** | **1.7** |
+
+A six-operative battle ran to 3,008px. Thirteen operatives — the largest in the dev database — is
+3,133px of rows alone, 3.7 phone screens.
+
+Where a row's 241px went: controls 80, padding and gaps ~70, token editor 41, datacard summary 31,
+name 19.
+
+**What collapses, and what MUST NOT.** `KILLTEAM.md`'s Frontend section asks the list to stay
+"compact enough to see the whole team at a glance — name, wounds, order, activated". None of those
+four is text on this screen: wounds and order ARE their controls. So a collapsed row keeps the whole
+control strip — wounds, order, Activate — and folds away the two parts a player reads occasionally
+rather than every activation: the tokens and the datacard. Collapsing the controls would have broken
+the requirement collapsing was meant to serve, and `killTeamGameRow.test.tsx` asserts against it.
+
+Sections default by how often they are touched, which is the argument KF7 group B used to order them:
+Operatives, This turning point and Score and command open; Equipment, Killzone and Choices folded.
+
+**`aria-expanded` with conditional rendering, not `<details>`**, for two reasons that are both
+specific to this screen. It re-renders on every write, and `open` is a DOM attribute React re-applies
+each render — the trap `KillTeamRosterView`'s `RosterComposition` already records in code. And a
+closed `<details>` keeps its children in the DOM, so the height saving would be partly a lie; here a
+closed section is genuinely not rendered, which is also the only form the suite can check.
+
+**Verified in a browser at the same 390px content width**, on the six-operative battle the
+baseline was taken from:
+
+| reading | before | after |
+|---|---|---|
+| one operative row | 241px | **145px** (−40%) |
+| whole page | 3,008px | **2,145px** (−29%) |
+| a folded section | — | 19px, body absent from the DOM |
+| 13 operatives, projected | 3,133px | **1,885px** |
+
+The collapsed row reads `+ 1 Traitor Chieftain · NOT ACTIVATED · − 8/8 + · ENGAGE CONCEAL ·
+ACTIVATE` — all four of the at-a-glance facts, with wounds and order still operable. Opening a row
+returns it to 241px and leaves every other row closed; opening Killzone takes its section from 19px
+to 72px and its body from absent to present. No horizontal scroll at any point.
+
+**What did NOT improve: the control strip is still 80px**, because it still wraps to two lines at
+390px. It is now more than half of a collapsed row, so it is where the next saving is if one is
+wanted — shortening the order toggle is the obvious candidate, and it was left alone here because a
+two-button segmented control says what both options are and a single flip-button does not.
+
+**The disclosure button went INSIDE the `<h2>`.** The heading and its id have to survive:
+`aria-labelledby` points at it, and the battle tab's order is asserted through
+`section[aria-labelledby]`. `InventoryView` solves the same problem by replacing the heading with a
+bare `<button>`, which loses the document outline — a test asserts the heading is still an `h2` and
+still carries its id.
 
 ### Why these escape every gate this repo has
 
@@ -1431,9 +1492,15 @@ declared `position: sticky; top: 0; height: 120px` reports `computedPosition: "s
 `computedTop: "0px"` — the values it was GIVEN — alongside a bounding rect of `0x0` and
 `offsetHeight: 0`. So jsdom knows what was declared and nothing about what it does.
 
-That one fact explains four defects found by eye rather than by test: these overlapping sticky
-regions, the 16px auto-zoom, tap targets under 44px, and a closed `<details>` whose content stays
-queryable. None is reachable from a suite without a layout engine.
+That one fact explains three defects found by eye rather than by test: these overlapping sticky
+regions, the 16px auto-zoom, and tap targets under 44px. None is reachable from a suite without a
+layout engine.
+
+**Corrected (slice 4): a closed `<details>` was listed here as a fourth, and it does not belong.**
+Its content is indeed still returned by `queryByText`, which is what the entry meant. But
+`expect(el).toBeVisible()` DOES understand `<details>` — measured in this suite, false when closed
+and true when open — so the state is assertable, just not with a `queryBy*`. The repo's existing
+convention of reading `.open` was therefore never the only option.
 
 What a real engine WOULD catch, if one were added: two sticky regions intersecting after a scroll (a
 rect comparison), a control's rendered height under 44px, and content inside a closed disclosure
@@ -1803,7 +1870,7 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 | 1 | **KF8a — the battle screen's chrome** — BUILT | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
 | 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
 | 3 | **F12 — the 40k half** — PART BUILT, PARKED | Built: catalog error states, `CollectionView` live region, the faction default, one delete treatment, the edition note. Decided but not built: `available-units` as a backend operation, the two-level rail, the composition count. Parked — the focus moves to Kill Team |
-| 4 | **KF8c — collapsing** | Operative rows and sections collapse |
+| 4 | **KF8c — collapsing** — BUILT | Operative rows and sections collapse. Rows keep wounds, order and Activate visible, per `KILLTEAM.md`'s at-a-glance requirement; tokens and the datacard fold away |
 | 5 | **KF7 D** | Initiative and board status |
 
 **Why 1 and the hierarchy go together.** The overlap and the stage-versus-button weights are the same

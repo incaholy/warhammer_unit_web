@@ -31,6 +31,9 @@
   gap: 10px;
 }
 
+/* The row's disclosure control (KF8c). It is the NAME rather than a separate chevron:
+   the name is the widest thing in the head and the easiest target to hit one-handed at a
+   table, and a row whose name does nothing invites tapping it anyway. */
 .name {
   display: flex;
   align-items: baseline;
@@ -38,6 +41,40 @@
   font-family: var(--font-serif);
   font-size: 19px;
   min-width: 0;
+  /* Button reset: this carries the row's own type, not the kit's button type. */
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.name:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* `+` / `−` rather than a chevron, which is the disclosure marker this file already uses
+   for the datacard below. Rendered as text rather than a `::before` because the markup
+   here is a button rather than a `<summary>`, so there is no `[open]` selector to key on.
+   `aria-hidden`, because `aria-expanded` on the button is what a screen reader reads. */
+.marker {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  width: 10px;
+  flex: none;
+}
+
+/* The folded half: tokens and the datacard. `gap` matches `.row`, so an open row reads as
+   one stack rather than two. */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .ordinal {

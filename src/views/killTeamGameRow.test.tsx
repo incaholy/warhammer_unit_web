@@ -77,6 +77,18 @@ function renderRow(
 
 const WHO = 'Ravener Prime at position 1'
 
+/** A row is collapsed by default (KF8c), and a closed one does not render its tokens or
+ *  its datacard at all -- so a test that addresses either opens the row first.
+ *
+ *  Addressed by `expanded: false` rather than by the name it shows. The disclosure is the
+ *  only control in a closed row carrying `aria-expanded`, and the datacard's own
+ *  `<summary>` does not, so this stays unambiguous without depending on the ordinal or
+ *  the operative's name. */
+function expandRow(who = WHO) {
+  const row = screen.getByRole('listitem', { name: who })
+  fireEvent.click(within(row).getByRole('button', { expanded: false }))
+}
+
 describe('OperativeRow: wounds', () => {
   it('sends the ABSOLUTE value, never a delta', async () => {
     const seen = stub()
@@ -220,10 +232,62 @@ describe('OperativeRow: activate', () => {
   })
 })
 
+describe('OperativeRow: collapsing (KF8c)', () => {
+  it('still shows name, wounds, order and activated while collapsed', () => {
+    stub()
+    renderRow({ current_wounds: 8, wounds: 12 })
+
+    // `KILLTEAM.md` asks the list to stay "compact enough to see the whole team at a
+    // glance -- name, wounds, order, activated". None of those four is text on this
+    // screen: wounds and order ARE their controls, so a collapsed row cannot hide them
+    // without breaking the requirement collapsing was meant to serve.
+    expect(screen.getByText('Ravener Prime')).toBeInTheDocument()
+    expect(screen.getByLabelText(`Wounds for ${WHO}`)).toBeInTheDocument()
+    expect(screen.getByLabelText(`Order for ${WHO}`)).toBeInTheDocument()
+    expect(screen.getByText('Not activated')).toBeInTheDocument()
+    expect(screen.getByLabelText(`Activate ${WHO}`)).toBeInTheDocument()
+  })
+
+  it('leaves the tokens and the datacard out of the DOM until it is opened', () => {
+    stub()
+    renderRow()
+
+    // Absent, not hidden. That is what makes the height saving real -- and it is the
+    // only form the suite can see, because jsdom lays nothing out and keeps a closed
+    // `<details>`'s children queryable.
+    expect(screen.queryByText('Datacard')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(`Add a token to ${WHO}`)).not.toBeInTheDocument()
+
+    expandRow()
+
+    expect(screen.getByText('Datacard')).toBeInTheDocument()
+    expect(screen.getByLabelText(`Add a token to ${WHO}`)).toBeInTheDocument()
+  })
+
+  it('announces its own state, and names what it controls', () => {
+    stub()
+    renderRow()
+    const row = screen.getByRole('listitem', { name: WHO })
+    const toggle = within(row).getByRole('button', { expanded: false })
+
+    // `aria-controls` has to point at an element that exists once open, or the
+    // announcement is a promise to a screen reader that the DOM does not keep.
+    const controls = toggle.getAttribute('aria-controls')
+    expect(controls).toBeTruthy()
+    expect(document.getElementById(controls!)).toBeNull()
+
+    expandRow()
+
+    expect(within(row).getByRole('button', { expanded: true })).toBe(toggle)
+    expect(document.getElementById(controls!)).not.toBeNull()
+  })
+})
+
 describe('OperativeRow: tokens', () => {
   it('writes the WHOLE array when one is added', async () => {
     const seen = stub()
     renderRow({ tokens: ['Poison'] })
+    expandRow()
     fireEvent.change(screen.getByLabelText(`Add a token to ${WHO}`), {
       target: { value: 'Heightened Senses' },
     })
@@ -241,6 +305,7 @@ describe('OperativeRow: tokens', () => {
   it('accepts Enter as well as the button', async () => {
     const seen = stub()
     renderRow({ tokens: [] })
+    expandRow()
     const field = screen.getByLabelText(`Add a token to ${WHO}`)
     fireEvent.change(field, { target: { value: 'Tunnel 3' } })
     fireEvent.keyDown(field, { key: 'Enter' })
@@ -255,6 +320,7 @@ describe('OperativeRow: tokens', () => {
   it('writes the array minus one when a token is removed', async () => {
     const seen = stub()
     renderRow({ tokens: ['Poison', 'Tunnel 3'] })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Remove token Poison from ${WHO}`))
 
     await waitFor(() => {
@@ -265,6 +331,7 @@ describe('OperativeRow: tokens', () => {
   it('sends nothing for a blank or duplicate token', async () => {
     const seen = stub()
     renderRow({ tokens: ['Poison'] })
+    expandRow()
     const field = screen.getByLabelText(`Add a token to ${WHO}`)
 
     fireEvent.change(field, { target: { value: '   ' } })
@@ -281,6 +348,7 @@ describe('OperativeRow: tokens', () => {
   it('suggests the tokens this battle has already used', () => {
     stub()
     renderRow({ tokens: [] }, {}, ['Poison', 'Tunnel 3'])
+    expandRow()
     const options = Array.from(document.querySelectorAll('datalist option')).map((o) =>
       o.getAttribute('value'),
     )
@@ -327,6 +395,7 @@ describe('OperativeRow: the datacard', () => {
   it('is collapsed until it is opened', () => {
     stub()
     renderRow()
+    expandRow()
     // Through the attribute, because jsdom renders closed content anyway.
     expect(card().open).toBe(false)
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
@@ -336,6 +405,7 @@ describe('OperativeRow: the datacard', () => {
   it('reads the printed stats from the game\'s own snapshot', () => {
     stub()
     renderRow({ apl: 2, move: 6, save: 4, wounds: 12 })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
 
     // #22, #24: these were copied when the battle started. The row above shows the
@@ -352,6 +422,7 @@ describe('OperativeRow: the datacard', () => {
     renderRow({
       weapons: [makeKTGameWeapon({ name: 'Ravening claws', category: 'melee', range: 0 })],
     })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
 
     const body = card()
@@ -379,6 +450,7 @@ describe('OperativeRow: the datacard', () => {
         }),
       ],
     })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
 
     const body = card()
@@ -394,6 +466,7 @@ describe('OperativeRow: the datacard', () => {
     // value that cannot arrive.
     stub()
     renderRow({ weapons: [makeKTGameWeapon({ name: 'Bare', weapon_rules: [] })] })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
     expect(within(card()).getByText('—')).toBeInTheDocument()
   })
@@ -404,6 +477,7 @@ describe('OperativeRow: the datacard', () => {
       abilities: [makeKTGameAbility({ name: 'Burrow', description: 'Goes under.' })],
       keywords: ['RAVENER', 'TYRANID'],
     })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
 
     // Scoped to the Abilities block: the same name also appears as an option in the
@@ -417,6 +491,7 @@ describe('OperativeRow: the datacard', () => {
   it('makes NO request to render, because it reads the snapshot', async () => {
     const seen = stub()
     renderRow()
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
     // The whole point of #22 and #24: a battle needs no catalog request once it has
     // started, so opening a card at a table cannot be waiting on anything.
@@ -431,6 +506,7 @@ describe('OperativeRow: actions used', () => {
   it('says none used when none have been', () => {
     stub()
     renderRow({ actions_used: [] })
+    expandRow()
     openCard()
     expect(screen.getByText('None used.')).toBeInTheDocument()
   })
@@ -441,6 +517,7 @@ describe('OperativeRow: actions used', () => {
       { actions_used: [], abilities: [makeKTGameAbility({ name: 'Burrow' })] },
       { turning_point: 3 },
     )
+    expandRow()
     openCard()
     fireEvent.change(screen.getByLabelText(`Action for ${WHO}`), { target: { value: 'Burrow' } })
     fireEvent.click(screen.getByLabelText(`Mark the action used for ${WHO}`))
@@ -461,6 +538,7 @@ describe('OperativeRow: actions used', () => {
     renderRow({
       abilities: [makeKTGameAbility({ name: 'Burrow' }), makeKTGameAbility({ name: 'Scuttle' })],
     })
+    expandRow()
     openCard()
     const select = screen.getByLabelText(`Action for ${WHO}`)
     expect(within(select).getByRole('option', { name: 'Burrow' })).toBeInTheDocument()
@@ -483,6 +561,7 @@ describe('OperativeRow: actions used', () => {
       },
       { turning_point: 3 },
     )
+    expandRow()
     openCard()
     expect(screen.getByText('TP 1')).toBeInTheDocument()
     expect(screen.getByText('TP 3')).toBeInTheDocument()
@@ -500,6 +579,7 @@ describe('OperativeRow: actions used', () => {
       },
       { turning_point: 3 },
     )
+    expandRow()
     openCard()
     fireEvent.click(
       screen.getByLabelText(`Remove Burrow used in turning point 1 from ${WHO}`),
@@ -517,6 +597,7 @@ describe('OperativeRow: actions used', () => {
   it('says so when a card prints no abilities, and offers no picker', () => {
     stub()
     renderRow({ abilities: [], actions_used: [] })
+    expandRow()
     openCard()
     expect(screen.getByText('This card prints no abilities.')).toBeInTheDocument()
     expect(screen.queryByLabelText(`Action for ${WHO}`)).not.toBeInTheDocument()
@@ -528,6 +609,7 @@ describe('OperativeRow: actions used', () => {
       actions_used: [{ name: 'Good', turning_point: 1 }, { turning_point: 2 }, { name: 'No TP' }],
       abilities: [makeKTGameAbility({ name: 'Good' })],
     })
+    expandRow()
     openCard()
     // Scoped to the used-actions block for the same reason: 'Good' is also an ability
     // on the card and an option in the picker.
@@ -582,6 +664,7 @@ describe('OperativeRow: transform', () => {
   it('fetches nothing until its own disclosure opens', async () => {
     const seen = stubWithTeam()
     renderRow({ operative_id: 'kto1' })
+    expandRow()
     // Opening the DATACARD must not fetch the team: a player reading a weapon rule is
     // the common case, and transforming is one team's rule.
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
@@ -595,6 +678,7 @@ describe('OperativeRow: transform', () => {
   it('offers every card the team prints, not only the in_battle ones', async () => {
     stubWithTeam()
     renderRow({ operative_id: 'kto1' })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
     fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
 
@@ -606,6 +690,7 @@ describe('OperativeRow: transform', () => {
   it('does not offer the card this row already holds', async () => {
     stubWithTeam()
     renderRow({ operative_id: 'kto1' })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
     fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
 
@@ -616,6 +701,7 @@ describe('OperativeRow: transform', () => {
   it('POSTs the card it becomes, addressed by the ROW', async () => {
     const seen = stubWithTeam()
     renderRow({ id: 'ktgo-7', operative_id: 'kto1' })
+    expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
     fireEvent.click(screen.getByLabelText(`Transform ${WHO}`))
     fireEvent.change(await screen.findByLabelText(`Becomes, for ${WHO}`), {

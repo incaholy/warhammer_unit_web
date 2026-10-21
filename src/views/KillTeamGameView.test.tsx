@@ -37,6 +37,23 @@ function stub(game: KTGame_Read) {
   return seen
 }
 
+/** Battle-tab sections and operative rows are collapsed by default (KF8c), and a closed
+ *  one is NOT in the DOM -- which is the point, and also why these helpers exist: a test
+ *  that reaches inside one opens it first.
+ *
+ *  Both address the disclosure by `expanded: false` rather than by its label, so a
+ *  reworded heading does not silently turn these into no-ops. */
+async function openSection(name: string | RegExp) {
+  // `find`, not `get`: `renderView` does not wait, so the first render of every test is
+  // the loading state and the section does not exist yet.
+  fireEvent.click(await screen.findByRole('button', { name, expanded: false }))
+}
+
+async function openOperative(who: string) {
+  const row = await screen.findByRole('listitem', { name: who })
+  fireEvent.click(within(row).getByRole('button', { expanded: false }))
+}
+
 function renderView(gameId = 'ktg-1') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -458,6 +475,7 @@ describe('KillTeamGameView: the killzone', () => {
   it('writes the whole marker list', async () => {
     const seen = stub(makeKTGame({ markers: ['Tunnel 0'] }))
     renderView()
+    await openSection(/Killzone/)
     fireEvent.change(await screen.findByLabelText('Add a marker to the killzone'), {
       target: { value: 'Tunnel 3' },
     })
@@ -476,6 +494,7 @@ describe('KillTeamGameView: the killzone', () => {
   it('removes a marker', async () => {
     const seen = stub(makeKTGame({ markers: ['Tunnel 0', 'Tunnel 3'] }))
     renderView()
+    await openSection(/Killzone/)
     fireEvent.click(await screen.findByLabelText('Remove marker Tunnel 0 from the killzone'))
 
     await waitFor(() => {
@@ -582,6 +601,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
   it('fetches the equipment pool only when the disclosure opens', async () => {
     const seen = stubWithCatalog()
     renderView()
+    await openSection(/Equipment/)
     await screen.findByRole('heading', { level: 1 })
     expect(catalogCalls(seen)).toEqual([])
 
@@ -600,6 +620,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
       makeKTGame({ equipment: [makeKTGameEquipment({ equipment_id: 'kte1', name: 'Tunnel markers' })] }),
     )
     renderView()
+    await openSection(/Equipment/)
     await screen.findByRole('heading', { level: 1 })
     fireEvent.click(screen.getByText('Take equipment'))
 
@@ -611,6 +632,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
   it('takes a piece by id', async () => {
     const seen = stubWithCatalog(makeKTGame({ equipment: [] }))
     renderView()
+    await openSection(/Equipment/)
     await screen.findByRole('heading', { level: 1 })
     fireEvent.click(screen.getByText('Take equipment'))
     fireEvent.change(await screen.findByLabelText('Equipment'), { target: { value: 'kte2' } })
@@ -632,6 +654,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
       }),
     )
     renderView()
+    await openSection(/Equipment/)
     expect(await screen.findByText(/Equipment · 1 of 1/)).toBeInTheDocument()
     fireEvent.click(screen.getByText('Take equipment'))
     // At the limit, and still offering the other piece.
@@ -643,6 +666,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
       makeKTGame({ equipment: [makeKTGameEquipment({ id: 'ktge-1', name: 'Spike', revealed: false })] }),
     )
     renderView()
+    await openSection(/Equipment/)
     fireEvent.click(await screen.findByLabelText('Reveal Spike'))
     await waitFor(() => {
       const patch = seen.find((c) => c.method === 'PATCH' && c.url.includes('/equipment/'))
@@ -660,6 +684,7 @@ describe('KillTeamGameView: the pools are not fetched until asked for', () => {
       makeKTGame({ equipment: [makeKTGameEquipment({ name: 'Spike', revealed: true })] }),
     )
     renderView()
+    await openSection(/Equipment/)
     expect(await screen.findByText('Revealed')).toBeInTheDocument()
     expect(screen.queryByLabelText('Reveal Spike')).not.toBeInTheDocument()
   })
@@ -874,6 +899,7 @@ describe('KillTeamGameView: choices', () => {
   it('records a pick as a named note, writing the whole document', async () => {
     const seen = stub(makeKTGame({ choices: { 'Accursed Gift': 'Mutation' } }))
     renderView()
+    await openSection(/Choices/)
     fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: '  Tac Op  ' } })
     fireEvent.change(screen.getByLabelText('What was chosen'), {
       target: { value: '  Seek and Destroy  ' },
@@ -891,6 +917,7 @@ describe('KillTeamGameView: choices', () => {
   it('needs both halves before it will record', async () => {
     stub(makeKTGame({ choices: {} }))
     renderView()
+    await openSection(/Choices/)
     fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: 'Tac Op' } })
     expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled()
   })
@@ -898,6 +925,7 @@ describe('KillTeamGameView: choices', () => {
   it('removes a pick from the document', async () => {
     const seen = stub(makeKTGame({ choices: { 'Accursed Gift': 'Mutation', 'Tac Op': 'Hold' } }))
     renderView()
+    await openSection(/Choices/)
     fireEvent.click(await screen.findByLabelText('Remove the choice Tac Op'))
 
     await waitFor(() => {
@@ -916,6 +944,7 @@ describe('KillTeamGameView: choices', () => {
       makeKTGame({ choices: { Good: 'yes', Nested: { a: 1 } } as Record<string, unknown> }),
     )
     renderView()
+    await openSection(/Choices/)
     fireEvent.change(await screen.findByLabelText('Choice'), { target: { value: 'Tac Op' } })
     fireEvent.change(screen.getByLabelText('What was chosen'), { target: { value: 'Hold' } })
     fireEvent.click(screen.getByRole('button', { name: 'Record' }))
@@ -931,6 +960,7 @@ describe('KillTeamGameView: choices', () => {
   it('says what the field is for when nothing is recorded', async () => {
     stub(makeKTGame({ choices: {} }))
     renderView()
+    await openSection(/Choices/)
     expect(
       await screen.findByText(/The Accursed Gift, a Tac Op taken/),
     ).toBeInTheDocument()
@@ -1076,6 +1106,72 @@ describe('KillTeamGameView: the final score', () => {
 })
 
 /* ---- Reading the screen while playing (KF7 group B) ---- */
+
+describe('KillTeamGameView: sections and rows collapse (KF8c)', () => {
+  /** `aria-expanded` on the section's own heading button. */
+  const sectionState = (name: RegExp) =>
+    screen.getByRole('button', { name }).getAttribute('aria-expanded')
+
+  it('opens on what a player touches and folds the setup sections away', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('button', { name: /Operatives/ })
+
+    // Ordered by how often a section is touched, the same argument KF7 group B used to
+    // order them in the first place: operatives and the turning point are worked every
+    // activation, the killzone and `choices` are set once.
+    expect(sectionState(/Operatives/)).toBe('true')
+    expect(sectionState(/This turning point/)).toBe('true')
+    expect(sectionState(/Score and command/)).toBe('true')
+    expect(sectionState(/Equipment/)).toBe('false')
+    expect(sectionState(/Killzone/)).toBe('false')
+    expect(sectionState(/Choices/)).toBe('false')
+  })
+
+  it('does not render a closed section body at all', async () => {
+    stub(makeKTGame({ markers: ['Tunnel 0'] }))
+    renderView()
+    await screen.findByRole('button', { name: /Killzone/ })
+
+    // The marker is in the game the server sent, so this is the collapse hiding it and
+    // not an empty battle.
+    expect(screen.queryByText('Tunnel 0')).not.toBeInTheDocument()
+    await openSection(/Killzone/)
+    expect(screen.getByText('Tunnel 0')).toBeInTheDocument()
+  })
+
+  it('keeps the heading and its id, so the tab order stays assertable', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('button', { name: /Killzone/ })
+
+    // The disclosure went INSIDE the `<h2>` rather than replacing it. `aria-labelledby`
+    // on each section points at that id, and the battle tab's order is asserted through
+    // `section[aria-labelledby]` -- both break silently if the heading is swapped for a
+    // bare button, which is how `InventoryView` does it.
+    const heading = screen.getByRole('heading', { name: /Killzone/ })
+    expect(heading.tagName).toBe('H2')
+    expect(heading.id).toBe('killzone-heading')
+    expect(heading.querySelector('button')).not.toBeNull()
+  })
+
+  it('opens one operative without opening the rest', async () => {
+    stub(makeKTGame())
+    renderView()
+    await screen.findByRole('listitem', { name: /Ravener Prime/ })
+
+    expect(screen.queryByText('Datacard')).not.toBeInTheDocument()
+    await openOperative('Ravener Prime at position 1')
+
+    // One datacard, not two: a player reads one operative at a time, which is the whole
+    // report this slice answers.
+    expect(screen.getAllByText('Datacard')).toHaveLength(1)
+    // Addressed by POSITION, not by name: this battle fields two Hormagaunts, which is
+    // the duplicate-datacard case (#50) the row's accessible names exist for.
+    const other = screen.getByRole('listitem', { name: 'Hormagaunt at position 2' })
+    expect(within(other).queryByText('Datacard')).toBeNull()
+  })
+})
 
 describe('KillTeamGameView: the order of the battle tab', () => {
   it('puts the operatives first and the setup sections last', async () => {
