@@ -31,6 +31,20 @@ describe('Button', () => {
     expect(dangerClasses).not.toBe(primaryClasses)
   })
 
+  it('keeps a destructive trigger distinct from its own confirm button', () => {
+    // The PAIR is the point, not either variant alone (F12). `dangerOutline` opens the
+    // dialog and `danger` is the button inside it, so if these two ever render alike the
+    // two steps of a destructive action become indistinguishable -- which is the exact
+    // thing `danger` was added to prevent, one level up.
+    const { container: trigger } = render(<Button variant="dangerOutline">Delete army</Button>)
+    const { container: confirm } = render(<Button variant="danger">Delete</Button>)
+    const { container: primary } = render(<Button>Create</Button>)
+
+    const cls = (c: HTMLElement) => c.querySelector('button')!.className
+    expect(cls(trigger)).not.toBe(cls(confirm))
+    expect(cls(trigger)).not.toBe(cls(primary))
+  })
+
   it('does not fire onClick when disabled', () => {
     const onClick = vi.fn()
     render(

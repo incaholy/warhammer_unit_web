@@ -109,7 +109,7 @@ export default function ArmyView() {
         <PointsLimit army={army} />
         <div className={styles.headerActions}>
           <Button
-            variant="ghost"
+            variant="dangerOutline"
             size="sm"
             onClick={() => setConfirmingDelete(true)}
             disabled={deleteArmy.isPending}

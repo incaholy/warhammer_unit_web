@@ -1543,47 +1543,54 @@ are available to it.
 That is the same failure as the "Opponent" field promising a join that did not exist, and it is now
 the third of its kind: cheap to build, and a claim to the user that no other layer will correct.
 
-**Decided: the filter matches on faction KEYWORDS, not on `faction_id` or `subfaction_id`.** A unit
-belongs in the list when it carries at least one of the army's faction keywords. "Locked" means the
-list shows only those units. A list of the chapter faction keywords is part of the work.
+**Decided and BUILT (slice 3): the catalog opens on the destination army's `faction_id`.** It
+DEFAULTS rather than locks — the rail stays fully usable, and no extra control was needed to clear
+it, because an unchosen filter and a filter set to "All units" are kept as distinct states.
 
-**The foreign keys were the wrong instrument, and measuring them is what showed it.** Counts from the
-local dev database on 2026-10-19, with `GET /api/v1/units` filters read from the live
-`openapi.json`:
+**Verified in a browser against `Audit Space Marines`**, the same army the original symptom was
+measured on:
 
-| faction | units | units with no subfaction |
+| reading | before | after |
 |---|---|---|
-| Xenos | 500 | 0 |
-| Imperium | 311 | 0 |
-| Chaos | 253 | 0 |
-| Space Marines | 267 | 141 |
+| count | `25 OF 1332` | `25 OF 267` |
+| rail selection | All units | Space Marines |
+| first six rows | Chaos, Xenos, Xenos, Imperium, Imperium, Chaos | six Space Marines units |
 
-The table holds 5 factions and 34 subfactions, so a `faction` here is a grand alliance and not an
-army: Orks, Necrons, T'au and Tyranids all sit under Xenos. Filtering a Tyranids army by its
-`faction_id` offers 500 units drawn from eight unrelated armies, which is barely narrower than the
-1,332 it offers today.
+Clicking "All units" returns 1,332 and clicking Chaos returns 253, so the default is a default.
 
-The 1,332 above and the 1,331 at the top of this entry are both right. The dev database carries one
-extra unit under the junk `SM 19104` faction, which accounts for the difference exactly; the browser
-rail and `select count(*) from units` both read 1,332 on 2026-10-19.
+**Keywords were investigated first and the data does not support them.** This entry briefly recorded
+a decision to match on faction keywords. Counts from the local dev database on 2026-10-21:
 
-**And the subfaction filter cannot express the right set.** `app/core/services/service_unit.py:161`
-in the backend applies `Unit.subfaction_id == subfaction_id`, an exact match that excludes units
-carrying no subfaction. For an Ultramarines army:
-
-| filter | units offered |
+| probe | result |
 |---|---|
-| none, as shipped | 1,332 |
-| `faction_id` | 267, including 126 belonging to other chapters |
-| `subfaction_id` | **13**, losing all 141 generic Space Marine units |
+| distinct keywords across 1,332 units | 1,216 |
+| subfaction names appearing as a keyword | **2 of 34** — `Aeldari` (113), `Deathwatch` (9) |
+| `Adeptus Astartes` anywhere | **1** unit |
+| faction names as keywords | only `Imperium` (645) and `Chaos` (244) |
+| units with `[]` keywords | 44 |
+
+The scraped arrays hold battlefield-role and ability keywords — `Infantry`, `Character`, `Vehicle`,
+`Grenades`, `Smoke`, `Fly` — plus the unit's own name echoed back. Four Black Templars units read
+`["Infantry", "Character", "Grenades", "Imperium", "Tacticus", …]` with no chapter keyword at all,
+and `armies` has no keywords column to compare against. Matching on them would select on `Imperium`,
+offering a Black Templars army roughly 645 units — **worse than the 267** the faction gives — and
+would hide the 44 units that carry none.
+
+**`subfaction_id` is NOT applied yet, deliberately.** The backend filter is an exact match
+(`warhammer_unit/app/core/services/service_unit.py:161`), which excludes units carrying no
+subfaction. Space Marines is the only faction with any — 141 of its 267 — so an Ultramarines army
+would be offered **13** units and could not add an Intercessor Squad.
+
+| filter | units offered to an Ultramarines army |
+|---|---|
+| `faction_id`, as built | 267, including 126 belonging to other chapters |
+| `subfaction_id` | 13, losing all 141 generic units |
 | generic + chapter | 154, and no single request returns it |
 
-So both columns are wrong in opposite directions, and keywords are the instrument that is not. Four
-of the seven armies in the dev database carry no subfaction at all, which the FK approach also had no
-answer for.
-
-**Still open: whether the filter is LOCKED or merely DEFAULTED**, with the rail still usable. The
-rail lists factions only, so a defaulted filter needs a visible way to see and clear what is active.
+Over-offering is the safe direction for an app that does bookkeeping and not rules: it never hides a
+legal unit. **The remaining step is a backend predicate** — `subfaction_id IS NULL OR subfaction_id =
+:id` — after which the frontend can pass the army's subfaction too. Four of the seven armies in the
+dev database carry no subfaction at all, so that path MUST keep working when the column is null.
 
 ### Two gaps a static audit found, in the oldest 40k screens — FIXED (slice 3)
 
@@ -1619,50 +1626,89 @@ name `Loading armies` and the text "Loading armies…", the four skeletons all s
 `aria-hidden` subtree, and the region disappears once the armies render. That last check matters — a
 status region that survives its own load keeps announcing a load that finished.
 
-### An unreachable API leaves a screen loading forever
+### A query paused in a hidden tab — WITHDRAWN, the measurement was the bug
 
-**Status: Planned.** Found while verifying slice 3's error states in a browser, and it is the reason
-that verification could not be completed: the error branch never rendered, because no error was ever
-recorded.
+**Status: Not a defect.** Recorded here rather than deleted, because the wrong version was committed
+and acted on, and the way it was wrong is the useful part.
 
-**Two failures that look identical to a player are different to React Query.** A server that ANSWERS
-with an error rejects the query, counts a failure, retries, and reaches `status: 'error'` — which
-slice 3 now renders. A server that cannot be REACHED is classified as offline instead: `networkMode`
-defaults to `'online'`, so the query is suspended rather than failed.
+**The claim was** that an unreachable API suspends a query rather than failing it, leaving
+`/army-list/catalog` on "Loading units… 0 OF 0" indefinitely, with a `networkMode` decision attached.
+The readings were real: `status: pending`, `fetchStatus: paused`, `failureCount: 0`, with native
+`fetch`, a genuinely stopped server and `navigator.onLine` reporting `true`.
 
-**Measured on `/army-list/catalog`** with the local API stopped, the page already mounted, native
-`fetch`, `navigator.onLine` reporting `true`, and the filter changed by a real click:
+**The cause was the probe.** Every measurement ran against a BACKGROUND tab —
+`document.visibilityState` was `hidden` — and React Query deliberately stops retrying in a tab nobody
+is looking at. Three lines of its source account for all four observations:
 
-| reading | value |
+| `node_modules/@tanstack/query-core/src/retryer.ts` | |
 |---|---|
-| `status` | `pending` |
-| `fetchStatus` | `paused` |
-| `failureCount` | **0** |
-| on screen | `Loading units… 0 OF 0`, indefinitely |
+| `canStart()` (line 109) | `canFetch() && canRun()` — no visibility check |
+| `canContinue()` (lines 104-107) | `focusManager.isFocused() && (networkMode === 'always' \|\| onlineManager.isOnline()) && canRun()` |
+| line 196, after a failure | `canContinue() ? undefined : pause()` |
 
-Three consequences, in the order they matter:
+And `focusManager.ts:81` defines `isFocused()` as `document.visibilityState !== 'hidden'` — so it
+tests VISIBILITY, not the network and not window focus.
 
-1. **It does not recover when the API returns.** Still stuck more than a minute after the server came
-   back, because the query waits for a reconnection event that never fires — the browser was never
-   offline.
-2. **It recovers only on a user action that changes the query key.** Clicking "All units" refetched
-   (`25 OF 1332`), and clicking back to Space Marines then worked (`25 OF 267`).
-3. **`failureCount` is 0**, so no retry policy and no error boundary can see this. It is invisible to
-   every mechanism that handles failure.
+That asymmetry between `canStart` and `canContinue` reproduces every symptom with no network
+involvement. The first request ran although the tab was hidden, because `canStart` ignores
+visibility. The retry paused, because `canContinue` does not. It stayed paused when the server came
+back, because the tab was still hidden. And clicking a faction appeared to "recover" it because that
+creates a NEW query key, which goes through `canStart` again.
 
-**This is the same defect class as the entries above and it survives their fix.** The screen asserts
-something false — here, that a request is in flight when nothing is in flight. It is listed
-separately because the fix is not a branch in a view: it is a `QueryClient` policy (a `networkMode`
-choice) or a rendered `fetchStatus === 'paused'` state, and it reaches **every** query in the app
-rather than the catalog's four.
+**So the real behaviour, for a player whose tab is visible, is the intended one:** the request fails,
+`canContinue()` is true, three retries run at 1s/2s/4s, and the alert from the entry above renders.
 
-**A decision belongs to this, not a default.** `networkMode: 'always'` would make a dead API produce
-a real error and show the alert slice 3 added, at the cost of removing the offline-pause behaviour
-everywhere — including the Kill Team battle screen, where a player at a table on a bad connection may
-be better served by a paused write than by a failed one. The battle screen's writes are the reason
-this is not obvious.
+**What this cost, and the rule it earns.** "Native `fetch`, real dead server, `navigator.onLine`
+true" was offered as proof the finding was real. Each was true and none was the variable the code
+tests first. A browser probe MUST record `document.visibilityState` alongside whatever it is
+measuring, because an automated tab is hidden by default and that silently changes retry, refetch and
+focus behaviour across every query in the app.
 
-### One action, three treatments
+**`networkMode` therefore needs no decision for queries.** The default `'online'` already produces
+the error state for a visible tab, and for a genuinely offline browser, pausing is the better
+behaviour.
+
+### Paused mutations replay against a version they did not read
+
+**Status: Planned.** The narrower question that survives the withdrawal above, and it is about writes
+rather than reads.
+
+Under `networkMode: 'online'` a write attempted while the browser is offline is paused and queued,
+then replayed on reconnect. The app has **31** `useMutation` call sites — 14 in
+`src/api/killTeamGamesQueries.ts` alone — and no reference anywhere in `src/` to `networkMode`,
+`onlineManager`, `focusManager` or `resumePausedMutations`, so every one of them takes that default.
+
+**It meets the battle screen's concurrency design head-on.** `versionFrom`
+(`src/api/killTeamGamesQueries.ts:75`) reads the version to assert at SEND time rather than at
+`mutate()` time, which is correct for a write that goes out immediately. A paused write sends
+whenever it is resumed, so it asserts whatever version the cache holds then — possibly after the
+opponent has advanced the game.
+
+The principle it sits against is `#78`: re-read and **re-decide**, never retry. A queued write that
+replays silently is a retry of a decision the player made against a board that no longer exists.
+Whether that is a real hazard depends on timing nobody has measured yet.
+
+**Not measured, and the measurement MUST state `document.visibilityState`.**
+
+### One action, three treatments — FIXED (slice 3)
+
+**One treatment now: `dangerOutline` opens the dialog, `danger` confirms inside it.** The pair is the
+point. `Button`'s own comment already said `danger` exists so a destructive confirm does not look
+like "Create"; a filled TRIGGER collapses that distinction one level up, and `ghost` made Delete the
+faintest control on the page. `dangerOutline` mirrors `secondary`, this kit's idiom for a bordered
+button that fills on hover. Verified in a browser: `DELETE ARMY` computes to `rgb(178, 58, 46)` text
+and border, which is `--danger`.
+
+**A bug came out with it.** `KillTeamGameView`'s confirm button carried the local class and NO
+variant, so it rendered as `primary` — an ink fill — with only `color` overridden: red text on a
+black background. It type-checked and it rendered, and it was wrong only to the eye.
+
+`src/views/destructiveActions.test.ts` holds the decision: each screen opens with exactly one
+`dangerOutline` trigger, confirms with `danger`, and passes no class to a `Button` that re-colours
+it. That last rule is scoped to BUTTONS on purpose — `ArmyView` gives `.overTag` and `.issueKind` red
+text and a red border legitimately, because those are `<Tag>` badges where red IS the meaning, and a
+first version of the rule flagged both.
+
 
 The delete control is styled differently on every screen that has one, and the 40k one is the
 hardest to find:
@@ -1699,7 +1745,7 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 |---|---|---|
 | 1 | **KF8a — the battle screen's chrome** — BUILT | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
 | 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
-| 3 | **F12 — the 40k half** — PART DONE | `CatalogView` error states and `CollectionView` live region are fixed. Still open: the catalog's faction filter (now a KEYWORD question, see below), one delete treatment across three screens, and the paused-query finding |
+| 3 | **F12 — the 40k half** — BUILT | Catalog error states, `CollectionView` live region, the faction default, and one delete treatment. Open: the `subfaction_id` backend predicate, and paused-mutation replay |
 | 4 | **KF8c — collapsing** | Operative rows and sections collapse |
 | 5 | **KF7 D** | Initiative and board status |
 
@@ -1716,9 +1762,10 @@ have already drifted once.
 
 ### Decisions these need, and who owns them
 
-- **Slice 3**: the filter matches faction keywords, and that is settled. Open: whether it is LOCKED
-  or DEFAULTED; which delete treatment wins (filled red, bordered red, or ghost); and the
-  `networkMode` choice the paused-query finding needs.
+- **Slice 3**: all three are settled and built — the filter defaults to the army's `faction_id`, the
+  delete treatment is `dangerOutline` with a `danger` confirm, and `networkMode` needs no decision
+  for queries. What is left is the backend's `subfaction_id` predicate, and measuring paused-mutation
+  replay.
 - **KF9**: whether the browser suite is adopted at all.
 - **F8**: the deploy step needs a Firebase credential as a repository secret.
 

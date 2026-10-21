@@ -65,6 +65,20 @@
   color: var(--ink);
 }
 
+/* A destructive TRIGGER: the control that opens the dialog. Mirrors `secondary`,
+   which is this kit's idiom for a bordered button that fills on hover -- so it reads
+   as destructive at rest and commits to it under the cursor, without competing with
+   the confirm button it is about to summon. */
+.dangerOutline {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.dangerOutline:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--paper);
+}
+
 /* A destructive confirm. Not colour alone: it is the button in a dialog whose
    title asks the question, and its label says Delete. */
 .danger {

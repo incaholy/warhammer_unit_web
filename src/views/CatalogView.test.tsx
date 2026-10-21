@@ -156,6 +156,47 @@ describe('CatalogView', () => {
     expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
   })
 
+  it("opens on the destination army's faction, not the whole catalog", async () => {
+    // The army fixture is faction `f1`; `u3` (Hive Warrior) is `f2`. Measured in a
+    // browser before this existed: a Space Marines army's first page of "add from
+    // catalog" was Chaos, Xenos, Xenos, Imperium, Imperium, Chaos — not one Space
+    // Marine unit, on a screen whose own eyebrow named the army.
+    renderView({ kind: 'army', armyId: 'army-1' })
+
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+    expect(screen.getByText('Line Trooper')).toBeInTheDocument()
+    expect(screen.queryByText('Hive Warrior')).not.toBeInTheDocument()
+
+    // And the rail says which filter is on, so the state is visible rather than implied.
+    const rail = screen.getByRole('complementary', { name: /faction filter/i })
+    expect(within(rail).getByRole('button', { name: /^Imperium,/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('defaults the faction without locking it — "All units" still works', async () => {
+    // The distinction the implementation turns on: an unchosen filter is not the same as
+    // a filter set to "all". This app does bookkeeping and not rules, so it should not
+    // refuse to show a unit; it should only stop OFFERING the wrong ones first.
+    renderView({ kind: 'army', armyId: 'army-1' })
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+    expect(screen.queryByText('Hive Warrior')).not.toBeInTheDocument()
+
+    const rail = screen.getByRole('complementary', { name: /faction filter/i })
+    fireEvent.click(within(rail).getByRole('button', { name: /^All units,/ }))
+
+    expect(await screen.findByText('Hive Warrior')).toBeInTheDocument()
+  })
+
+  it('has no faction to default to when the target is the inventory', async () => {
+    // `/catalog` browses everything on purpose: there is no destination army to narrow to.
+    renderView()
+
+    expect(await screen.findByText('Sword Captain')).toBeInTheDocument()
+    expect(screen.getByText('Hive Warrior')).toBeInTheDocument()
+  })
+
   it('shows loading skeletons while the units query is pending', async () => {
     renderView()
 

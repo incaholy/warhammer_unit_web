@@ -348,11 +348,6 @@
 
 /* ---- Deleting ---- */
 
-.danger {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
 .confirmActions {
   display: flex;
   justify-content: flex-end;

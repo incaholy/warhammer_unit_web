@@ -361,7 +361,7 @@ function DeleteRoster({ roster }: { roster: KTRoster_Read }) {
   return (
     <>
       <div className={styles.danger}>
-        <Button variant="danger" size="sm" onClick={() => setConfirming(true)}>
+        <Button variant="dangerOutline" size="sm" onClick={() => setConfirming(true)}>
           Delete Roster
         </Button>
       </div>

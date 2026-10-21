@@ -608,7 +608,7 @@ function DeleteBattle({ game }: { game: KTGame_Read }) {
 
   return (
     <section className={styles.section}>
-      <Button variant="secondary" className={styles.danger} onClick={() => setConfirming(true)}>
+      <Button variant="dangerOutline" size="sm" onClick={() => setConfirming(true)}>
         Delete battle
       </Button>
 
@@ -623,7 +623,7 @@ function DeleteBattle({ game }: { game: KTGame_Read }) {
             Cancel
           </Button>
           <Button
-            className={styles.danger}
+            variant="danger"
             disabled={deleteGame.isPending}
             onClick={() =>
               deleteGame.mutate(game.id, {

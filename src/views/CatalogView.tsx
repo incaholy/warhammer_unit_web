@@ -46,13 +46,37 @@ const OWNED_OPTIONS: { label: string; value: OwnedMode }[] = [
 const ALL_FACTIONS = ''
 
 export default function CatalogView({ target = { kind: 'inventory' } }: CatalogViewProps) {
-  const [factionId, setFactionId] = useState<UUID | typeof ALL_FACTIONS>(ALL_FACTIONS)
+  // `null` means the player has not chosen a faction yet, which is NOT the same as
+  // choosing "All units" -- that distinction is the whole mechanism. While the choice is
+  // null the army's own faction applies; the first click on the rail, including a click on
+  // "All units", records a choice and wins from then on. So the filter DEFAULTS rather
+  // than locks, and the rail stays usable with no extra control to clear it.
+  //
+  // A `useState` initialiser cannot do this: the army arrives from `useArmy` after the
+  // first render, so there is nothing to initialise FROM. Deriving it instead of syncing
+  // it in an effect means there is no frame where the wrong list is on screen.
+  const [factionChoice, setFactionChoice] = useState<UUID | typeof ALL_FACTIONS | null>(null)
   const [q, setQ] = useState('')
   const [ownedMode, setOwnedMode] = useState<OwnedMode>('all')
   const [offset, setOffset] = useState(0)
 
   const factionsQuery = useFactions()
   const inventoryQuery = useInventory()
+
+  // Read before the unit queries below, because the faction they filter on is derived
+  // from it. `useArmy` is `enabled: Boolean(id)`, so this no-ops for the inventory target.
+  const armyId = target.kind === 'army' ? target.armyId : ''
+  const armyQuery = useArmy(armyId)
+
+  // Adding to an army offers that army's faction first (F12). The screen already knew the
+  // army -- its own eyebrow reads "Adding to <name>" -- and still opened on all 1,332
+  // units, so a Space Marine army's first page was Chaos, Xenos, Xenos, Imperium,
+  // Imperium, Chaos. Unfiltered is not merely unhelpful here: this app does bookkeeping
+  // and not rules, so nothing downstream will ever say a list is illegal, and a catalog
+  // that names the army and then offers Chaos units is asserting those are available.
+  const defaultFactionId: UUID | typeof ALL_FACTIONS =
+    target.kind === 'army' ? armyQuery.data?.faction_id ?? ALL_FACTIONS : ALL_FACTIONS
+  const factionId = factionChoice ?? defaultFactionId
 
   // Per-faction counts for the rail — a server-side GROUP BY aggregate over the
   // same search filter (replaces downloading up to 1000 rows to count in JS).
@@ -73,10 +97,8 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
 
   // Add mutations. `useAddArmyUnit` needs an id, so pass '' when targeting the
   // inventory — the disabled army hook simply never fires.
-  const armyId = target.kind === 'army' ? target.armyId : ''
   const addArmyUnit = useAddArmyUnit(armyId)
   const addInventoryUnit = useAddInventoryUnit()
-  const armyQuery = useArmy(armyId)
 
   const targetLabel =
     target.kind === 'army' ? armyQuery.data?.name ?? 'Army' : 'Inventory'
@@ -119,6 +141,15 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
     setOffset(0)
   }
 
+  // The default arrives asynchronously, so a player who pages before the army loads would
+  // otherwise land on page 2 of a list they never saw page 1 of. Adjusting during render
+  // rather than in an effect, which is React's own pattern for this.
+  const [appliedDefault, setAppliedDefault] = useState(defaultFactionId)
+  if (appliedDefault !== defaultFactionId) {
+    setAppliedDefault(defaultFactionId)
+    if (offset !== 0) setOffset(0)
+  }
+
   function handleAdd(unitId: UUID) {
     if (target.kind === 'army') addArmyUnit.mutate({ unit_id: unitId })
     else addInventoryUnit.mutate({ unit_id: unitId })
@@ -143,7 +174,7 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
             count={allCount}
             active={factionId === ALL_FACTIONS}
             onClick={() => {
-              setFactionId(ALL_FACTIONS)
+              setFactionChoice(ALL_FACTIONS)
               resetPaging()
             }}
           />
@@ -154,7 +185,7 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
               count={factionCounts.get(faction.id) ?? 0}
               active={factionId === faction.id}
               onClick={() => {
-                setFactionId(faction.id)
+                setFactionChoice(faction.id)
                 resetPaging()
               }}
             />
