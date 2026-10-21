@@ -10,6 +10,17 @@
   margin-bottom: 40px;
 }
 
+/* States the edition and the limit of the filter, under the title (F12). */
+.editionNote {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 68ch;
+  margin: 10px 0 0;
+}
+
 .title {
   font-family: var(--font-serif);
   font-weight: 500;

@@ -164,6 +164,14 @@ export default function CatalogView({ target = { kind: 'inventory' } }: CatalogV
       <header className={styles.head}>
         <Eyebrow>Adding to {targetLabel}</Eyebrow>
         <h1 className={styles.title}>Catalog</h1>
+        {/* Says which game and how much the filter actually promises. The catalog
+            narrows by FACTION, which is a coarser thing than "can I take this?" --
+            an army sees its faction's units, not a detachment-legal list -- and
+            without saying so the filtered list reads as an availability check. */}
+        <p className={styles.editionNote}>
+          Warhammer 40,000 10th edition. Units are listed by faction keyword, so this
+          narrows what you browse rather than checking what a list may legally take.
+        </p>
       </header>
 
       <div className={styles.layout}>

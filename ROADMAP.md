@@ -1592,6 +1592,63 @@ legal unit. **The remaining step is a backend predicate** — `subfaction_id IS 
 :id` — after which the frontend can pass the army's subfaction too. Four of the seven armies in the
 dev database carry no subfaction at all, so that path MUST keep working when the column is null.
 
+### Showing every option an army can use — decided, not built
+
+**Status: Planned.** Decided 2026-10-21, then parked: the focus moves to Kill Team. The goal stated
+for it is completeness — a player seeing every unit they can use with the army they chose.
+
+**The faction default built in slice 3 is a partial answer, and only Space Marines benefits much.**
+Counts from the local dev database, for the armies that exist in it:
+
+| army | catalog shows | actually usable | unusable rows shown |
+|---|---|---|---|
+| testarmy — Tyranids | 500 | **39** | 461 (92%) |
+| test army — Adeptus Custodes | 311 | **29** | 282 (91%) |
+| Audit Space Marines — no chapter | 267 | 141 | 126 |
+| Ultramarines, hypothetical | 267 | 154 | 113 |
+
+Generic units exist ONLY under Space Marines — 141 of its 267, and zero in every other faction. So
+`faction` behaves as a shared pool there and as a container for unrelated armies everywhere else,
+which is why one filter cannot serve both without the subfaction.
+
+**The rule** is `faction_id = army.faction AND (subfaction_id IS NULL OR subfaction_id =
+army.subfaction)`.
+
+**Four decisions, all taken:**
+
+1. **The rule lives in the backend, as its own operation** — `GET /me/armies/{id}/available-units`.
+   Services own business logic in this architecture, and a rule the frontend derives is one the next
+   caller re-derives differently. The alternative considered was extending `GET /units` with an
+   `include_faction_generic` flag, which is smaller and leaves the rule split across two repositories.
+2. **An army with no subfaction sees the 141 generics, and is prompted to choose a chapter.** Four of
+   the seven armies in the dev database have no subfaction, so this is the common case rather than an
+   edge. Showing all 267 was the alternative, and it offers units from eleven chapters as though they
+   were interchangeable.
+3. **Allies are out of scope, and the entry MUST say so.** Imperial Agents (43), Imperial Knights
+   (23), Chaos Daemons (103) and Chaos Knights (20) ally into other armies in the game, and the
+   schema has no allies table. The taxonomy also forbids the obvious case: this data models **Space
+   Marines as a top-level faction beside Imperium**, not beneath it, so no faction rule can let a
+   Space Marines army reach Imperial Agents.
+4. **The set is made legible, not merely correct.** The rail gains a second level — `Core <faction>`
+   beside the subfactions — and the count line states the composition rather than a bare total, for
+   example "154 available to Ultramarines · 141 core + 13 chapter". Together these answer the goal:
+   the player sees what is included, why, and can still click up to the whole faction.
+
+**Rejected: show everything and mark the rest.** It is the most consistent with an app that does
+bookkeeping and not rules, and at 92% noise for a Tyranids army it means scrolling 461 unusable rows
+to reach 39.
+
+**Rejected: two client queries merged.** `total` and paging would be computed over a set the server
+did not produce, which is the failure `CatalogView`'s own comment already records — filtering and
+pagination have to happen on the same side.
+
+### The catalog says which edition it is — BUILT
+
+A note under the catalog's title: the app targets Warhammer 40,000 10th edition, and the list is
+narrowed by faction keyword rather than checked for legality. Without it a filtered list reads as an
+availability check, which is a claim this app does not make and cannot keep — the same false-promise
+failure as the "Opponent" field and the unfiltered catalog itself.
+
 ### Two gaps a static audit found, in the oldest 40k screens — FIXED (slice 3)
 
 Not reported from use — turned up by walking every route against the states it handles.
@@ -1745,7 +1802,7 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 |---|---|---|
 | 1 | **KF8a — the battle screen's chrome** — BUILT | One sticky region replacing four; promote the current stage and demote the advance control relative to it |
 | 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
-| 3 | **F12 — the 40k half** — BUILT | Catalog error states, `CollectionView` live region, the faction default, and one delete treatment. Open: the `subfaction_id` backend predicate, and paused-mutation replay |
+| 3 | **F12 — the 40k half** — PART BUILT, PARKED | Built: catalog error states, `CollectionView` live region, the faction default, one delete treatment, the edition note. Decided but not built: `available-units` as a backend operation, the two-level rail, the composition count. Parked — the focus moves to Kill Team |
 | 4 | **KF8c — collapsing** | Operative rows and sections collapse |
 | 5 | **KF7 D** | Initiative and board status |
 
