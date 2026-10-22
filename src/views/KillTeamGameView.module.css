@@ -31,8 +31,18 @@
   position: sticky;
   top: var(--app-header-h, 96px);
   z-index: 40;
-  background: var(--bg);
-  border-bottom: 1px solid var(--ink);
+  /* OPAQUE, which it was not until this was found by eye. It said `var(--bg)`, and
+     `--bg` is not a token here -- the palette is `--paper`, `--panel`, `--ink`. An
+     unresolvable `var()` makes the whole declaration invalid at computed-value time, so
+     `background-color` fell back to its initial value, `transparent`, and measured
+     `rgba(0, 0, 0, 0)`. A pinned region with no background is not pinned to a reader:
+     the page scrolls visibly through it. `--paper` is the body's own colour, so the
+     chrome reads as the page rather than as a panel on it.
+
+     Nothing in the repo could catch this: it is valid CSS, the build is happy, and
+     `cssModules.test.ts` checks that CLASSES resolve, not that TOKENS do. There is now a
+     test for the second thing, and a KF9 assertion that a pinned region is opaque. */
+  background: var(--paper);
   transition: transform 0.2s ease;
 }
 

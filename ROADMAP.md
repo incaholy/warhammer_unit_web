@@ -2154,6 +2154,40 @@ app: `returnTo` is a pure function in `src/lib/`, so the half that can be tested
 The legacy pre-section redirects stay redirects, and a test says so. Those paths really did
 move, so the player should land where they meant rather than be told they are lost.
 
+### The pinned chrome had no background at all
+
+Reported from use: the battle screen's header "is not opaque", so the tabs obscure
+information as it scrolls past, and a second line sits below them.
+
+**Both were real, and the first had a cause worth the entry.** `.chrome` declared
+`background: var(--bg)`, and **`--bg` is not a token in this project** — the palette is
+`--paper`, `--panel`, `--ink`. An unresolvable `var()` makes the whole declaration invalid
+AT COMPUTED-VALUE TIME, so `background-color` fell back to its initial value. Measured:
+`rgba(0, 0, 0, 0)`. The region had never had a background, from KF8a until somebody looked
+at it.
+
+**Nothing here could have caught it.** It is valid CSS, so the build is happy;
+`cssModules.test.ts` checks that a referenced CLASS is defined, which is the same shape of
+bug one level over and does not reach this one; and jsdom computes `var(--bg)` to an empty
+string rather than to a colour, so a rendering test sees nothing either. A sweep found it
+is the ONLY undefined token in the codebase, used once.
+
+**The second line was `.chrome`'s own `border-bottom`**, duplicating the tablist's
+underline 28px lower — the tablist is the chrome's last child and carries a 1px rule of its
+own, which the active-tab indicator sits on. Removing the chrome's border also let the
+tablist's bottom margin collapse out of the pinned region, so the chrome went **334px to
+305px** and the at-rest budget **72% to 68%**. KF9's ratchet is tightened to match.
+
+**Two guards, because the fix is not the interesting part.**
+
+- `src/styles/tokens.test.ts` asserts every `var()` resolves to a declared token, and that
+  each name allowed as "published at runtime" really is set from JavaScript — otherwise
+  that allowance becomes the place to hide the next `--bg`.
+- KF9 asserts no pinned region is see-through. The rule is NOT "must be opaque": the app
+  header is deliberately `rgba(250, 250, 248, 0.88)` with `backdrop-filter: blur(8px)`,
+  which is translucent and not see-through, and the blur is what keeps the text behind it
+  from reading as part of it. Either treatment passes; nothing at all does not.
+
 ### Tier 4, and why each waits
 
 - **The `version` on operative writes** needs #79's `If-Match` (Planned K9) or a joint decision to

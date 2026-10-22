@@ -144,15 +144,18 @@ test.describe('the battle screen, after scrolling', () => {
     const chromeBottom = Math.max(...boxes.map((b) => b.bottom))
     const share = chromeBottom / viewport
 
-    // 481px of 664px on first measurement. The viewport is 664 and NOT the 844 of the
-    // device: Safari's own chrome takes the rest, and every phone number recorded before
-    // this file existed was against the device height. So the chrome is 72% of what a
-    // player can actually see, leaving 183px -- barely one collapsed operative row.
-    // KF8d should cut this sharply; tighten the ratchet when it does.
+    // 481px of 664px when this was written, now 452px -- 68%. The viewport is 664 and
+    // NOT the 844 of the device: Safari's own chrome takes the rest, and every phone
+    // number recorded before this file existed was against the device height.
+    //
+    // The 29px came from removing `.chrome`'s own `border-bottom`, which duplicated the
+    // tablist's underline 28px lower; with the border gone the tablist's bottom margin
+    // collapses out of the pinned region instead of padding it. Tightened to match --
+    // this ratchet only ever goes down.
     expect(
       share,
       `pinned chrome reaches ${Math.round(chromeBottom)}px of ${viewport}px (${Math.round(share * 100)}%)`,
-    ).toBeLessThanOrEqual(0.73)
+    ).toBeLessThanOrEqual(0.69)
   })
 })
 
@@ -200,6 +203,45 @@ test.describe('the scoreboard gets out of the way', () => {
       share,
       `pinned chrome reaches ${Math.round(chromeBottom)}px of ${viewport}px (${Math.round(share * 100)}%) while scrolling down`,
     ).toBeLessThanOrEqual(0.52)
+  })
+})
+
+test.describe('pinned regions are not see-through', () => {
+  test('every pinned region either is opaque or blurs what is behind it', async ({ page }) => {
+    // The defect: `.chrome` declared `background: var(--bg)`, and `--bg` is not a token
+    // here. An unresolvable `var()` is invalid at computed-value time, so the property
+    // fell back to `transparent` and the page scrolled visibly through the pinned
+    // chrome. A static test now catches the TOKEN (`src/styles/tokens.test.ts`); this
+    // catches the CONSEQUENCE, which is the part only a browser computes.
+    //
+    // The rule is not "must be opaque". The app header is deliberately
+    // `rgba(250, 250, 248, 0.88)` with `backdrop-filter: blur(8px)` -- translucent, but
+    // not see-through, because the blur is what keeps the text underneath from reading
+    // as part of it. Either treatment passes; nothing at all does not.
+    await openBattle(page)
+    await scrollDown(page)
+
+    const seeThrough = await page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLElement>('*'))
+        .filter((el) => ['sticky', 'fixed'].includes(getComputedStyle(el).position))
+        .filter((el) => {
+          const r = el.getBoundingClientRect()
+          return r.height > 0 && r.width > 0
+        })
+        .filter((el) => {
+          const cs = getComputedStyle(el)
+          const alpha = Number((cs.backgroundColor.match(/[\d.]+\)$/) ?? ['1)'])[0].slice(0, -1))
+          const opaque = !cs.backgroundColor.startsWith('rgba') || alpha === 1
+          const blurs = cs.backdropFilter !== 'none' && cs.backdropFilter !== ''
+          const painted = cs.backgroundImage !== 'none'
+          return !(opaque || blurs || painted)
+        })
+        .map((el) => {
+          const cls = (el.className || '').toString().split(/\s+/)[0] || el.tagName.toLowerCase()
+          return `${el.tagName.toLowerCase()}.${cls} has ${getComputedStyle(el).backgroundColor} and no backdrop-filter`
+        }),
+    )
+    expect(seeThrough).toEqual([])
   })
 })
 
