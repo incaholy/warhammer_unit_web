@@ -35,7 +35,9 @@ has been verified end-to-end against the live backend.
 ## Status at a glance
 
 **Built.** The full SPEC roadmap (steps 1–12) is complete plus post-roadmap
-hardening (toasts, error boundary, code-splitting, CI). **335 tests pass**, lint
+hardening (toasts, error boundary, code-splitting, CI). **627 tests in 56 files
+pass** — measured at `1b16095` on 2026-10-22; it was 335 when this paragraph was
+written, and the undated form is what let it rot — lint
 + build clean, and the frontend↔backend contract is verified against a running,
 seeded backend (~1,331 units). Remaining work is deploy-time config and a few
 deferred niceties (see below).
@@ -112,8 +114,13 @@ deferred niceties (see below).
 - [x] **Error boundary** — render-error fallback instead of a blank screen.
 - [x] **Route-level code splitting** — `React.lazy` per view.
 - [x] **Tests** — Vitest + React Testing Library (client, roles, all views, auth,
-  routing, toasts, error boundary) — 335 tests.
-- [x] **CI** — GitHub Actions: lint + build + test on push/PR to `main`.
+  routing, toasts, error boundary) — **627 tests in 56 files** at `1b16095`,
+  plus a WebKit browser suite (`npm run test:browser`, ROADMAP KF9) that is
+  deliberately outside CI.
+- [x] **CI** — GitHub Actions: `npm ci`, a generated-types freshness gate, lint,
+  `npm run build`, a base-branch build, the bundle budget, and
+  `npm run test:coverage`. It runs on pushes to `main` and on **every** pull
+  request, whatever the target branch.
 
 ### To add / harden ⚙️ (deferred)
 - [ ] **Set a real deploy config** — `VITE_API_BASE_URL` for cross-origin, plus
@@ -128,8 +135,6 @@ deferred niceties (see below).
   use mocked APIs; the HTTP contract is curl-verified against the live backend).
 
 ## To fix 🐞
-- [ ] **`Army_Read` has no `created_at`** — the Army view omits the "Created" date
-  until the backend exposes it. (Backend change.)
 - [ ] **Inventory search is client-side only** — `listInventory()` takes no `q`
   param, so filtering happens in the browser.
 
@@ -147,6 +152,6 @@ deferred niceties (see below).
 - Datasheet **versioning**, **wargear/loadout** modelling, list **sharing/export** —
   out of scope on the backend too.
 - Game tracking **is** in scope now, as its own section: the backend shipped a Kill
-  Team tracker and the frontend half is `KF1`–`KF5` in [`ROADMAP.md`](ROADMAP.md).
+  Team tracker and the frontend half is `KF1`–`KF9` in [`ROADMAP.md`](ROADMAP.md).
   40k match tracking stays out.
 - Offline/PWA, i18n, refresh-token flow, and multi-theme support.

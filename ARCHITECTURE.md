@@ -171,8 +171,7 @@ message is copy, and copy changes.
 a union of the known codes, **adding a code to the union without adding a message fails the
 typecheck**, and the typecheck gates `npm run build`. Verified rather than assumed: adding a code
 without a message makes the build exit 2 with `TS2741`. That is a real structural guarantee,
-not a convention, and it is the pattern worth copying into the rest of the codebase. It is the reason
-this is the only `Holds` in the document.
+not a convention, and it is the pattern worth copying into the rest of the codebase.
 
 Two honest caveats that do not change the marker but are worth knowing. The `ErrorCode` union
 (`ErrorCode`, over the `ERROR_CODES` array in `src/api/client.ts`) is hand-mirrored from the backend's
@@ -310,7 +309,8 @@ it catches missing semantics and never catches a bad focus order or an unusable 
 
 **Status stays Partial for the styling half.** Four known exceptions style with inline objects rather
 than a module: `src/ui/ErrorBoundary.tsx`, `src/App.tsx`, `src/views/ArmyView.tsx` and
-`src/views/KillTeamView.tsx`. Nothing prevents a fifth.
+`src/views/killTeamCards.tsx`. Nothing prevents a fifth. (`KillTeamView.tsx` was named here until
+2026-10-22 and no longer carries one; the count was right and one name was not.)
 
 ---
 
@@ -363,9 +363,12 @@ The generated schema (§2.3) is the missing half of the answer, and a contract c
 suite against the real OpenAPI document is the other. See
 [ROADMAP F4](ROADMAP.md#f4-test-against-the-real-contract).
 
-Also absent: any end-to-end test. `SPEC.md` already lists a Playwright smoke test as deferred, so
-that is a known gap rather than an oversight. (The coverage threshold this sentence used to call
-absent landed in F8 — see §8.)
+**A browser suite now exists** (ROADMAP KF9): `browser/layout.spec.ts`, run with
+`npm run test:browser` against WebKit at the iPhone 14 viewport. It is deliberately **outside CI**,
+and it asserts LAYOUT rather than the core loop — the claims `jsdom` cannot hold, because it
+implements the DOM and parses CSS but lays nothing out. A smoke walk of the core loop is still
+absent, which is the gap `SPEC.md` named. (The coverage threshold this sentence used to call absent
+landed in F8 — see §8.)
 
 ---
 
@@ -378,8 +381,10 @@ production bundle has a size budget, because a dependency added for one call sit
 branch, the entry chunk has a budget enforced in CI (`npm run check:size`), and coverage has a
 threshold floor. The deploy step is still missing, and it needs a credential this repo does not hold.
 
-The pipeline exists and is the right shape: `.github/workflows/ci.yml` runs `npm ci`, `npm run lint`,
-`npm run build` (which is `tsc -b && vite build`, so the typecheck gates too), and `npm test`. Both
+The pipeline exists and is the right shape: `.github/workflows/ci.yml` runs `npm ci`, a
+generated-types freshness gate, `npm run lint`, `npm run build` (which is `tsc -b && vite build`, so
+the typecheck gates too), a base-branch build, the bundle budget, and `npm run test:coverage`. It
+runs on pushes to `main` and on **every** pull request, whatever the target branch. Both
 reference repos have **no CI at all**, so this is ahead of the codebase this project is measured
 against, and it is the reason §2.4's type-level guarantee is worth anything.
 

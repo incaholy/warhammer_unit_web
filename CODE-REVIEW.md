@@ -2,17 +2,23 @@
 
 The companion to [`CODE-REVIEW.md` in the API repo](https://github.com/incaholy/Warhammer-unit/blob/main/CODE-REVIEW.md), which covers the backend findings.
 
-**Status: this is good code.** 335 tests pass, lint is clean, the build produces properly code-split chunks. The structure is right: one HTTP client that owns the token and error shape, TanStack Query with hierarchical keys and precise invalidation, route-level lazy loading, an error boundary, real accessibility work (progress bars with `aria-valuetext`, skeletons as polite `status` regions, labelled controls). No `any` in application code, no `dangerouslySetInnerHTML`, and only two `eslint-disable` directives, each with a stated reason.
+**Status: this is good code.** 627 tests in 56 files pass (`1b16095`, 2026-10-22; it was 335 when this review was written), lint is clean, the build produces properly code-split chunks. The structure is right: one HTTP client that owns the token and error shape, TanStack Query with hierarchical keys and precise invalidation, route-level lazy loading, an error boundary, real accessibility work (progress bars with `aria-valuetext`, skeletons as polite `status` regions, labelled controls). No `any` in application code, no `dangerouslySetInnerHTML`, and a single `eslint-disable` directive in application code, with a stated reason (`src/auth/AuthContext.tsx:106`). A second lives in a test.
 
 **And the tests are honest.** They stub `fetch` and assert what the client actually sent, rather than mocking the API layer and asserting on the mock's own value. That distinction matters more than it sounds, and finding 1 below is the exception that proves where even good tests of this shape have a blind spot.
 
 There is **one live bug**, one design bug, and a few small things.
 
-**Verified by:** `npm test` (335 passed), `npm run lint`, `npm run build`, reading the views and the client, plus a probe against the real backend to confirm finding 1.
+**Verified by:** `npm test` (335 passed at the time of the review; 627 at `1b16095`), `npm run lint`, `npm run build`, reading the views and the client, plus a probe against the real backend to confirm finding 1.
 
 ---
 
 ## Status, re-verified after the Kill Team work (KF1–KF3)
+
+**Scope note (2026-10-22).** This re-verification stopped at KF3. KF4–KF9 have landed since —
+the whole battle screen, the collapse work, the initiative and board-status controls and the
+browser suite — and none of it has been reviewed here. Every per-finding verdict below was
+re-checked at `1b16095` and still holds; it is the COVERAGE that is four slices behind, not the
+verdicts.
 
 A **dated snapshot**, re-checked against the code. Findings **1, 2, 3 and 5c are fixed**;
 **4, 5a and 5b are still live**. So the "suggested fix order" at the end is stale: the live

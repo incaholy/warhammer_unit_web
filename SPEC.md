@@ -184,7 +184,7 @@ warhammer_web/
       format.ts           # points, counts, date labels
     views/
       AuthView.tsx        # /login  (login + signup tabs)
-      CollectionView.tsx  # /        (armies list/grid)
+      CollectionView.tsx  # /army-list  (armies list/grid)
       ArmyView.tsx        # /army-list/armies/:armyId
       CatalogView.tsx     # /army-list/catalog and /army-list/armies/:armyId/catalog
       InventoryView.tsx   # /army-list/inventory
@@ -330,17 +330,19 @@ crumb bar, and are rooted at the SECTION — `/` is a chooser and carries none.
 | `/army-list/armies/:armyId/catalog` | `CatalogView` (army target) | `GET /factions`, `GET /units`, `POST /me/armies/{id}/units` |
 | `/army-list/catalog` | `CatalogView` (inventory target) | `GET /factions`, `GET /units`, `POST /me/inventory` |
 | `/army-list/inventory` | `InventoryView` | `GET /me/inventory`, `PATCH`/`DELETE /me/inventory/{unit_id}` |
+| `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
 | `/kill-team` | `KillTeamCatalogView` | `GET /kill-team/teams`, `GET /kill-team/factions` — **public** |
 | `/kill-team/teams/:killTeamId` | `KillTeamView` | `GET /kill-team/teams/{id}`, `GET /kill-team/universal` — **public** |
 | `/kill-team/rosters` | `KillTeamRostersView` | `GET`/`POST /me/kill-team/rosters` |
 | `/kill-team/rosters/:rosterId` | `KillTeamRosterView` | `GET`/`PATCH`/`DELETE /me/kill-team/rosters/{id}`, the three `/operatives` routes, `GET /kill-team/operatives` |
+| `/kill-team/games` | `KillTeamGamesView` | `GET`/`POST /me/kill-team/games` |
+| `/kill-team/games/:gameId` | `KillTeamGameView` | `GET`/`PATCH`/`DELETE /me/kill-team/games/{id}`, and the nested operative, equipment, ploy, advance and undo operations |
 
 Plus the **pre-section redirects**, kept so bookmarks from before the two sections
 survive: `/inventory`, `/catalog`, `/armies/*` and `/units/*` each resolve to their
 `/army-list` equivalent, built from the current pathname so a route parameter and the
-query string both carry across. `*` falls through to `/`.
-
-| `/army-list/units/:unitId` | `UnitView` | `GET /units/{id}` (+ add-to-army / set-owned by context) |
+query string both carry across. `*` falls through to `/` — there is no "not found" screen, which
+ROADMAP F13 records as a defect rather than a design.
 
 **Header** — sticky; the wordmark returns to the section chooser at `/`. **Two
 rows**: the top switches SECTION (Army List / Kill Team), the second shows that
@@ -595,9 +597,9 @@ backend); the remaining polish items are called out per step.
 11. ✅ **Richer New Army** — subfaction (dependent select), description,
     points-limit fields.
 12. ◑ **Polish** — done: skeleton loaders, responsive breakpoints, modal
-    focus-trap/keyboard a11y, tests (Vitest + RTL). **Deferred:** optimistic
-    mutations (currently invalidate-and-refetch) and the `npm run gen:api` script
-    (MSW not adopted — tests mock `fetch`/hooks directly).
+    focus-trap/keyboard a11y, tests (Vitest + RTL), and `npm run gen:api` (F2 —
+    CI gates its freshness). **Deferred:** optimistic mutations (currently
+    invalidate-and-refetch). MSW not adopted — tests mock `fetch`/hooks directly.
 
 ### Post-roadmap additions (beyond the original plan)
 
@@ -609,10 +611,16 @@ backend); the remaining polish items are called out per step.
   (`meta.successMessage`) centrally.
 - ✅ **Error boundary** — a render-error fallback instead of a blank screen.
 - ✅ **Route-level code splitting** — `React.lazy` + `Suspense` per view.
-- ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`) running lint + build +
-  test on push/PR to `main`.
+- ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`): `npm ci`, a
+  generated-types freshness gate, lint, `npm run build`, a base-branch build,
+  the bundle budget, and `npm run test:coverage`. Pushes to `main`, and **every**
+  pull request whatever its target branch.
+- ✅ **A browser suite** — `npm run test:browser`, WebKit at the iPhone 14
+  viewport, asserting layout rather than behaviour (ROADMAP KF9). Deliberately
+  outside CI.
 - **Deferred:** deploy config (`VITE_API_BASE_URL`, backend `SECRET_KEY` /
-  `ALLOWED_ORIGINS`) and a Playwright e2e smoke.
+  `ALLOWED_ORIGINS`) and a Playwright smoke walk of the CORE LOOP, which the
+  layout suite above does not attempt.
 
 ## Out of scope (not MVP)
 
@@ -622,7 +630,7 @@ backend); the remaining polish items are called out per step.
   all out of scope on the backend too.
 - **Game tracking is no longer out of scope.** It was, on both sides, when this
   was written. The backend has since shipped a Kill Team tracker (its `K1`–`K7`),
-  and the frontend half is [`ROADMAP.md`](ROADMAP.md)'s `KF1`–`KF5`. 40k match
+  and the frontend half is [`ROADMAP.md`](ROADMAP.md)'s `KF1`–`KF9`. 40k match
   tracking remains out of scope; Kill Team is its own section, not an addition to
   the army-list builder (KILLTEAM.md #11).
 - Offline support / PWA, i18n, and a design-system theming layer beyond the single
