@@ -487,6 +487,70 @@ a move is in flight, since a move is two writes. An `in_battle` datacard is **ad
 — the backend refuses only a cross-team or withdrawn card, so availability informs and
 never refuses (#51). A refused delete (#60) closes the dialog so the toast is readable.
 
+### KillTeamGamesView (`/kill-team/games`)
+The player's own battles, newest first. A row names both kill teams and reads its state
+from one place — `gameStateLabel` turns `status`, `turning_point` and `phase` into a
+line like `TP 2 · firefight`, and anything but `in_progress` reads as the status alone,
+so a battle that has not started does not claim to be in a turning point. Two entry
+points to **+ New Battle**, header and empty state, as the rosters list has.
+
+### New Battle modal
+A **`Select` of the player's rosters** labelled `"Audit Roster — Angel of Death"`, and
+an optional opponent's name. It states two things while they are still choices: the
+roster is **copied** into the battle, so changing it later does not reach the game
+(#22), and naming an opponent **does not invite them** — both sides are tracked by one
+person until KF6. A battle may currently be started from a roster with **no
+operatives**; ROADMAP F13 records that as a gap rather than a design.
+
+### KillTeamGameView (`/kill-team/games/:gameId`)
+The screen the Kill Team half exists for, and the one with a layout requirement rather
+than only a data one: `KILLTEAM.md`'s Frontend section asks for phone-first table-side
+use, large touch targets, and the scoreboard **one gesture away**.
+
+**One request renders it.** `KTGame_Read` carries the operatives with their snapshotted
+datacards, the team's rules and ploys, the equipment taken, the choices and the event
+log, so nothing on the screen waits on the catalog (#22, #24). Three additions are the
+stated exceptions and each reads the catalog lazily, behind a disclosure that fetches
+only when opened: **field an operative** (#18), **take equipment** (#17) and
+**transform** (#19).
+
+**Two tabs.** *Battle* holds the sections a player touches; *Reference* holds the team's
+rules, its ploys with their CP costs split into team and universal, and the equipment
+taken. Only one panel is in the tree at a time.
+
+**One sticky region, not four.** The scoreboard, the advance controls and the tablist
+travel together, pinned at the app header's **measured** height — `position: sticky`
+does not stack, so three elements each pinned at `top: 0` claimed the same strip and
+`z-index` decided which was visible (ROADMAP KF8a). On the way down the scoreboard
+tucks behind the app header and returns on the first upward movement (KF8d), which
+replaced an earlier *always visible* once a browser measured the chrome at 72% of an
+iPhone 14 viewport.
+
+**Battle-tab sections, in use order**, each collapsible with its disclosure inside the
+`<h2>` so the heading keeps the id `aria-labelledby` points at: final score (only when
+finished), **operatives**, this turning point, equipment, score and command, killzone,
+choices, delete. Operatives, this turning point and score and command open by default;
+the setup-ish ones are folded.
+
+**An operative's row** collapses to what `KILLTEAM.md` asks to see at a glance — name,
+wounds, order, activated — with the controls for all four staying live, because on this
+screen wounds and order ARE their controls. Tokens and the datacard fold away. Rows are
+named by **position as well as datacard**, since two rows can hold the same card (#50).
+
+**Writes are absolute values, never deltas** (#7): the whole token array, the whole
+actions list, the wound total. `advance` moves phase → turning point → finished and is
+the one control that reaches every state; `undo` reverts the newest standing event.
+Initiative is set in *this turning point* rather than the scoreboard, because `advance`
+clears it every turning point (#62), and it offers three options for a two-value column
+because `null` is a state and not an absence. Board status offers `reserve` and
+`on_board` only — `incapacitated` is derived from wounds in both directions, so a
+control for it would be overruled.
+
+**Known gaps** (ROADMAP F13): operative writes send no `version`, so a conflict on
+wounds, order, status, tokens or actions is not detected; the undo control names
+neither the actor nor the event, which `KILLTEAM.md` #70 requires; and a 409 shows a
+toast rather than the comparison #78 asks for.
+
 ### New Army modal
 Overlay + paper card. Fields: **Army Name** and a **Faction** select populated
 from `GET /factions`. **Create** → `POST /me/armies` then navigate to the new
