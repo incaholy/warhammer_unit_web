@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 
-import { Button, Eyebrow, EmptyState, Input, Modal, QuantityInput, Tag } from '../ui'
+import { Button, Eyebrow, EmptyState, Input, LinkButton, Modal, QuantityInput, Tag } from '../ui'
 import { ApiError } from '../api/client'
 import {
   useArmy,
@@ -145,12 +145,9 @@ export default function ArmyView() {
       <section className={styles.battle}>
         <div className={styles.battleHead}>
           <h2 className={styles.sectionTitle}>Order of Battle</h2>
-          <Button
-            variant="secondary"
-            onClick={() => navigate(`/army-list/armies/${army.id}/catalog`)}
-          >
+          <LinkButton variant="secondary" to={`/army-list/armies/${army.id}/catalog`}>
             + Add From Catalog
-          </Button>
+          </LinkButton>
         </div>
 
         {army.units.length === 0 ? (
@@ -158,9 +155,9 @@ export default function ArmyView() {
             message="No units mustered yet"
             sub="Add datasheets from the catalog to build your order of battle."
           >
-            <Button onClick={() => navigate(`/army-list/armies/${army.id}/catalog`)}>
+            <LinkButton to={`/army-list/armies/${army.id}/catalog`}>
               + Add From Catalog
-            </Button>
+            </LinkButton>
           </EmptyState>
         ) : (
           groups.map((group) => (

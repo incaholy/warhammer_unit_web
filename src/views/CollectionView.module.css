@@ -56,6 +56,10 @@
   border-top: none;
   cursor: pointer;
   transition: background 0.15s ease;
+  /* An anchor since F13 tier 3, so it can be opened in a new tab and its address
+     copied. Both rules are the anchor's: colour and underline. */
+  color: inherit;
+  text-decoration: none;
 }
 
 .row:hover {
@@ -135,6 +139,8 @@
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+  color: inherit;
+  text-decoration: none;
 }
 
 .card:hover {

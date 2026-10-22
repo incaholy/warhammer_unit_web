@@ -114,6 +114,18 @@ describe('CollectionView', () => {
     expect(status).toHaveTextContent(/loading armies/i)
   })
 
+  it('opens an army through a real link, not a button (F13 tier 3)', () => {
+    renderView(armies)
+
+    // The point of the change: a `<button>` that calls navigate() cannot be
+    // cmd-clicked into a new tab, its address cannot be copied, and a screen reader
+    // announces it as a button -- which tells the user the wrong thing about what
+    // pressing it does. The Kill Team half already navigated with links.
+    const row = screen.getByRole('link', { name: 'Open The Hollow Vigil' })
+    expect(row).toHaveAttribute('href', '/army-list/armies/a1')
+    expect(screen.queryByRole('button', { name: 'Open The Hollow Vigil' })).toBeNull()
+  })
+
   it('shows the empty state when there are no armies', () => {
     renderView([])
     expect(screen.getByText('No armies mustered yet.')).toBeInTheDocument()

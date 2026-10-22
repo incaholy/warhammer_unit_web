@@ -1,4 +1,11 @@
 .button {
+  /* `inline-flex` and `text-decoration` are here for `LinkButton`, which shares this
+     file: an anchor underlines and does not centre its content, and a `<button>` is
+     unharmed by being told to do what it already does. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.18em;

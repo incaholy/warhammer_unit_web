@@ -126,6 +126,19 @@ afterEach(() => {
 })
 
 describe('ArmyView', () => {
+  it('reaches the catalog through a real link (F13 tier 3)', async () => {
+    stubFetch(ARMY)
+    renderView()
+    await screen.findByRole('heading', { name: 'Vigil Host' })
+
+    // Navigation, not an action: it was a `<Button onClick={navigate(...)}>`, so the
+    // catalog could not be opened in a new tab and was announced as a button. There are
+    // two of these on the page -- the header and the empty state -- and whichever is
+    // showing must be an anchor carrying the destination.
+    const link = (await screen.findAllByRole('link', { name: /add from catalog/i }))[0]
+    expect(link).toHaveAttribute('href', '/army-list/armies/a1/catalog')
+  })
+
   it('renames the army in place', async () => {
     const fetchMock = stubFetch(ARMY)
     renderView()

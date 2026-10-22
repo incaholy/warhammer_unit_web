@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import {
   Button,
@@ -74,7 +74,6 @@ function SkeletonCard() {
 
 /** The armies index (SPEC.md → "CollectionView"). */
 export function CollectionView() {
-  const navigate = useNavigate()
   const armiesQuery = useArmies()
   const factionsQuery = useFactions()
 
@@ -109,7 +108,6 @@ export function CollectionView() {
     return { armies: armiesQuery.data?.total ?? armies.length, units, points }
   }, [armies, armiesQuery.data])
 
-  const openArmy = (id: string) => navigate(`/army-list/armies/${id}`)
 
   return (
     <main className={styles.page}>
@@ -168,12 +166,11 @@ export function CollectionView() {
       ) : layout === 'list' ? (
         <div className={styles.list}>
           {armies.map((army) => (
-            <button
+            <Link
               key={army.id}
-              type="button"
+              to={`/army-list/armies/${army.id}`}
               className={styles.row}
               aria-label={`Open ${army.name}`}
-              onClick={() => openArmy(army.id)}
             >
               <div className={styles.rowMain}>
                 <p className={styles.faction}>{factionName(army.faction_id)}</p>
@@ -186,18 +183,17 @@ export function CollectionView() {
                   {pluralize(armyUnitCount(army), 'unit')}
                 </span>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       ) : (
         <div className={styles.grid}>
           {armies.map((army) => (
-            <button
+            <Link
               key={army.id}
-              type="button"
+              to={`/army-list/armies/${army.id}`}
               className={styles.card}
               aria-label={`Open ${army.name}`}
-              onClick={() => openArmy(army.id)}
             >
               <p className={styles.faction}>{factionName(army.faction_id)}</p>
               <h2 className={styles.name}>{army.name}</h2>
@@ -208,7 +204,7 @@ export function CollectionView() {
                   {pluralize(armyUnitCount(army), 'unit')}
                 </span>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       )}
