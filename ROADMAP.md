@@ -1084,9 +1084,9 @@ It also argues for writing these entries THINNER up front — the problem and th
 rendering. Measuring has overturned a KF7 plan twice and confirmed existing code once, so the parts
 written before measuring are the parts that go stale.
 
-**Status: In progress.** **A** (finishing and leaving a battle), **B** (a reference you can scan, and
-a battle tab in use-order) and **C** (the composition beside the roster being built) are built. **D**
-is deferred.
+**Status: Built.** **A** (finishing and leaving a battle), **B** (a reference you can scan, and a
+battle tab in use-order), **C** (the composition beside the roster being built) and **D** (initiative
+and board status) are all built.
 
 Everything here came from playing a battle through rather than from a review. Four groups, in the
 order they hurt.
@@ -1188,10 +1188,46 @@ when it is wanted, and it is paid at most once per session per team: the read ca
 `Composition` gets promoted out of `KillTeamView` into the shared card module, which is the move
 `Tabs` made when the roster page became its second caller.
 
-### D. Two fields the screen reads and cannot write — **deferred**
+### D. Two fields the screen reads and cannot write — BUILT (slice 5)
 
 Found by enumerating every writable field against the controls built, not by using the screen, and
 held back deliberately: the groups above affect every battle and these two affect some.
+
+**The dev database proved the entry before a line was written**: all six games held `initiative`
+NULL and all forty operatives read `on_board`. Neither column had ever carried anything else,
+because nothing could write them.
+
+**The allowed values came from the CHECK constraints, not from `openapi.json`.** Both fields publish
+as a bare `string` with `maxLength: 16`, so neither `tsc` nor zod can reject a wrong literal — the
+trap this repo's `CLAUDE.md` names, and the one that produced four invented literals earlier in the
+same branch. `ck_kt_game_initiative` allows NULL, `player` or `opponent`; `ck_kt_game_operative_status`
+allows `reserve`, `on_board` or `incapacitated`. They are written down in `src/lib/killTeamGame.ts`
+as `as const` arrays beside `GAME_STATUSES`, which exists for exactly this reason.
+
+**Initiative sits in "This turning point", not in the scoreboard that displays it.** That is its
+actual lifetime: `service_killteam_game.py:502` says advancing "puts initiative back to nobody for
+its roll-off" (#62). A control in the sticky chrome would also have grown the one band KF8a and KF8c
+both went after — measured at 437px of an 844px phone before any content.
+
+The control carries THREE options for a field with two allowed values, because `null` is a state and
+not an absence (#62): it MUST NOT read as the opponent holding initiative, which is what a falsy
+check produces. `SegmentedToggle` is generic over `T extends string` and cannot hold `null`, so a
+sentinel stands in and is converted back at the one place that writes it.
+
+**Board status sits in the operative row's folded half**, not the always-visible strip: it is not one
+of the four `KILLTEAM.md` asks to see at a glance, and that strip already wraps to two lines at 390px
+(KF8c). `incapacitated` is not offered, and the row shows derived copy instead of a disabled control
+— the service couples zero wounds to it in BOTH directions, so a control there would be overruled.
+
+**Verified against the running stack, and the event log is the proof.** Setting initiative wrote
+`{"after": "player", "before": null}` and clearing it wrote `{"after": null, "before": "player"}` — a
+real NULL, never the sentinel. Board status wrote `reserve` then `on_board`, underscore intact. The
+scoreboard followed the control both ways, and the battle was left exactly as found.
+
+**One consequence worth stating: initiative now appears twice**, read-only in the sticky scoreboard
+and writable here. That is deliberate — the scoreboard is the glance `KILLTEAM.md` asks for — but it
+broke two existing tests that used an unscoped `getByText`, which now scope to the scoreboard through
+the battle title it contains.
 
 **Initiative cannot be set.** `KTGame_Update` accepts it and the scoreboard displays it, but nothing
 writes it — so it reads "Not rolled" for a whole battle. Worse than a missing control: `advance`
@@ -1871,7 +1907,7 @@ only by the suite, since every defect in slices 1 and 4 is invisible to jsdom.
 | 2 | **KF8b — three rules and the test** — BUILT | 16px controls, 44px tap targets, `prefers-reduced-motion`; a static CSS test; four stylesheets needing a phone block. Nine navigation links stay under 44px by design — see the KF8 subsection |
 | 3 | **F12 — the 40k half** — PART BUILT, PARKED | Built: catalog error states, `CollectionView` live region, the faction default, one delete treatment, the edition note. Decided but not built: `available-units` as a backend operation, the two-level rail, the composition count. Parked — the focus moves to Kill Team |
 | 4 | **KF8c — collapsing** — BUILT | Operative rows and sections collapse. Rows keep wounds, order and Activate visible, per `KILLTEAM.md`'s at-a-glance requirement; tokens and the datacard fold away |
-| 5 | **KF7 D** | Initiative and board status |
+| 5 | **KF7 D** — BUILT | Initiative in "This turning point", whose lifetime it shares (#62); board status in the operative row's folded half, with `incapacitated` left derived |
 
 **Why 1 and the hierarchy go together.** The overlap and the stage-versus-button weights are the same
 strip of screen and the same stylesheet; fixing one then revisiting the other is two passes over

@@ -63,6 +63,50 @@ export function initiativeLabel(initiative: string | null, opponentName?: string
   return initiative
 }
 
+/** The two sides `ck_kt_game_initiative` allows beside NULL, verbatim.
+ *
+ * Written down for the reason `GAME_STATUSES` gives below: the column is CHECK'd in the
+ * backend's DDL, `openapi.json` publishes `initiative` as a bare `string`, and so nothing
+ * in this repo -- not `tsc`, not zod -- can reject a literal that is merely wrong. This
+ * slice already shipped four invented literals once. */
+export const INITIATIVE_SIDES = ['player', 'opponent'] as const
+export type InitiativeSide = (typeof INITIATIVE_SIDES)[number]
+
+/** The control's stand-in for `null`, which is NOT a third allowed value but the absence
+ *  of one (#62).
+ *
+ *  `SegmentedToggle` is generic over `T extends string`, so it cannot hold `null` and a
+ *  three-state control needs a token for the empty state. It is converted back to `null`
+ *  at the one place that writes it, and never leaves the client -- sending the string
+ *  `'none'` would violate `ck_kt_game_initiative`. */
+export const NO_INITIATIVE = 'none'
+
+/** The values `ck_kt_game_operative_status` allows, verbatim. Same argument as
+ *  `GAME_STATUSES`, and `on_board` carries the same underscore trap. */
+export const OPERATIVE_STATUSES = ['reserve', 'on_board', 'incapacitated'] as const
+export type OperativeStatus = (typeof OPERATIVE_STATUSES)[number]
+
+/** The two a player may SET.
+ *
+ * `incapacitated` is derived and deliberately absent: the service couples zero wounds to
+ * it in BOTH directions, and its own comment warns that automating one half is worse than
+ * automating neither. Offering it here would let a player mark a model incapacitated with
+ * wounds left, or on the board with none, and the service would overrule them either way.
+ * The wounds stepper is how that state is entered and left. */
+export const SETTABLE_OPERATIVE_STATUSES = ['reserve', 'on_board'] as const
+
+const OPERATIVE_STATUS_LABELS: Record<OperativeStatus, string> = {
+  reserve: 'In reserve',
+  on_board: 'On the board',
+  incapacitated: 'Incapacitated',
+}
+
+/** An operative's board status as a person reads it, falling back to the raw token for
+ *  the reason `gameStatusLabel` gives. */
+export function operativeStatusLabel(status: string): string {
+  return OPERATIVE_STATUS_LABELS[status as OperativeStatus] ?? status
+}
+
 /** The values `ck_kt_game_status` allows, verbatim.
  *
  * SNAKE_CASE, and the underscore is the whole point of writing them down. The

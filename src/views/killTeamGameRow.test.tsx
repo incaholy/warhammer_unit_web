@@ -232,6 +232,69 @@ describe('OperativeRow: activate', () => {
   })
 })
 
+describe('OperativeRow: board status (KF7 D)', () => {
+  const control = () => screen.getByRole('group', { name: `Board status for ${WHO}` })
+
+  it('lives in the folded half, not the always-visible strip', () => {
+    stub()
+    renderRow({ status: 'on_board' })
+
+    // Not one of the four `KILLTEAM.md` asks to see at a glance, and that strip already
+    // wraps to two lines at 390px (KF8c) -- so it folds away with the tokens.
+    expect(screen.queryByRole('group', { name: `Board status for ${WHO}` })).not.toBeInTheDocument()
+    expandRow()
+    expect(control()).toBeInTheDocument()
+  })
+
+  it('writes the literal the CHECK constraint allows, underscore and all', async () => {
+    const seen = stub()
+    renderRow({ status: 'on_board' })
+    expandRow()
+    fireEvent.click(within(control()).getByRole('button', { name: 'In reserve' }))
+
+    await waitFor(() => {
+      const patch = seen.find((c) => c.method === 'PATCH')
+      expect(patch?.body).toEqual({ status: 'reserve' })
+    })
+  })
+
+  it('writes `on_board` with its underscore, which nothing else can check', async () => {
+    const seen = stub()
+    renderRow({ status: 'reserve' })
+    expandRow()
+    expect(within(control()).getByRole('button', { name: 'In reserve', pressed: true })).toBeInTheDocument()
+    fireEvent.click(within(control()).getByRole('button', { name: 'On the board' }))
+
+    // The published schema types this a bare `string`, so neither tsc nor zod would
+    // reject `'on board'`. This assertion is the only thing that does.
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({ status: 'on_board' })
+    })
+  })
+
+  it('never offers `incapacitated`, because the service derives it', () => {
+    stub()
+    renderRow({ status: 'on_board' })
+    expandRow()
+    const labels = within(control())
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(labels).toEqual(['In reserve', 'On the board'])
+  })
+
+  it('shows an incapacitated model as derived copy, with no control at all', () => {
+    stub()
+    renderRow({ status: 'incapacitated', current_wounds: 0 })
+    expandRow()
+
+    // Not a disabled toggle: there is nothing to disable, because wounds are what move
+    // this state in both directions. Offering a control the server would overrule is
+    // the asymmetric automation the service's own comment warns against.
+    expect(screen.queryByRole('group', { name: `Board status for ${WHO}` })).not.toBeInTheDocument()
+    expect(screen.getByText(/incapacitated/i)).toBeInTheDocument()
+  })
+})
+
 describe('OperativeRow: collapsing (KF8c)', () => {
   it('still shows name, wounds, order and activated while collapsed', () => {
     stub()

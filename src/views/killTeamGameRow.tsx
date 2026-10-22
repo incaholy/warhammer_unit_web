@@ -36,7 +36,12 @@ import {
 } from '../api/killTeamGamesQueries'
 import { useKillTeam } from '../api/killTeamQueries'
 import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
-import { actionsUsed, hasActivated } from '../lib/killTeamGame'
+import {
+  actionsUsed,
+  hasActivated,
+  operativeStatusLabel,
+  SETTABLE_OPERATIVE_STATUSES,
+} from '../lib/killTeamGame'
 import { Button, SegmentedToggle, Select } from '../ui'
 import { Abilities, Block, Keywords, StatLine, Weapons } from './killTeamCards'
 import { ChipEditor, Stepper } from './killTeamControls'
@@ -46,6 +51,13 @@ const ORDERS = [
   { value: 'engage' as const, label: 'Engage' },
   { value: 'conceal' as const, label: 'Conceal' },
 ]
+
+/** Only the two a player may set. `incapacitated` is absent on purpose -- see
+ *  `SETTABLE_OPERATIVE_STATUSES`. */
+const BOARD_STATUSES = SETTABLE_OPERATIVE_STATUSES.map((value) => ({
+  value,
+  label: operativeStatusLabel(value),
+}))
 
 export interface OperativeRowProps {
   game: KTGame_Read
@@ -159,6 +171,36 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
         * queryable. */}
       {open && (
         <div id={detailsId} className={styles.details}>
+          {/* Board status (KF7 D). In the folded half rather than the always-visible
+            * strip: it is not one of the four `KILLTEAM.md` asks to see at a glance, and
+            * that strip already wraps to two lines at 390px (KF8c).
+            *
+            * Until this existed nothing could write the column, so a team that starts
+            * off the board -- Raveners' Burrow, which `KILLTEAM.md` names -- had no way
+            * to record it. Every operative in the dev database read `on_board`. */}
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Board status</span>
+            {incapacitated ? (
+              // Read-only, because the service couples zero wounds to `incapacitated` in
+              // BOTH directions and its own comment warns that automating one half is
+              // worse than automating neither. The wounds stepper is how this state is
+              // entered and left, so the copy says so rather than offering a control the
+              // server would overrule.
+              <span className={styles.fieldDerived}>
+                {operativeStatusLabel('incapacitated')} — heal a wound to change this
+              </span>
+            ) : (
+              <SegmentedToggle
+                aria-label={`Board status for ${who}`}
+                options={BOARD_STATUSES}
+                value={operative.status === 'reserve' ? 'reserve' : 'on_board'}
+                onChange={(status) =>
+                  update.mutate({ rowId: operative.id, body: { status } })
+                }
+              />
+            )}
+          </div>
+
           {/* Tokens: the shared chip editor. No vocabulary, because tokens are
             * team-specific and numbered (#1, #21) -- see `killTeamChips`. */}
           <ChipEditor

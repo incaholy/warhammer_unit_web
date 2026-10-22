@@ -77,6 +77,32 @@
   gap: 12px;
 }
 
+/* A labelled control inside the folded half (KF7 D). Wraps rather than squeezing: three
+   segments beside a label do not fit 390px, which is the same reason `.row` is a stack of
+   bands and not one line. */
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* A value the player does not set. Reads as copy rather than as a disabled control,
+   because there is no control here to disable -- the state is derived from wounds. */
+.fieldDerived {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .ordinal {
   font-family: var(--font-mono);
   font-size: 10px;

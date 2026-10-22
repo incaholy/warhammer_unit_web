@@ -46,11 +46,13 @@ import {
   advanceLabel,
   gameStateLabel,
   initiativeLabel,
+  NO_INITIATIVE,
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
   gameChoices,
 } from '../lib/killTeamGame'
+import type { InitiativeSide } from '../lib/killTeamGame'
 import {
   Button,
   EmptyState,
@@ -67,6 +69,10 @@ import { Block as RefBlock, Entries, Ploys, Rules } from './killTeamCards'
 import { ChipEditor, Stepper } from './killTeamControls'
 import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
+
+/** What the initiative control holds: the two allowed sides, plus a stand-in for the
+ *  `null` the column also allows. Never sent as-is -- see `NO_INITIATIVE`. */
+type InitiativeChoice = typeof NO_INITIATIVE | InitiativeSide
 
 type TabId = 'battle' | 'reference'
 
@@ -373,6 +379,23 @@ function StrategyPloys({ game }: { game: KTGame_Read }) {
 function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   const [name, setName] = useState('')
   const usePloy = useUseGamePloy(game.id)
+  const update = useUpdateGame(game.id)
+
+  // Initiative lives HERE rather than in the scoreboard that displays it, because that
+  // is its actual lifetime: `advance` "puts initiative back to nobody for its roll-off"
+  // on every new turning point (#62, and the service's own docstring). A control in the
+  // sticky chrome would also grow the one band KF8a and KF8c both went after -- measured
+  // at 437px of an 844px phone before any content.
+  //
+  // Three options for a field with two allowed values, because `null` is a real state
+  // and not an absence (#62): it MUST NOT read as the opponent holding initiative, which
+  // is what a falsy check produces. `SegmentedToggle` is generic over `T extends string`
+  // and cannot hold `null`, so `NO_INITIATIVE` stands in and is converted back on write.
+  const initiativeOptions: { value: InitiativeChoice; label: string }[] = [
+    { value: NO_INITIATIVE, label: initiativeLabel(null) },
+    { value: 'player', label: initiativeLabel('player') },
+    { value: 'opponent', label: initiativeLabel('opponent', game.opponent_name) },
+  ]
 
   const used = ploysUsedThisTurningPoint(game)
   const kinds = new Map(game.ploys.map((ploy) => [ploy.name, ploy.kind]))
@@ -392,6 +415,19 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
 
   return (
     <CollapsibleSection headingId="ploys-heading" title="This turning point" defaultOpen={true}>
+      {/* `scoreRow` is a generic label-and-control row despite its name -- `Equipment`
+        * already reuses it -- so this adds no layout of its own. */}
+      <div className={styles.scoreRow}>
+        <span className={styles.scoreLabel}>Initiative</span>
+        <SegmentedToggle
+          aria-label="Initiative"
+          options={initiativeOptions}
+          value={(game.initiative as InitiativeChoice | null) ?? NO_INITIATIVE}
+          onChange={(next) =>
+            update.mutate({ initiative: next === NO_INITIATIVE ? null : next })
+          }
+        />
+      </div>
 
       {used.length === 0 ? (
         <p className={styles.quiet}>No ploys spent this turning point.</p>

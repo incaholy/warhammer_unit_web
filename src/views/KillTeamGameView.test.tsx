@@ -54,6 +54,16 @@ async function openOperative(who: string) {
   fireEvent.click(within(row).getByRole('button', { expanded: false }))
 }
 
+/** The sticky scoreboard, found through the battle title it contains.
+ *
+ *  Needed since KF7 D put an initiative CONTROL in "This turning point": the scoreboard
+ *  still displays the same value, so "Not rolled" and "You" now appear twice on the
+ *  screen and an unscoped `getByText` matches both. */
+async function scoreboard(): Promise<HTMLElement> {
+  const title = await screen.findByRole('heading', { level: 1 })
+  return title.closest('header') as HTMLElement
+}
+
 function renderView(gameId = 'ktg-1') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -99,22 +109,22 @@ describe('KillTeamGameView: the scoreboard', () => {
     // so null is the COMMON state and must not read as the opponent holding it.
     stub(makeKTGame({ initiative: null, opponent_name: 'Kesh' }))
     renderView()
-    await screen.findByRole('heading', { level: 1 })
-    expect(screen.getByText('Not rolled')).toBeInTheDocument()
+    // Scoped to the scoreboard: since KF7 D the same three words are also an option on
+    // the initiative control below, and this test is about what the SCOREBOARD says.
+    const board = await scoreboard()
+    expect(within(board).getByText('Not rolled')).toBeInTheDocument()
   })
 
   it('names the player as You, and the opponent by their name', async () => {
     stub(makeKTGame({ initiative: 'player', opponent_name: 'Kesh' }))
     const { unmount } = renderView()
-    await screen.findByRole('heading', { level: 1 })
-    expect(screen.getByText('You')).toBeInTheDocument()
+    expect(within(await scoreboard()).getByText('You')).toBeInTheDocument()
     unmount()
 
     stub(makeKTGame({ initiative: 'opponent', opponent_name: 'Kesh' }))
     renderView()
-    await screen.findByRole('heading', { level: 1 })
     // "Kesh" twice -- the title and the initiative line -- so scope to the term.
-    expect(screen.getAllByText('Kesh').length).toBeGreaterThan(0)
+    expect(within(await scoreboard()).getAllByText('Kesh').length).toBeGreaterThan(0)
   })
 })
 
@@ -177,6 +187,71 @@ describe('KillTeamGameView: advance and undo', () => {
     await waitFor(() => {
       expect(seen.find((c) => c.url.endsWith('/undo'))?.method).toBe('POST')
     })
+  })
+})
+
+describe('KillTeamGameView: initiative (KF7 D)', () => {
+  const control = () => screen.getByRole('group', { name: 'Initiative' })
+
+  it('sits with the turning point, whose lifetime it shares', async () => {
+    stub(makeKTGame({ initiative: null }))
+    renderView()
+    await scoreboard()
+
+    // `advance` "puts initiative back to nobody for its roll-off" on every new turning
+    // point (#62), so the control belongs to the turning point and not to the permanent
+    // chrome -- which is also the band KF8a and KF8c both went after.
+    const section = control().closest('section')
+    expect(section?.getAttribute('aria-labelledby')).toBe('ploys-heading')
+  })
+
+  it('offers a third option for null, because null is a state and not an absence', async () => {
+    stub(makeKTGame({ initiative: null, opponent_name: 'Kesh' }))
+    renderView()
+    await scoreboard()
+
+    // #62: it MUST NOT read as the opponent holding initiative, which is what a falsy
+    // check produces. The empty state is a choice a player can see and return to.
+    const labels = within(control()).getAllByRole('button').map((b) => b.textContent)
+    expect(labels).toEqual(['Not rolled', 'You', 'Kesh'])
+    expect(within(control()).getByRole('button', { name: 'Not rolled', pressed: true })).toBeInTheDocument()
+  })
+
+  it('writes the exact literal for a side', async () => {
+    const seen = stub(makeKTGame({ initiative: null, opponent_name: 'Kesh' }))
+    renderView()
+    await scoreboard()
+    fireEvent.click(within(control()).getByRole('button', { name: 'You' }))
+
+    // `version` rides along on every GAME write: `versionFrom` reads it at send time,
+    // which is what makes a 409 mean the value moved rather than that the client is
+    // stale (#78). Asserted rather than matched loosely, so dropping the seam is loud.
+    await waitFor(() => {
+      const patch = seen.find((c) => c.method === 'PATCH')
+      expect(patch?.body).toEqual({ initiative: 'player', version: 7 })
+    })
+  })
+
+  it('writes NULL for "not rolled", never the sentinel string', async () => {
+    const seen = stub(makeKTGame({ initiative: 'player', opponent_name: 'Kesh' }))
+    renderView()
+    await scoreboard()
+    fireEvent.click(within(control()).getByRole('button', { name: 'Not rolled' }))
+
+    // `SegmentedToggle` cannot hold `null`, so the control carries a stand-in token.
+    // Sending that token would violate `ck_kt_game_initiative`, and nothing in the
+    // published schema would catch it -- the field is a bare `string`.
+    await waitFor(() => {
+      const patch = seen.find((c) => c.method === 'PATCH')
+      expect(patch?.body).toEqual({ initiative: null, version: 7 })
+    })
+  })
+
+  it('shows the side that holds it, named as the player reads it', async () => {
+    stub(makeKTGame({ initiative: 'opponent', opponent_name: 'Kesh' }))
+    renderView()
+    await scoreboard()
+    expect(within(control()).getByRole('button', { name: 'Kesh', pressed: true })).toBeInTheDocument()
   })
 })
 
