@@ -11,7 +11,8 @@ into the other. It's a single-page app that talks to the
 
 **Stack:** React · TypeScript (strict) · Vite · React Query (`@tanstack/react-query`)
 · React Router · Zod (runtime validation at the network boundary) · Vitest +
-Testing Library.
+Testing Library · Playwright (a small WebKit suite for layout only — see
+`npm run test:browser`).
 
 ## Quick start
 
@@ -59,24 +60,30 @@ See `.env.example`.
 | `npm run test:coverage` | the suite with coverage, against the floor CI enforces |
 | `npm run check:size` | the entry-chunk budget, and growth against a base branch |
 | `npm run gen:api` | Regenerate `src/api/schema.d.ts` from the backend's published `openapi.json`. Set `OPENAPI_REF` to target a backend branch. CI verifies it is fresh. |
+| `npm run test:browser` | The browser suite: WebKit at the iPhone 14 viewport, asserting layout rather than behaviour. Needs the dev server, which it starts if one is not already up. **Not run by CI** — see ROADMAP KF9. |
 
 ## Layout
 
 ```
 src/
-  api/       one module per backend resource (units, armies, inventory, factions, auth, killTeam, killTeamRosters),
-             plus client.ts (fetch wrapper + zod error parsing), queries.ts and
-             killTeamQueries.ts (React Query hooks), paging.ts, parse.ts, and
+  api/       one module per backend resource (units, armies, inventory, factions, auth,
+             killTeam, killTeamRosters, killTeamGames), plus client.ts (fetch wrapper +
+             zod error parsing), the React Query hooks in queries.ts,
+             killTeamQueries.ts and killTeamGamesQueries.ts, paging.ts, parse.ts, and
              types.ts over the generated schema.d.ts / schemas.gen.ts
   views/     route-level screens: section chooser; Army List (collection, army,
              catalog, inventory, unit datasheet); Kill Team (catalog, team, rosters,
-             roster); auth. Each with a sibling CSS module
+             roster, battles, battle); auth. Each with a sibling CSS module
   ui/        the shared design-system components (Button, Input, Tag, …)
-  lib/       framework-free helpers (errors, formatting, keyword→role derivation)
+  lib/       framework-free helpers (errors, redirects, formatting, keyword→role
+             derivation, the battle screen's derived labels and its scroll rules)
   auth/      auth context / token handling
   toast/     toast notifications
   styles/    global styles and tokens
   test/      Vitest setup
+
+browser/     the Playwright suite (layout only), with playwright.config.ts and
+             tsconfig.browser.json at the repo root
 ```
 
 Every network call goes through `src/api/client.ts`, which validates error
