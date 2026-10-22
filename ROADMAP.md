@@ -219,8 +219,10 @@ agreement (§2.5 now Holds). The contract half waits on [F2](#f2-repair-type-gen
 **What is missing.** The suite is good and its blind spot is structural, not a matter of coverage.
 
 Stubbing `fetch` and asserting on the wire format is the right call, and better than mocking the
-modules under test: it proves the app sends the request it claims to send. 29 files and 156 tests
-spread evenly across the client, resource modules, query layer, auth, routing, UI kit, and views.
+modules under test: it proves the app sends the request it claims to send. **56 files and 627 tests**
+at `0318c39`, spread across the client, resource modules, query layer, auth, routing, UI kit and
+views — the figure was 29 files and 156 tests when this entry was written, and the blind spot below
+is unchanged by the growth, which is the point it makes.
 
 The blind spot: **a stub answers whatever the test author expected.** A suite that mocks `fetch` can
 be entirely green against a contract the real backend does not honour, because both the code and its
@@ -1713,8 +1715,13 @@ Scoped as "test the app in a real browser", it is not.
 
 ## F12. The 40k half, from using it
 
-**Status: Not started.** Reported from use, like KF7 and KF8 were. The `F` series rather than `KF`
-because this is the army-list half.
+**Status: PART BUILT, PARKED.** Built: the catalog's error states, `CollectionView`'s loading live
+region, the faction default, one delete treatment across three screens, and the edition note.
+Decided but not built: `available-units` as a backend operation, the two-level rail, the composition
+count. Parked by decision — the focus moved to Kill Team.
+
+Reported from use, like KF7 and KF8 were. The `F` series rather than `KF` because this is the
+army-list half.
 
 ### Adding from the catalog offers the whole catalog
 
@@ -1991,6 +1998,122 @@ trigger for a destructive action is defensible — it is hard to hit by accident
 comment says the emphasis belongs on "the button in a dialog whose title asks the question". But
 `ghost` tips that into undiscoverable, and three treatments for one action means nobody decided; each
 screen chose locally. Pick one and apply it to all three.
+
+---
+
+## F13. What a full walk of the product found
+
+**Status: Not started.** Two passes on 2026-10-22: every markdown file checked against the code, and
+a six-flow walk of the product in WebKit against the running API — make a 40k army, add from the
+catalog, delete it, browse the Kill Team catalog, build a roster, start a battle and finish it.
+
+**All six flows completed.** No console errors, no uncaught exceptions, and no 4xx or 5xx responses
+across the whole walk. The loop works; what follows is what sits beside it.
+
+**Four of the first seven "problems" were the harness, not the app.** The 40k half navigates with
+`<button onClick={navigate(...)}>` rather than `<Link>`, so a `getByRole('link')` lookup matched
+nothing, and the accessible name is "Open <army name>" rather than the name. Recorded because the
+ratio is the useful part: an exploratory browser walk produces more false positives than findings,
+and each costs a verification round-trip. Only control dumps and reading the source separated them.
+
+### What the walk found
+
+1. **There is no "not found" screen.** `App.tsx:189` is `<Route path="*" element={<Navigate to="/"
+   replace />} />`, so a mistyped, stale or shared-but-deleted URL silently becomes the home page
+   with no explanation. Hit during the walk by assuming `/kill-team/catalog` existed; the Kill Team
+   catalog is at `/kill-team`.
+2. **The junk `SM 19104` faction is offered to users** in the new-army faction picker, beside Chaos,
+   Imperium, Space Marines and Xenos. Known as untidy data; recorded here because it is user-visible.
+3. **Two controls share the accessible name "Log In"** on `/login` — the Log In / Sign Up segmented
+   toggle and the form's submit button.
+4. **The two halves disagree about navigation.** `CollectionView.tsx:176,200` and `ArmyView.tsx:150,161`
+   navigate with buttons; `KillTeamRostersView.tsx:73` uses `<Link>`. The buttons are keyboard
+   operable and labelled, so nothing is broken — but an army cannot be opened in a new tab, its link
+   cannot be copied, and it is announced as a button rather than a link.
+5. **A battle can be started from a roster with no operatives.** Verified end to end: the battle was
+   created, advanced through four turning points and finished, reading "No operatives in this
+   battle." Defensible for an app that does bookkeeping and not rules, except that the modal says
+   "The roster is copied into the battle" and copying nothing yields an unplayable game with no
+   warning.
+
+### What the documentation audit found
+
+The counts are the bulk of it. **"335 tests" appears four times** (`MVP.md` twice, `CODE-REVIEW.md`
+twice) against a measured **627 tests in 56 files**. `ROADMAP.md:17` shows the durable form of the
+same claim — it dates its figure — which is why this one has not rotted.
+
+The structural omission is larger than any single number: **the battle screen appears in no
+structural listing.** `grep "kill-team/games"` across all five frontend documents returns nothing,
+so SPEC's project tree, SPEC's routing table, MVP's Views table and README's Layout all describe an
+app without its richest view. `npm run test:browser` is missing from README's script table the same
+way.
+
+### Three cross-repo obligations the frontend does not meet
+
+Listed here rather than in KF6 because none is blocked on the same thing.
+
+1. **Operative writes send no `version`.** `useUpdateGameOperative` accepts one and all five call
+   sites omit it (`killTeamGameRow.tsx:140,149,198,212,314`); the service skips the comparison when
+   none arrives (`service_killteam_game.py:601`). So **#78's own worked example produces no 409** —
+   wounds, order, status, tokens and actions are last-write-wins. The scoreboard write does send a
+   version, so the guard covers the rare write and not most of a battle. The frontend states the
+   trade in `killTeamGameRow.tsx:14`; the backend documents a protection that is not taken.
+2. **The undo control names neither the actor nor the event**, which `KILLTEAM.md:117` requires. The
+   actor half needs #70 (Planned K8). The EVENT half is buildable today — `KTGame_Read.events` is
+   already embedded and read nowhere — and this entry refuses it, at `ROADMAP.md`'s own "the log is
+   ours, not the player's". One of the two documents has to move.
+3. **No 409 comparison panel** (`KILLTEAM.md:125`). The whole user-visible response is one toast
+   string in `lib/errors.ts:48`. Two of its three parts are in hand at the moment of the conflict.
+
+---
+
+## The plan of record — round two
+
+Sorted by cost, which separates them cleanly: **the cheap items are almost all documentation, and
+the expensive ones are decisions rather than code.** The 404 screen, the empty-roster battle and the
+link-versus-button question are each a few minutes of typing behind an hour of deciding what the
+right behaviour is.
+
+| tier | contents | gate |
+|---|---|---|
+| **1** | Eleven verified-wrong documentation facts, listed below | none — each is a fact, not a judgement |
+| **2** | The 13px chip-remove button; the duplicate "Log In" name; README's scripts and layout; SPEC's tree, routing table and a battle-screen section | one small decision each |
+| **3** | The 404 screen; buttons versus links in the 40k half; the empty-roster battle; the 22px row disclosure; the 72% at-rest chrome; the `.scoreRow` name | a real decision each, taken first |
+| **4** | Blocked or expensive — see below | not now |
+
+### Tier 1, itemised
+
+Every one is a fact the code contradicts. The test count MUST be dated rather than merely corrected,
+because the undated form is what rotted.
+
+| fix | where |
+|---|---|
+| "335 tests" → 627 in 56 files, dated | `MVP.md` ×2, `CODE-REVIEW.md` ×2 |
+| "KF1–KF5" → KF1–KF9 | `MVP.md`, `SPEC.md`, `README.md` |
+| `Army_Read` `created_at` is listed under *To fix* and shipped | `MVP.md:131` |
+| "no end-to-end test … a known gap" — `browser/` exists | `ARCHITECTURE.md:366` |
+| `CollectionView # /` — the route is `/army-list` | `SPEC.md:187` |
+| `gen:api` called deferred, and shipped per `SPEC.md:90` | `SPEC.md:597` |
+| An orphaned table row renders as a broken table | `SPEC.md:343` |
+| Inline-style file list names `KillTeamView`; it is `killTeamCards` | `ARCHITECTURE.md:311` |
+| "the only `Holds` in the document" contradicts `:43`, which says eight | `ARCHITECTURE.md:175` |
+| "two `eslint-disable` … in application code" — one is in a test | `CODE-REVIEW.md:5` |
+| CI described as lint + build + test on push/PR to `main` — four steps missing, and `pull_request` has no branch filter | `MVP.md:116`, `SPEC.md:612`, `ARCHITECTURE.md:381` |
+
+### Tier 4, and why each waits
+
+- **The `version` on operative writes** needs #79's `If-Match` (Planned K9) or a joint decision to
+  accept last-write-wins. The client correctly refuses to send a header the backend has not declared.
+- **F12's remainder** needs `available-units` as a backend operation.
+- **KF6** needs `GET /me/kill-team/games/{game_id}/events`, which is not published.
+- **The undo log and the 409 panel** need the cross-repo decision above before either is code.
+- **The backend repository's own documentation** says the battle screen is not built, says the client
+  branch is "70 commits ahead and 0 behind" when it is **53 ahead and 3 behind**, lists shipped work
+  as remaining, contradicts itself about a `frontend/` monorepo that never existed, and calls three
+  query-key factories "a single factory".
+- **F4, contract testing**, is the open slice and the largest. 627 tests that stub `fetch` can be
+  green against a contract the backend does not honour — the class KF9 closed for layout, and the
+  one that produced four invented literals on this branch.
 
 ---
 
