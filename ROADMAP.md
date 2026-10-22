@@ -1254,7 +1254,7 @@ backend decision that partly retires #17, not a frontend slice.
 
 ## KF8. Hold the phone to the same standard as the desktop
 
-**Status: KF8a, KF8b and KF8c built.** Slice 1 fixed the sticky overlap and the current
+**Status: KF8a, KF8b, KF8c and KF8d built.** Slice 1 fixed the sticky overlap and the current
 stage; slice 2 built the three mechanical rules and their test. Written thin on purpose, per KF7's
 maintenance note: the problem and the constraint, not the rendering.
 
@@ -1452,6 +1452,56 @@ Fixed by promoting the stage rather than touching the control: it was an `Eyebro
 What is wrong is its prominence relative to the current state — which is the same accident as KF7
 B's section order: two elements added by different slices for different reasons, with nobody ever
 comparing their weights.
+
+### The scoreboard gets out of the way — BUILT (KF8d)
+
+**This replaces `KILLTEAM.md`'s "always visible".** That document (`KILLTEAM.md:574`) asks the battle
+screen for turning point, CP and VP always on screen, and it now hides on the way DOWN and returns on
+the way UP. **The backend repo's design reference still carries the old wording and needs updating** —
+recorded here because a requirement changed in one repository and owed by another is the shape of
+defect this roadmap has found twice.
+
+**The measurement that justifies it** came from KF9, which is also why KF9 was built first: the
+pinned chrome reached **481px of a 664px viewport — 72%**, leaving 183px, barely one collapsed
+operative row. While scrolling down it is now **339px, 51%**.
+
+**The decision is separated from the wiring**, and the split is not stylistic.
+`src/lib/chromeScroll.ts` holds the thresholds as ordinary arithmetic with eight jsdom tests; the
+listener lives in the view. jsdom fires no scroll events and lays nothing out, so the wiring is
+observable only in KF9 — which is the whole reason this slice waited for that one.
+
+Three behaviours, each a threshold with a reason:
+
+- **It will not hide until the scoreboard has been scrolled wholly past.** Tucking away something
+  half-visible reads as a glitch rather than as a response.
+- **It returns on the first upward movement, at any depth, with no threshold of its own.** This is
+  the half that makes the information reachable rather than merely absent.
+- **Movement under 8px decides nothing** — a finger resting on a phone jitters, and a trackpad
+  scrolls sub-pixel. `lastY` is NOT advanced when a move is ignored, so a slow drag still accumulates
+  to a decision instead of being discarded a pixel at a time.
+
+It translates by the scoreboard's own measured height rather than collapsing a height, which keeps it
+off the layout path: nothing below reflows. Under `prefers-reduced-motion` it still hides — the point
+is the space, not the movement — it simply arrives rather than travels.
+
+**KF9 caught a defect that would otherwise have shipped silently.** The view returns early while the
+game loads, so the chrome does not exist on the first render and the ref is still null when the
+effect first runs. A ref object is stable, so with `[ref]` as the dependency the effect never ran
+again and **the listener was never attached** — the feature did nothing at all, and every jsdom test
+still passed. It now depends on readiness as well.
+
+**Three of the four assertions written for it were wrong in ways only a browser showed.**
+Playwright's `boundingBox()` answers in a different coordinate space than `getBoundingClientRect()`,
+so the file disagreed with itself about where the scoreboard was. The page could not reach an exact
+scroll target — asking for 700 landed on 698, because tucking the chrome changes the document height
+and so the maximum scroll. And a settle check that waited for "unchanged across two frames" passed
+instantly on a value that had not started moving, because the scroll decision is itself made in a
+`requestAnimationFrame`.
+
+**One assertion had to be re-scoped rather than fixed.** "No two pinned regions overlap" began
+failing correctly: the scoreboard now deliberately slides behind the app header, which is an overlap.
+It measures after scrolling down AND back up, so it still carries the claim KF8a was about — when
+every pinned region is meant to be on screen, none occludes another.
 
 ### Operative rows and sections collapse — BUILT (slice 4)
 

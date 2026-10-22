@@ -58,11 +58,48 @@ async function openBattle(page: Page) {
   await page.getByRole('button', { name: /^Operatives$/ }).waitFor({ state: 'attached' })
 }
 
-/** Scrolls far enough that sticky regions are actually pinning, then lets it settle. */
+/** Scrolls, then waits for the page to stop moving AND for the chrome to stop animating.
+ *
+ *  Two tolerances, both learned the hard way. The page often cannot reach the exact
+ *  target -- asking for 700 landed on 698, because tucking the chrome changes the
+ *  document height and therefore the maximum scroll -- so the position is allowed a few
+ *  pixels. And KF8d gives the chrome a 200ms transition, so a measurement taken too soon
+ *  catches it mid-flight: this waits until the scoreboard's own top is the same across
+ *  two reads a frame apart, which is the only honest definition of settled. */
 async function scrollDown(page: Page, y = 700) {
   await page.evaluate((to) => window.scrollTo(0, to), y)
-  await page.waitForFunction((to) => Math.abs(window.scrollY - to) < 2, y)
-  await page.waitForTimeout(150)
+  await page.waitForFunction((to) => Math.abs(window.scrollY - to) <= 3, y)
+  // Past the handler's own frame AND the 200ms transition. Without this the stability
+  // check below resolves instantly on a position that has not started moving yet: the
+  // scroll decision is itself made in a `requestAnimationFrame`, so "unchanged across two
+  // frames" is true of the OLD value before the new one is ever applied.
+  await page.waitForTimeout(350)
+  await page.waitForFunction(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const board = document.querySelector('[class*="chrome"] header')
+        if (!board) return resolve(true)
+        const first = board.getBoundingClientRect().top
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => resolve(board.getBoundingClientRect().top === first)),
+        )
+      }),
+    undefined,
+    { polling: 'raf' },
+  )
+}
+
+/** A viewport-relative box, read the same way `pinnedBoxes` reads them.
+ *
+ *  NOT Playwright's `boundingBox()`, which answers in a different coordinate space and
+ *  made this file disagree with itself about where the scoreboard was. */
+async function boxOf(page: Page, selector: string) {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel)
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    return { top: r.top, bottom: r.bottom }
+  }, selector)
 }
 
 test.describe('the battle screen, after scrolling', () => {
@@ -72,7 +109,12 @@ test.describe('the battle screen, after scrolling', () => {
     // which was visible. Advance, Undo and the tablist were entirely occluded for three
     // slices before a phone preview found it. Nothing in 619 jsdom tests can see this.
     await openBattle(page)
-    await scrollDown(page)
+    // Down, then back up. Since KF8d the scoreboard deliberately slides behind the app
+    // header on the way DOWN, so measuring there would report the intended design as a
+    // defect. The claim this assertion carries is the one KF8a was about: when every
+    // pinned region is meant to be on screen, none of them occludes another.
+    await scrollDown(page, 700)
+    await scrollDown(page, 600)
 
     const boxes = await pinnedBoxes(page)
     expect(boxes.length, 'expected the app header and the battle chrome to be pinning').toBeGreaterThanOrEqual(2)
@@ -111,6 +153,53 @@ test.describe('the battle screen, after scrolling', () => {
       share,
       `pinned chrome reaches ${Math.round(chromeBottom)}px of ${viewport}px (${Math.round(share * 100)}%)`,
     ).toBeLessThanOrEqual(0.73)
+  })
+})
+
+test.describe('the scoreboard gets out of the way', () => {
+  test('hides on the way down and comes back on the way up', async ({ page }) => {
+    // KF8d. This replaces `KILLTEAM.md`'s "always visible", and it is the assertion that
+    // slice exists for: a hidden tab runs no rendering lifecycle, so scroll events and
+    // `requestAnimationFrame` never fire there and nothing but a real browser can see it.
+    await openBattle(page)
+
+    // The scoreboard is the `<header>` inside the battle chrome; the app header is the
+    // document's own.
+    const SCOREBOARD = '[class*="chrome"] header'
+    const appBottom = (await boxOf(page, 'header'))!.bottom
+
+    expect((await boxOf(page, SCOREBOARD))!.bottom, 'the scoreboard starts on screen').toBeGreaterThan(
+      appBottom,
+    )
+
+    await scrollDown(page, 700)
+    expect(
+      (await boxOf(page, SCOREBOARD))!.bottom,
+      'after scrolling down the scoreboard should be behind the app header',
+    ).toBeLessThanOrEqual(appBottom + 1)
+
+    // Up by more than the noise floor. No threshold on the way back: scrolling up and
+    // seeing nothing happen is the failure this direction exists to avoid.
+    await scrollDown(page, 600)
+    expect(
+      (await boxOf(page, SCOREBOARD))!.bottom,
+      'scrolling up should bring it straight back',
+    ).toBeGreaterThan(appBottom)
+  })
+
+  test('reclaims the chrome budget it was built to reclaim', async ({ page }) => {
+    // The number KF8d was justified by: 481px of 664 before it existed.
+    await openBattle(page)
+    await scrollDown(page, 700)
+
+    const boxes = await pinnedBoxes(page)
+    const viewport = page.viewportSize()!.height
+    const chromeBottom = Math.max(...boxes.map((b) => b.bottom))
+    const share = chromeBottom / viewport
+    expect(
+      share,
+      `pinned chrome reaches ${Math.round(chromeBottom)}px of ${viewport}px (${Math.round(share * 100)}%) while scrolling down`,
+    ).toBeLessThanOrEqual(0.52)
   })
 })
 

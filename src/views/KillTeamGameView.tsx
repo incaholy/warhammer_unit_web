@@ -21,8 +21,8 @@
  * and `undo` is spending a ploy, which is in because a section listing ploys used with
  * no way to use one would be empty on every new battle. */
 
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import {
@@ -53,6 +53,7 @@ import {
   gameChoices,
 } from '../lib/killTeamGame'
 import type { InitiativeSide } from '../lib/killTeamGame'
+import { initialChromeState, nextChromeState } from '../lib/chromeScroll'
 import {
   Button,
   EmptyState,
@@ -90,7 +91,14 @@ const TABS: Tab<TabId>[] = [
 export default function KillTeamGameView() {
   const { gameId = '' } = useParams()
   const [tab, setTab] = useState<TabId>('battle')
+  const chromeRef = useRef<HTMLDivElement>(null)
   const gameQuery = useGame(gameId)
+  // `ready` is not decoration. This component returns early while the game loads, so the
+  // chrome does not exist on the first render and the ref is still null when the effect
+  // first runs -- and a ref object is stable, so without a changing dependency the effect
+  // never runs again and the listener is never attached. Caught by KF9: the tuck silently
+  // did nothing at all.
+  const tucked = useChromeTuck(chromeRef, gameQuery.isSuccess)
 
   if (gameQuery.isPending) {
     return (
@@ -133,7 +141,10 @@ export default function KillTeamGameView() {
         * Cumulative offsets were the alternative and the wrong one — the title wraps, the
         * controls wrap, the quick-reference chips come and go, so it would be three
         * numbers already known to change. One region needs none. */}
-      <div className={styles.chrome}>
+      <div
+        ref={chromeRef}
+        className={`${styles.chrome} ${tucked ? styles.chromeTucked : ''}`}
+      >
         <Scoreboard game={game} />
         <Controls game={game} />
         <Tabs
@@ -174,6 +185,68 @@ export default function KillTeamGameView() {
       )}
     </section>
   )
+}
+
+/** Hides the scoreboard on the way down and brings it back on the way up (KF8d).
+ *
+ *  `KILLTEAM.md` asked for turning point, CP and VP "always visible", and this replaces
+ *  that: KF9 measured the pinned chrome at 481px of a 664px viewport -- 72%, leaving
+ *  183px for the battle itself, which is barely one collapsed operative row.
+ *
+ *  The DECISION is in `src/lib/chromeScroll.ts` and tested there. Only the wiring is
+ *  here, and the wiring is the part no jsdom test can see: a hidden tab runs no rendering
+ *  lifecycle, so scroll events and `requestAnimationFrame` never fire. KF9's browser suite
+ *  is what asserts it.
+ *
+ *  The scoreboard's height is MEASURED and published rather than hardcoded, for the same
+ *  reason `Header` publishes its own: the title wraps, and the row is one line or two
+ *  depending on the opponent's name. */
+function useChromeTuck(ref: RefObject<HTMLDivElement | null>, ready: boolean): boolean {
+  const [state, setState] = useState(initialChromeState)
+  const scoreboardHeight = useRef(0)
+
+  useEffect(() => {
+    if (!ready) return
+    const chrome = ref.current
+    const board = chrome?.querySelector('header')
+    if (!chrome || !board) return
+
+    const publish = () => {
+      const h = Math.ceil(board.getBoundingClientRect().height)
+      // Only a real measurement, for the reason `Header` gives: jsdom lays nothing out,
+      // and publishing `0px` would translate the chrome by nothing while claiming to.
+      if (h > 0) {
+        scoreboardHeight.current = h
+        chrome.style.setProperty('--kt-scoreboard-h', `${h}px`)
+      }
+    }
+    publish()
+
+    // Throttled to a frame. A scroll listener that writes state on every event is the
+    // standard way this pattern becomes the jankiest thing on the page.
+    let frame = 0
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        setState((s) => nextChromeState(s, window.scrollY, scoreboardHeight.current))
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    let ro: ResizeObserver | undefined
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(publish)
+      ro.observe(board)
+    }
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame) cancelAnimationFrame(frame)
+      ro?.disconnect()
+    }
+  }, [ref, ready])
+
+  return state.hidden
 }
 
 /** A battle-tab section that folds away (KF8c).

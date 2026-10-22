@@ -26,6 +26,25 @@
   z-index: 40;
   background: var(--bg);
   border-bottom: 1px solid var(--ink);
+  transition: transform 0.2s ease;
+}
+
+/* The scoreboard gets out of the way on the way down (KF8d).
+   The whole region translates by exactly the scoreboard's own measured height, so the
+   scoreboard slides up behind the app header -- which is `z-index: 50` to this one's 40 --
+   and the controls and tablist rise into the space it leaves. Translating rather than
+   collapsing a height keeps this off the layout path entirely: nothing below reflows, and
+   the browser can do it on the compositor. */
+.chromeTucked {
+  transform: translateY(calc(-1 * var(--kt-scoreboard-h, 0px)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still hides -- the point is the space, not the movement. It just arrives rather than
+     travels. */
+  .chrome {
+    transition: none;
+  }
 }
 
 .scoreboard {
