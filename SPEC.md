@@ -160,8 +160,10 @@ warhammer_web/
       inventory.ts        # list/add/setAmount/remove
       killTeam.ts         # the six public catalog reads
       killTeamRosters.ts  # the eight roster reads and writes
+      killTeamGames.ts    # the battle: two reads and twelve writes
       queries.ts          # TanStack Query keys + hooks for the 40k half
       killTeamQueries.ts  # the same for Kill Team, catalog and rosters
+      killTeamGamesQueries.ts  # the battle's hooks: serialised writes, version asserts
     auth/
       AuthContext.tsx     # token in localStorage, current user, login/register/logout
       RequireAuth.tsx     # route guard → redirects to /login
@@ -174,7 +176,8 @@ warhammer_web/
     ui/                 # design-system primitives, barrel-exported from index.ts
                         # Button, Input, Select, Field, Tabs, Modal, Tag, Toast,
                         # QuantityInput, SegmentedToggle, Header, Breadcrumbs
-      Button.tsx  Input.tsx  Field.tsx  Tag.tsx  SegmentedToggle.tsx
+      Button.tsx  Input.tsx  Select.tsx  Field.tsx  Tag.tsx  Tabs.tsx
+      QuantityInput.tsx   SegmentedToggle.tsx
       Modal.tsx   Toast.tsx  Header.tsx  Breadcrumbs.tsx  Eyebrow.tsx  EmptyState.tsx
       ErrorBoundary.tsx   # render-error fallback instead of a blank screen
     lib/
@@ -182,6 +185,8 @@ warhammer_web/
       errors.ts           # ApiError -> user-facing message + per-field messages
       redirect.ts         # post-login destination, internal paths only
       format.ts           # points, counts, date labels
+      killTeamGame.ts     # the battle's derived labels and allowed values
+      chromeScroll.ts     # when the scoreboard gets out of the way (KF8d)
     views/
       AuthView.tsx        # /login  (login + signup tabs)
       CollectionView.tsx  # /army-list  (armies list/grid)
@@ -195,6 +200,11 @@ warhammer_web/
       KillTeamRostersView.tsx  # /kill-team/rosters
       KillTeamRosterView.tsx   # /kill-team/rosters/:rosterId
       NewRosterModal.tsx       # the create-roster overlay
+      KillTeamGamesView.tsx    # /kill-team/games
+      KillTeamGameView.tsx     # /kill-team/games/:gameId — the battle, as played
+      killTeamGameRow.tsx      # one operative's row, with its datacard
+      killTeamControls.tsx     # the stepper and chip editor the battle screen shares
+      NewGameModal.tsx         # the start-a-battle overlay
       killTeamCards.tsx        # datacard pieces shared by the team and roster screens
       NewArmyModal.tsx         # the create-army overlay
 ```
