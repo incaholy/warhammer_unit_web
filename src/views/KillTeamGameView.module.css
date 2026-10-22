@@ -354,7 +354,10 @@
    Editing lives in the body, not in the sticky scoreboard: four steppers up there would
    make the thing that must stay visible take most of a phone. */
 
-.scoreRow {
+/* The shared label-and-control row. Named `.scoreRow` until F13 tier 3, which had become
+   wrong: `Score and command` was its first user, and `Equipment`, `Choices` and the
+   initiative control all reuse it. */
+.fieldRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -362,13 +365,13 @@
   padding: 10px 4px;
 }
 
-.scoreRow + .scoreRow {
+.fieldRow + .fieldRow {
   border-top: 1px solid var(--rule-light);
 }
 
 /* The setup sections sit at the bottom now and should not compete with the operative
    list for attention: a victory-point source is a label on a control, not a heading. */
-.scoreLabel {
+.fieldLabel {
   flex: 1;
   min-width: 12ch;
   font-family: var(--font-serif);

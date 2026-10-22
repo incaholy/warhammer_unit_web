@@ -494,10 +494,10 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
 
   return (
     <CollapsibleSection headingId="ploys-heading" title="This turning point" defaultOpen={true}>
-      {/* `scoreRow` is a generic label-and-control row despite its name -- `Equipment`
-        * already reuses it -- so this adds no layout of its own. */}
-      <div className={styles.scoreRow}>
-        <span className={styles.scoreLabel}>Initiative</span>
+      {/* `fieldRow` is the shared label-and-control row: `Score and command`, `Equipment`
+        * and `Choices` all use it, so this adds no layout of its own. */}
+      <div className={styles.fieldRow}>
+        <span className={styles.fieldLabel}>Initiative</span>
         <SegmentedToggle
           aria-label="Initiative"
           options={initiativeOptions}
@@ -612,8 +612,8 @@ function ScoreAndCommand({ game }: { game: KTGame_Read }) {
   return (
     <CollapsibleSection headingId="score-heading" title="Score and command" defaultOpen={true}>
 
-      <div className={styles.scoreRow}>
-        <span className={styles.scoreLabel}>Command points</span>
+      <div className={styles.fieldRow}>
+        <span className={styles.fieldLabel}>Command points</span>
         <Stepper
           label="Command points"
           downLabel="Spend a command point"
@@ -664,8 +664,8 @@ function VictoryPoints({ game }: { game: KTGame_Read }) {
       ) : (
         <ul className={styles.sources}>
           {sources.map((name) => (
-            <li key={name} className={styles.scoreRow}>
-              <span className={styles.scoreLabel}>{name}</span>
+            <li key={name} className={styles.fieldRow}>
+              <span className={styles.fieldLabel}>{name}</span>
               <Stepper
                 label={`Victory points from ${name}`}
                 downLabel={`Lose a victory point from ${name}`}
@@ -710,10 +710,10 @@ function VictoryPoints({ game }: { game: KTGame_Read }) {
         </Button>
       </div>
 
-      <div className={styles.scoreRow}>
+      <div className={styles.fieldRow}>
         {/* A plain integer, not a keyed document: the opponent's score is entered by
           * hand. The asymmetry is deliberate and is not a shape to unify. */}
-        <span className={styles.scoreLabel}>
+        <span className={styles.fieldLabel}>
           {game.opponent_name ? `${game.opponent_name}'s victory points` : "Opponent's victory points"}
         </span>
         <Stepper
@@ -861,8 +861,8 @@ function Equipment({ game }: { game: KTGame_Read }) {
       ) : (
         <ul className={styles.sources}>
           {game.equipment.map((row) => (
-            <li key={row.id} className={styles.scoreRow}>
-              <span className={styles.scoreLabel}>{row.name}</span>
+            <li key={row.id} className={styles.fieldRow}>
+              <span className={styles.fieldLabel}>{row.name}</span>
               {row.revealed ? (
                 <span className={styles.revealed}>Revealed</span>
               ) : (
@@ -1060,8 +1060,8 @@ function Choices({ game }: { game: KTGame_Read }) {
       ) : (
         <ul className={styles.sources}>
           {picks.map((pick) => (
-            <li key={pick.label} className={styles.scoreRow}>
-              <span className={styles.scoreLabel}>{pick.label}</span>
+            <li key={pick.label} className={styles.fieldRow}>
+              <span className={styles.fieldLabel}>{pick.label}</span>
               <span className={styles.choiceValue}>{pick.value}</span>
               <button
                 type="button"
