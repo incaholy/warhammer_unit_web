@@ -396,6 +396,17 @@
   outline-offset: 2px;
 }
 
+@media (pointer: coarse) {
+  /* Measured at 13px by KF9, which is the only gate that could see it: KF8b's static
+     test checks the five PRIMITIVES' stylesheets, and this is a bespoke button in a
+     view, so it was invisible to it. The glyph stays 13px -- making the × bigger would
+     shout on a line of quiet text -- and the TARGET grows around it instead. */
+  .removeSource {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 .addSource {
   display: flex;
   align-items: flex-end;

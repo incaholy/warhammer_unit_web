@@ -227,7 +227,7 @@ test.describe('touch targets', () => {
     // and a bespoke button in a view is invisible to it. Listed so they are visible and
     // can only shrink: fixing one fails this until the name is removed, and a NEW short
     // button fails it immediately. See ROADMAP KF9.
-    expect(short).toEqual(['_name', '_removeSource'])
+    expect(short).toEqual(['_name'])
   })
 })
 
