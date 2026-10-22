@@ -1469,12 +1469,18 @@ the per-operative control strip measures **35px at 566px and 80px at 390px**, be
 |---|---|
 | app header | 128px (two rows at narrow width; 96px at desktop) |
 | sticky chrome — scoreboard 142, controls 100, tabs 38 | 309px |
-| **chrome before any content** | **437px of an 844px phone — 52%** |
+| **chrome before any content** | **437px of an 844px phone — 52%** (corrected: see KF9) |
 | one operative row | 241px |
 | **rows that fit below the chrome** | **1.7** |
 
 A six-operative battle ran to 3,008px. Thirteen operatives — the largest in the dev database — is
 3,133px of rows alone, 3.7 phone screens.
+
+**The 844 is wrong, and KF9 found it.** 844 is the iPhone 14's DEVICE height; Safari's own chrome
+takes about 180px of it, so the VIEWPORT a page gets is 664px. Measured in WebKit, the pinned chrome
+reaches **481px of 664px — 72%**, leaving 183px, which is barely one collapsed row. Every phone
+figure recorded before KF9 was against the device height and understates the problem by the same
+factor. The rows measurements are unaffected: a row's height does not depend on the viewport.
 
 Where a row's 241px went: controls 80, padding and gaps ~70, token editor 41, datacard summary 31,
 name 19.
@@ -1545,10 +1551,57 @@ behaviour, not a geometry fact, which is why KF8 states it as a static CSS rule 
 
 ---
 
-## KF9. A deliberately tiny browser suite — a CANDIDATE, not a commitment
+## KF9. A deliberately tiny browser suite
 
-**Status: Candidate.** Recorded so the decision exists when it is wanted, with the cost written down
-beside the return. Not started and not agreed.
+**Status: BUILT, and deliberately NOT in CI.** `npm run test:browser` — 7 tests from 4 assertions,
+one spec file, one viewport. Run it while working on layout; nothing gates on it.
+
+**It paid for itself on the first run**, which is the only evidence that matters for a decision
+this entry spent its length hedging:
+
+1. **The viewport is 664px, not 844px** — see the correction in KF8c above. Every phone measurement
+   this roadmap carried was against the device height, so the pinned chrome is 72% of what a player
+   sees rather than 52%.
+2. **Twelve buttons under 44px that KF8b's static test structurally cannot see.** It checks the five
+   primitives' stylesheets, and these bypass the `Button` primitive: the operative row's own
+   disclosure at 22px (eight of them) and the victory-point source remove buttons at 13px.
+
+**Playwright's own runner rather than `@vitest/browser`**, which is what this entry originally
+sketched. Viewport, touch emulation and scroll control are first-class in Playwright and awkward in
+vitest's browser mode, and the suite is nothing but viewport, touch and scroll.
+
+**Three things nearly made it a suite that measures nothing**, each found by deliberately breaking
+the app rather than by a green run:
+
+- `browser/layout.spec.ts` matches **vitest's** default `*.spec.ts` include, so vitest collected it
+  and reported "1 failed file, 0 failed tests" — a main suite broken by a file that is not its.
+- The suite's TypeScript was **unchecked**: `tsc -b` skipped it, eslint caught only an unused
+  variable, and Playwright strips types without checking them. It now runs `tsc -p
+  tsconfig.browser.json` before the tests, so a type error stops the run.
+- Waiting on a VISIBLE element made a layout defect report itself as a 20-second timeout on an
+  unrelated control, because a wrongly pinned chrome covers the thing being waited on. It waits for
+  `attached` instead, and the same mutation now fails in under a second with the overlap listed.
+
+**Verified by making it fail.** Reintroducing KF8a's `top: 0` produced three overlapping pairs;
+removing `Button`'s coarse-pointer rule added `_button` to the short list; forcing a 520px minimum
+width reported 130px of sideways scroll on two routes.
+
+**Two ratchets rather than two aspirations.** The chrome budget is set at the measured 72% and the
+tap-target list is pinned at the two known offenders, so both can only improve: fixing one fails the
+test until the list shrinks, and a new offender fails it immediately. A gate that fails the day it
+lands teaches people to skip it.
+
+**Assertion 5 was dropped before it was written.** It was to replace the suite's 12 `.open`
+assertions, and those are not proxies — `expect(details.open).toBe(false)` answers exactly the
+question it asks. What they cannot see is whether the CONTENT is hidden, and `toBeVisible()` does
+understand `<details>` in jsdom, so that gap needs no browser.
+
+**The rule this session paid for, now written down: every geometry probe records
+`document.visibilityState`.** An automated tab is hidden by default, and a hidden tab runs no
+rendering lifecycle — no `requestAnimationFrame`, no `ResizeObserver`, no scroll events — while
+`getBoundingClientRect()` still returns real numbers because it forces layout on read. That
+asymmetry produced one finding that was committed and withdrawn, and a second that was caught before
+it was. It is also why the MCP browser harness cannot verify KF8d at all, and why KF9 came first.
 
 **The one honest argument for it.** `KILLTEAM.md` asks the battle screen for "turning point, CP and
 VP **always visible**", and `KillTeamGameView.tsx`'s own header admits that claim is "verified by
@@ -1563,7 +1616,8 @@ nothing out, so it knows what was declared and nothing about what it does.
 
 ### Scope: five assertions, one file, one viewport
 
-390 × 844 (iPhone 14/15) driving **WebKit**, because testing sticky behaviour in Chromium and
+390 × 664 — the iPhone 14's VIEWPORT, not its 844px device height — driving **WebKit**, because
+testing sticky behaviour in Chromium and
 shipping to iPhones tests the wrong engine. It renders a seeded screen and measures boxes: it never
 signs in, never creates a battle, never asserts on copy.
 

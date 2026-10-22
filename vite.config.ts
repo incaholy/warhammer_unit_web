@@ -16,6 +16,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // The browser suite is Playwright's, not vitest's, and `browser/layout.spec.ts`
+    // matches vitest's default `*.spec.ts` include -- so without this it is collected
+    // here, fails to load, and reports "1 failed file, 0 failed tests". Excluded rather
+    // than renamed, because `.spec.ts` is Playwright's own convention and the directory
+    // is the honest boundary between the two runners (ROADMAP KF9).
+    exclude: ['browser/**', 'node_modules/**', 'dist/**'],
     setupFiles: './src/test/setup.ts',
     css: true,
     // A floor, not a target (ROADMAP F8). Thresholds sit just under today's

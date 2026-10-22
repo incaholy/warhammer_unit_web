@@ -30,3 +30,7 @@ dist-ssr
 
 # Coverage output
 coverage
+
+# Browser suite (KF9) — Playwright's run artifacts, never committed
+test-results
+playwright-report
