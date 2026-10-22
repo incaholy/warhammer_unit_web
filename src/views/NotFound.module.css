@@ -1,0 +1,54 @@
+/* Deliberately quiet. A miss is not an error the player caused, so this reads like a
+   page rather than like a failure: the only loud thing is the way out. */
+
+.view {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 80px 32px 120px;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 38px;
+  line-height: 1.1;
+  margin: 0 0 14px;
+}
+
+.body {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 52ch;
+  margin: 0 0 28px;
+}
+
+.back {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 2px;
+}
+
+@media (pointer: coarse) {
+  /* A tap target, like every other control (KF8b). */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .view {
+    padding: 56px 20px 80px;
+  }
+
+  .title {
+    font-size: 30px;
+  }
+}

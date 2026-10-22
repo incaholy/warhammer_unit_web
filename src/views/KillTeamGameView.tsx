@@ -46,6 +46,7 @@ import {
 import { useKillTeam, useUniversal } from '../api/killTeamQueries'
 import type { KTGame_Read } from '../api/types'
 import { ApiError } from '../api/client'
+import { NotFound } from './NotFound'
 import { withReference } from '../lib/errors'
 import {
   advanceFinishes,
@@ -120,12 +121,14 @@ export default function KillTeamGameView() {
 
   if (gameQuery.isError) {
     const missing = gameQuery.error instanceof ApiError && gameQuery.error.code === 'NOT_FOUND'
+    // A deleted battle and a mistyped URL are the same answer to the player, so they
+    // get the same screen (F13 tier 3). A LOAD failure is not -- that one is worth
+    // retrying and says so, with the request id when the fault was the server's.
+    if (missing) return <NotFound what="battle" />
     return (
       <section className={styles.view}>
         <p role="alert" className={styles.error}>
-          {missing
-            ? 'That battle does not exist.'
-            : withReference("Couldn't load this battle.", gameQuery.error)}
+          {withReference("Couldn't load this battle.", gameQuery.error)}
         </p>
         <Link to="/kill-team/games" className={styles.back}>
           ← Battles

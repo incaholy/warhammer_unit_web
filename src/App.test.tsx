@@ -64,6 +64,29 @@ describe('App routing', () => {
     vi.unstubAllGlobals()
   })
 
+  it('answers an unknown URL instead of silently going home (F13 tier 3)', async () => {
+    signedIn()
+    renderAt('/kill-team/catalog')
+
+    // This was `<Navigate to="/" replace />`, so a mistyped, stale or
+    // shared-but-deleted link became the home page with nothing to say it had not
+    // worked. Found by walking the product and assuming this path existed; the Kill
+    // Team catalog is at `/kill-team`.
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not find the page')
+
+    // And it offers the section the path was in, not the top of the app. Addressed by
+    // the arrow, because the app header carries a "Kill Team" nav link too.
+    expect(screen.getByRole('link', { name: '← Kill Team' })).toHaveAttribute('href', '/kill-team')
+  })
+
+  it('keeps the legacy redirects as redirects', async () => {
+    // The pre-section paths really did move, so those stay a redirect: the player
+    // should land where they meant rather than be told they are lost.
+    signedIn()
+    renderAt('/inventory')
+    expect(await screen.findByText('/army-list/inventory')).toBeInTheDocument()
+  })
+
   it('redirects an unauthenticated visit to the login screen', async () => {
     renderAt('/')
     expect(await screen.findByText('Welcome back')).toBeInTheDocument()

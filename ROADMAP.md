@@ -2003,7 +2003,7 @@ screen chose locally. Pick one and apply it to all three.
 
 ## F13. What a full walk of the product found
 
-**Status: Tiers 1 and 2 built; tier 3 open; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and
+**Status: Tiers 1, 2 and 3 built; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and
 a six-flow walk of the product in WebKit against the running API — make a 40k army, add from the
 catalog, delete it, browse the Kill Team catalog, build a roster, start a battle and finish it.
 
@@ -2078,7 +2078,7 @@ right behaviour is.
 |---|---|---|
 | **1** | Eleven verified-wrong documentation facts, listed below — **BUILT**, one commit | none — each is a fact, not a judgement |
 | **2** | The 13px chip-remove button; the duplicate "Log In" name; README's scripts and layout; SPEC's tree, routing table and a battle-screen section — **BUILT**, one commit each | one small decision each |
-| **3** | The 404 screen; buttons versus links in the 40k half; the empty-roster battle; the 22px row disclosure; the 72% at-rest chrome; the `.scoreRow` name | a real decision each, taken first |
+| **3** | The 404 screen; buttons versus links in the 40k half; the empty-roster battle; the 22px row disclosure; the `.scoreRow` name — **BUILT**, one commit each | a real decision each, taken first |
 | **4** | Blocked or expensive — see below | not now |
 
 ### Tier 1, itemised
@@ -2120,6 +2120,39 @@ reads the five PRIMITIVES' stylesheets, and a bespoke button inside a view is no
 **The battle screen now appears in a structural listing.** `grep "kill-team/games"` over the five
 frontend documents returned nothing before this; SPEC carries a routing-table row, a tree entry and
 three sections, and README names the views, the modules and the browser suite's script.
+
+### What tier 3 settled, and what it cost
+
+**Every item here was a decision before it was code**, which is what separated it from
+tier 1. Three are worth keeping.
+
+**The empty-roster battle BLOCKS rather than warns**, which is a deliberate exception to
+the house style: this app otherwise informs and never refuses (#1, #51, #57). A roster
+with nobody in it produces a battle with nothing to track, and the modal already promises
+"the roster is copied into the battle" — a promise it cannot keep from an empty one. It is
+not free: `KTRoster_ListRead` carries no operative count, so the check is a second request
+and Start Battle is disabled while it lands. Four existing tests had to wait for the
+button, and the wait IS the behaviour.
+
+**The row disclosure grew the row rather than only its hit area**, measured in one harness
+before and after: the head band 19px → 44px, a row 163px → 188px, an eight-operative
+battle 3,018px → 3,218px. KF8c had just cut that row down, so this puts about a sixth of
+the saving back. The alternative — a 44px target over a 22px box — keeps both the density
+and the target and was refused on one ground: a touch target larger than the thing it
+appears to be invites mis-taps on the row above, and here the row above is another
+operative whose wounds you did not mean to change. **KF9's tap-target ratchet is now
+empty.**
+
+**The 404 covers deleted things too.** The catch-all answered `<Navigate to="/" replace />`,
+so a mistyped, stale or shared-but-deleted link became the home page with nothing to say it
+had not worked — found by assuming `/kill-team/catalog` existed when the catalog is at
+`/kill-team`. Three views each had their own wording for a deleted record and one of them,
+`ArmyView`, rendered a bare line with no `role="alert"` and **no way back at all**. All four
+now share one screen, which offers the section the path was in rather than the top of the
+app: `returnTo` is a pure function in `src/lib/`, so the half that can be tested is.
+
+The legacy pre-section redirects stay redirects, and a test says so. Those paths really did
+move, so the player should land where they meant rather than be told they are lost.
 
 ### Tier 4, and why each waits
 

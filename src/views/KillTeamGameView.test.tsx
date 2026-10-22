@@ -411,7 +411,7 @@ describe('KillTeamGameView: loading and failure', () => {
       ),
     )
     renderView()
-    expect(await screen.findByRole('alert')).toHaveTextContent('That battle does not exist.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not find that battle')
     expect(screen.getByRole('link', { name: '← Battles' })).toHaveAttribute(
       'href',
       '/kill-team/games',

@@ -205,7 +205,9 @@ describe('KillTeamRosterView', () => {
     )
     renderView('someone-elses')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('That roster does not exist.')
+    // The shared "could not find" screen since F13 tier 3: a deleted roster and a bad
+    // id are one answer to a player, so they get one screen.
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not find that roster')
     expect(screen.getByRole('link', { name: /Your rosters/ })).toHaveAttribute(
       'href',
       '/kill-team/rosters',

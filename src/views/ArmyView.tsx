@@ -8,6 +8,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 
 import { Button, Eyebrow, EmptyState, Input, LinkButton, Modal, QuantityInput, Tag } from '../ui'
 import { ApiError } from '../api/client'
+import { NotFound } from './NotFound'
 import {
   useArmy,
   useFactions,
@@ -73,11 +74,13 @@ export default function ArmyView() {
     // Only a genuine 404 is "not found"; anything else (500, network, …) is a
     // load failure. A 401 has already bounced to /login via the client.
     const notFound = armyQuery.error instanceof ApiError && armyQuery.error.code === 'NOT_FOUND'
-    // `withReference` appends the request id on a server fault and nothing
-    // otherwise, so a 404 stays clean.
+    // This branch used to render a bare line of text: no `role="alert"`, and no way
+    // back at all, so a deleted army was a dead end (F13 tier 3).
+    if (notFound) return <NotFound what="army" />
+    // `withReference` appends the request id on a server fault and nothing otherwise.
     return (
-      <div className={styles.status}>
-        {withReference(notFound ? 'Army not found' : "Couldn't load this army.", armyQuery.error)}
+      <div role="alert" className={styles.status}>
+        {withReference("Couldn't load this army.", armyQuery.error)}
       </div>
     )
   }

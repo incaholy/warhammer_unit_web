@@ -13,6 +13,9 @@ import { Routes, Route, Navigate, Outlet, useNavigate, useParams, useLocation } 
 import { Header, Breadcrumbs, type Crumb } from './ui'
 import { useAuth } from './auth/AuthContext'
 import { RequireAuth } from './auth/RequireAuth'
+// Imported directly rather than lazily: it is small, and a chunk fetched only when a
+// URL is already wrong is the worst moment to need the network.
+import { NotFound } from './views/NotFound'
 
 // Route-level code splitting: each view ships in its own chunk, so the login
 // screen doesn't pull in the whole app. (Named-export views need the .then map.)
@@ -186,7 +189,11 @@ export default function App() {
         <Route path="/armies/*" element={<LegacySectionRedirect />} />
         <Route path="/units/*" element={<LegacySectionRedirect />} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Answers a miss instead of hiding it. This was `<Navigate to="/" replace />`
+          * until F13 tier 3, so a mistyped, stale or shared-but-deleted link silently
+          * became the home page. The LEGACY redirects above stay redirects, because
+          * those paths really did move and the player should land where they meant. */}
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   )

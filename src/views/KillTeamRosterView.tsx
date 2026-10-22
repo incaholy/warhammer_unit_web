@@ -28,6 +28,7 @@ import {
   useUpdateRoster,
 } from '../api/killTeamQueries'
 import { ApiError } from '../api/client'
+import { NotFound } from './NotFound'
 import type { KTRoster_Read, KTRosterOperative_Read, UUID } from '../api/types'
 import { withReference } from '../lib/errors'
 import { pluralize } from '../lib/format'
@@ -63,12 +64,13 @@ export default function KillTeamRosterView() {
 
   if (rosterQuery.isError || !rosterQuery.data) {
     const missing = rosterQuery.error instanceof ApiError && rosterQuery.error.code === 'NOT_FOUND'
+    // Same screen as a mistyped URL (F13 tier 3): to the player, a roster that was
+    // deleted and a roster that never existed are one answer.
+    if (missing) return <NotFound what="roster" />
     return (
       <section className={styles.view}>
         <p role="alert" className={styles.error}>
-          {missing
-            ? 'That roster does not exist.'
-            : withReference("Couldn't load this roster.", rosterQuery.error)}
+          {withReference("Couldn't load this roster.", rosterQuery.error)}
         </p>
         <Link to="/kill-team/rosters" className={styles.back}>
           ← Your rosters
