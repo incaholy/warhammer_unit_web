@@ -2003,7 +2003,7 @@ screen chose locally. Pick one and apply it to all three.
 
 ## F13. What a full walk of the product found
 
-**Status: Not started.** Two passes on 2026-10-22: every markdown file checked against the code, and
+**Status: Tiers 1 and 2 built; tier 3 open; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and
 a six-flow walk of the product in WebKit against the running API — make a 40k army, add from the
 catalog, delete it, browse the Kill Team catalog, build a roster, start a battle and finish it.
 
@@ -2076,8 +2076,8 @@ right behaviour is.
 
 | tier | contents | gate |
 |---|---|---|
-| **1** | Eleven verified-wrong documentation facts, listed below | none — each is a fact, not a judgement |
-| **2** | The 13px chip-remove button; the duplicate "Log In" name; README's scripts and layout; SPEC's tree, routing table and a battle-screen section | one small decision each |
+| **1** | Eleven verified-wrong documentation facts, listed below — **BUILT**, one commit | none — each is a fact, not a judgement |
+| **2** | The 13px chip-remove button; the duplicate "Log In" name; README's scripts and layout; SPEC's tree, routing table and a battle-screen section — **BUILT**, one commit each | one small decision each |
 | **3** | The 404 screen; buttons versus links in the 40k half; the empty-roster battle; the 22px row disclosure; the 72% at-rest chrome; the `.scoreRow` name | a real decision each, taken first |
 | **4** | Blocked or expensive — see below | not now |
 
@@ -2099,6 +2099,27 @@ because the undated form is what rotted.
 | "the only `Holds` in the document" contradicts `:43`, which says eight | `ARCHITECTURE.md:175` |
 | "two `eslint-disable` … in application code" — one is in a test | `CODE-REVIEW.md:5` |
 | CI described as lint + build + test on push/PR to `main` — four steps missing, and `pull_request` has no branch filter | `MVP.md:116`, `SPEC.md:612`, `ARCHITECTURE.md:381` |
+
+### What tiers 1 and 2 settled
+
+**The durable half of the test-count fix was dating it, not correcting it.** `ROADMAP.md:17`
+already carried the same claim in the form that does not rot — it says which commit its figure was
+measured at — and that is why it was the one count the audit did not catch. The four stale copies
+are now dated too.
+
+**The "Log In" fix changed the test file into its own evidence.** Its helper carried the comment
+"scoped so its labels don't collide with the submit button", and three assertions used
+`getAllByRole(...).find((b) => b.getAttribute('type') === 'submit')` to pick one of two. All three
+are now plain `getByRole`, which THROWS on a duplicate accessible name — so the simplification is
+the proof the ambiguity is gone, rather than a tidy-up beside it.
+
+**KF9's ratchet shrank for the first time**, from `['_name', '_removeSource']` to `['_name']`. The
+13px victory-point remove button was invisible to KF8b's static test by construction: that test
+reads the five PRIMITIVES' stylesheets, and a bespoke button inside a view is not one.
+
+**The battle screen now appears in a structural listing.** `grep "kill-team/games"` over the five
+frontend documents returned nothing before this; SPEC carries a routing-table row, a tree entry and
+three sections, and README names the views, the modules and the browser suite's script.
 
 ### Tier 4, and why each waits
 
