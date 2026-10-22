@@ -57,6 +57,23 @@
   outline-offset: 3px;
 }
 
+@media (pointer: coarse) {
+  /* Measured at 22px by KF9, and the last name on its tap-target ratchet. It is bespoke
+     rather than a `Button`, so KF8b's static test -- which reads the five primitives'
+     stylesheets -- could not see it.
+
+     This GROWS THE ROW, which is a trade made with open eyes: KF8c had just cut a row
+     from 241px to 145px, and 44px here puts roughly 24px back. The alternative was a
+     44px hit area over a 22px box, via padding and a negative margin, which keeps both
+     the density and the target -- it was weighed and not taken, because a touch target
+     that is larger than the thing it appears to be invites mis-taps on the row above.
+     The honest version costs height. */
+  .name {
+    min-height: 44px;
+    align-items: center;
+  }
+}
+
 /* `+` / `−` rather than a chevron, which is the disclosure marker this file already uses
    for the datacard below. Rendered as text rather than a `::before` because the markup
    here is a button rather than a `<summary>`, so there is no `[open]` selector to key on.
