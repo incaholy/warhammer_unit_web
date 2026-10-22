@@ -39,19 +39,6 @@ function stub() {
   return seen
 }
 
-/** Rejects every write, so the reset-on-rejection path can be exercised. */
-function stubRefusing() {
-  const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
-    if ((init?.method ?? 'GET') === 'GET') return jsonResponse(makeKTGame())
-    return jsonResponse(
-      { detail: 'must be between 0 and 12, this card\'s maximum', code: 'VALIDATION', field: 'current_wounds' },
-      { status: 400 },
-    )
-  })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
-}
-
 function renderRow(
   operative: Partial<KTGameOperative_Read> = {},
   game: Partial<KTGame_Read> = {},
@@ -89,81 +76,136 @@ function expandRow(who = WHO) {
   fireEvent.click(within(row).getByRole('button', { expanded: false }))
 }
 
-describe('OperativeRow: wounds', () => {
+describe('OperativeRow: wounds (KF10)', () => {
+  /** Opens the wounds dialog and fills it in. */
+  async function applyWounds(mode: 'Damage' | 'Heal', amount: string) {
+    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: mode }))
+    fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: amount } })
+    return dialog
+  }
+
   it('sends the ABSOLUTE value, never a delta', async () => {
     const seen = stub()
     renderRow({ current_wounds: 8, wounds: 12 })
-    fireEvent.click(screen.getByLabelText(`Take a wound from ${WHO}`))
+    const dialog = await applyWounds('Damage', '5')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => {
       const patch = seen.find((c) => c.method === 'PATCH')
-      // #7: `current_wounds: 7`, not `-1`. The absolute value is what makes a
-      // duplicate delivery of this request harmless.
-      expect(patch?.body).toEqual({ current_wounds: 7 })
+      // #7: `current_wounds: 3`, not `-5`. The absolute value is what makes a duplicate
+      // delivery of this request harmless, and KF10 changed the INPUT from a tap to a
+      // typed amount without changing that.
+      expect(patch?.body).toEqual({ current_wounds: 3 })
     })
   })
 
-  it('moves the number on the tap, before any round-trip', () => {
+  it('asks for damage and shows the result before committing', async () => {
     stub()
-    renderRow({ current_wounds: 8, wounds: 12 })
-    fireEvent.click(screen.getByLabelText(`Take a wound from ${WHO}`))
-    // Local draft. A control that waited for the server would feel broken at a table.
-    expect(screen.getByLabelText(`Wounds for ${WHO}`)).toHaveTextContent('7/12')
+    renderRow({ current_wounds: 12, wounds: 12 })
+    const dialog = await applyWounds('Damage', '7')
+
+    // The number a player has is the DAMAGE. Doing "12 - 7" in the head at a table is
+    // where a wrong value comes from, so the dialog does the arithmetic and shows it.
+    expect(within(dialog).getByText('12 → 5')).toBeInTheDocument()
   })
 
-  it('coalesces rapid taps into ONE request carrying the final value', async () => {
+  it('heals in the other direction, from the same amount', async () => {
     const seen = stub()
-    renderRow({ current_wounds: 8, wounds: 12 })
-    const take = screen.getByLabelText(`Take a wound from ${WHO}`)
-    fireEvent.click(take)
-    fireEvent.click(take)
-    fireEvent.click(take)
+    renderRow({ current_wounds: 4, wounds: 12 })
+    const dialog = await applyWounds('Heal', '3')
+    expect(within(dialog).getByText('4 → 7')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => {
-      const patches = seen.filter((c) => c.method === 'PATCH')
-      expect(patches).toHaveLength(1)
-      expect(patches[0].body).toEqual({ current_wounds: 5 })
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({ current_wounds: 7 })
     })
+  })
+
+  it('clamps to what the column allows rather than letting it 400', async () => {
+    const seen = stub()
+    renderRow({ current_wounds: 5, wounds: 12 })
+    // `ck_kt_game_operative_current_wounds` is `>= 0 AND <= wounds`. Nine damage to an
+    // operative on five is zero, not an error toast in the middle of a turn.
+    const dialog = await applyWounds('Damage', '9')
+    expect(within(dialog).getByText('5 → 0')).toBeInTheDocument()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    await waitFor(() => {
+      expect(seen.find((c) => c.method === 'PATCH')?.body).toEqual({ current_wounds: 0 })
+    })
+  })
+
+  it('clamps a heal at the datacard maximum', async () => {
+    stub()
+    renderRow({ current_wounds: 10, wounds: 12 })
+    const dialog = await applyWounds('Heal', '99')
+    expect(within(dialog).getByText('10 → 12')).toBeInTheDocument()
   })
 
   it('never sends `status` beside the wounds', async () => {
     const seen = stub()
     renderRow({ current_wounds: 1, wounds: 12 })
-    fireEvent.click(screen.getByLabelText(`Take a wound from ${WHO}`))
+    const dialog = await applyWounds('Damage', '1')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
 
     await waitFor(() => {
       const patch = seen.find((c) => c.method === 'PATCH')
-      // The service couples zero wounds to `incapacitated` in BOTH directions, and its
-      // own comment says a caller that had to remember would eventually not. Sending
-      // `status` here would be the asymmetric automation it warns about.
-      expect(patch?.body).toEqual({ current_wounds: 0 })
+      // The service couples zero wounds to `incapacitated` in BOTH directions, and a
+      // caller that had to remember would eventually not.
       expect(patch?.body).not.toHaveProperty('status')
+      expect(patch?.body).toEqual({ current_wounds: 0 })
     })
   })
 
-  it('cannot go below zero or above the card\'s maximum', () => {
+  it('refuses to confirm nothing', async () => {
     stub()
-    const { unmount } = renderRow({ current_wounds: 0, wounds: 12 })
-    expect(screen.getByLabelText(`Take a wound from ${WHO}`)).toBeDisabled()
-    expect(screen.getByLabelText(`Heal a wound on ${WHO}`)).toBeEnabled()
-    unmount()
+    renderRow({ current_wounds: 8, wounds: 12 })
+    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    const dialog = await screen.findByRole('dialog')
 
-    renderRow({ current_wounds: 12, wounds: 12 })
-    // The bound is the row's OWN snapshot, so this is bookkeeping rather than a rule:
-    // `_validate_operative_fields` refuses anything outside `0..row.wounds` anyway.
-    expect(screen.getByLabelText(`Heal a wound on ${WHO}`)).toBeDisabled()
+    // Nothing typed yet, so there is no write to make.
+    expect(within(dialog).getByRole('button', { name: 'Confirm' })).toBeDisabled()
+    fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: '0' } })
+    expect(within(dialog).getByRole('button', { name: 'Confirm' })).toBeDisabled()
   })
 
-  it('puts the number back when the write is refused', async () => {
-    stubRefusing()
+  it('takes digits only', async () => {
+    stub()
     renderRow({ current_wounds: 8, wounds: 12 })
-    fireEvent.click(screen.getByLabelText(`Take a wound from ${WHO}`))
-    expect(screen.getByLabelText(`Wounds for ${WHO}`)).toHaveTextContent('7/12')
+    const dialog = await applyWounds('Damage', '3')
+    const field = within(dialog).getByLabelText('Amount') as HTMLInputElement
 
-    // A refused edit must not sit on screen looking saved -- the reason
-    // `QuantityInput` exists, applied to a control that is not it.
-    await waitFor(() =>
-      expect(screen.getByLabelText(`Wounds for ${WHO}`)).toHaveTextContent('8/12'),
+    // `inputMode="numeric"` asks for a numeric keypad; it does not STOP anything, and a
+    // desktop keyboard or a paste can still deliver letters. The filter is this
+    // component's job, which is why `type="number"` was not the answer.
+    fireEvent.change(field, { target: { value: '3e-4abc' } })
+    expect(field.value).toBe('34')
+  })
+
+  it('cancels without writing anything', async () => {
+    const seen = stub()
+    renderRow({ current_wounds: 8, wounds: 12 })
+    const dialog = await applyWounds('Damage', '5')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(seen.filter((c) => c.method === 'PATCH')).toHaveLength(0)
+  })
+
+  it('opens empty, so the last operative\'s amount cannot land on this one', async () => {
+    stub()
+    renderRow({ current_wounds: 12, wounds: 12 })
+    const dialog = await applyWounds('Damage', '7')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    const reopened = await screen.findByRole('dialog')
+    expect((within(reopened).getByLabelText('Amount') as HTMLInputElement).value).toBe('')
+    expect(within(reopened).getByRole('button', { name: 'Damage' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     )
   })
 })
@@ -424,7 +466,12 @@ describe('OperativeRow: where `version` is not sent', () => {
     const seen = stub()
     renderRow({ current_wounds: 8, wounds: 12, order: 'conceal', tokens: [] })
 
-    fireEvent.click(screen.getByLabelText(`Take a wound from ${WHO}`))
+    // Three different writes on one row, so the claim is about the row and not about
+    // one control. Wounds goes through KF10's dialog now.
+    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: '1' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
     fireEvent.click(screen.getByRole('button', { name: 'Engage' }))
     fireEvent.click(screen.getByLabelText(`Activate ${WHO}`))
 

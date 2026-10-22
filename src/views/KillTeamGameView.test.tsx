@@ -435,6 +435,32 @@ describe('KillTeamGameView: loading and failure', () => {
 /* ---- Score, command and the killzone (KF4f) ---- */
 
 describe('KillTeamGameView: score and command', () => {
+  it('puts a refused command point back rather than leaving it looking saved', async () => {
+    // `Stepper`'s optimistic-then-revert path. It used to be covered through the
+    // operative row's wounds; KF10 replaced that control with a dialog that commits
+    // once, so the coverage moved HERE, where `Stepper` still lives -- rather than
+    // being dropped with the test that happened to exercise it.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'GET') return jsonResponse(makeKTGame({ command_points: 2 }))
+        return jsonResponse(
+          { detail: 'cannot be negative', code: 'VALIDATION', field: 'command_points' },
+          { status: 400 },
+        )
+      }),
+    )
+    renderView()
+    // Score and command is open by default (KF8c), so there is nothing to expand.
+    await screen.findByRole('heading', { level: 1 })
+
+    fireEvent.click(screen.getByLabelText('Spend a command point'))
+    expect(screen.getByLabelText('Command points')).toHaveTextContent('1')
+
+    // A refused edit must not sit on screen looking saved.
+    await waitFor(() => expect(screen.getByLabelText('Command points')).toHaveTextContent('2'))
+  })
+
   it('sends an ABSOLUTE command point total', async () => {
     const seen = stub(makeKTGame({ command_points: 2 }))
     renderView()

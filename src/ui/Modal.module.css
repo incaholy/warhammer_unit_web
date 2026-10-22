@@ -50,6 +50,21 @@
   color: var(--ink);
 }
 
+@media (pointer: coarse) {
+  /* Measured at 20px while building KF10's wounds dialog. KF9's tap-target assertion
+     could not see it and still cannot: it measures what is on screen, and no dialog is
+     open during those tests. The glyph stays 20px -- a bigger × would shout -- and the
+     TARGET grows around it, which is the same treatment the victory-point remove button
+     got (F13 tier 2). */
+  .close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .close:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;

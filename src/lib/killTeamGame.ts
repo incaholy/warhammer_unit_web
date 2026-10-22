@@ -81,6 +81,26 @@ export type InitiativeSide = (typeof INITIATIVE_SIDES)[number]
  *  `'none'` would violate `ck_kt_game_initiative`. */
 export const NO_INITIATIVE = 'none'
 
+/** What an amount of damage or healing leaves an operative on (KF10).
+ *
+ * `ck_kt_game_operative_current_wounds` is `current_wounds >= 0 AND <= wounds`, so nine
+ * damage to an operative on five is ZERO rather than a 400, and healing past the
+ * datacard's maximum stops there. Clamped here rather than left to the service, because
+ * the difference is a number that moves versus an error toast in the middle of a turn.
+ *
+ * The caller asks in DAMAGE, not in the remainder: the damage is the number a player has
+ * in front of them, and "12 - 7" done in the head at a table is where a wrong value comes
+ * from. */
+export function applyWounds(
+  current: number,
+  max: number,
+  mode: 'damage' | 'heal',
+  amount: number,
+): number {
+  const next = mode === 'damage' ? current - amount : current + amount
+  return Math.max(0, Math.min(max, next))
+}
+
 /** The values `ck_kt_game_operative_status` allows, verbatim. Same argument as
  *  `GAME_STATUSES`, and `on_board` carries the same underscore trap. */
 export const OPERATIVE_STATUSES = ['reserve', 'on_board', 'incapacitated'] as const

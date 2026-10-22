@@ -44,7 +44,8 @@ import {
 } from '../lib/killTeamGame'
 import { Button, SegmentedToggle, Select } from '../ui'
 import { Abilities, Block, Keywords, StatLine, Weapons } from './killTeamCards'
-import { ChipEditor, Stepper } from './killTeamControls'
+import { ChipEditor } from './killTeamControls'
+import { WoundsControl } from './killTeamWounds'
 import styles from './killTeamGameRow.module.css'
 
 const ORDERS = [
@@ -130,11 +131,9 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
           * `status` -- the service couples zero wounds to `incapacitated` in BOTH
           * directions, and its own comment says a caller who had to remember would
           * eventually not. */}
-        <Stepper
-          label={`Wounds for ${who}`}
-          downLabel={`Take a wound from ${who}`}
-          upLabel={`Heal a wound on ${who}`}
-          value={operative.current_wounds}
+        <WoundsControl
+          who={who}
+          current={operative.current_wounds}
           max={operative.wounds}
           onCommit={(current_wounds) =>
             update.mutateAsync({ rowId: operative.id, body: { current_wounds } })

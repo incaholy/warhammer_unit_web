@@ -2003,7 +2003,7 @@ screen chose locally. Pick one and apply it to all three.
 
 ## KF10. Damage in one go, not one tap at a time
 
-**Status: Planned.** Reported from use: a player should not click once per point of damage.
+**Status: BUILT.** Reported from use: a player should not click once per point of damage.
 
 **The measurement is what makes this worth a slice.** Counted over the real Kill Team
 catalog in the dev database on 2026-10-22:
@@ -2043,21 +2043,32 @@ is 0 rather than a 400, and healing past the datacard's maximum stops there. The
 also couples zero wounds to `incapacitated` in BOTH directions, so this control is how an
 operative goes down and comes back; it MUST NOT send `status` (KF7 D).
 
-### Open, and worth settling before it is built
+### Settled
 
-**Does the pop-up REPLACE the `−`/`+` stepper, or sit beside it?** Replacing it makes the
-cheapest adjustment — one point — into four interactions: open, choose, type, confirm. The
-data says single-point damage is rare, so replacing is defensible; it is recorded as the
-question it is rather than assumed, because the stepper is also how a mis-tap is corrected.
+**It REPLACES the `−`/`+` stepper** on the operative row. That makes the cheapest
+adjustment — one point — four interactions, and the data is what justifies it: damage of 1
+is 36 weapons out of 1,364. `Stepper` itself stays; command points, victory points and
+equipment still use it.
 
-**`Modal` or a popover?** `Modal` is proven here and traps focus, and is heavier than this
-deserves. A popover needs focus management written from scratch. The accessible version of
-the cheap option is the work.
+**`Modal`, not a popover.** It traps focus and is already proven here; a popover would
+have meant writing that focus management, and the accessible version of the cheap option
+IS the work.
 
-**`inputMode="numeric"` rather than `type="number"`**, probably: a number input brings
-spinners that are poor targets on a phone, and accepts `e`, `+` and `-` in several
-browsers. Numbers-only is then a filter the component owns rather than a promise the
-platform keeps.
+**`inputMode="numeric"`, not `type="number"`.** A number input brings spinners that are
+poor targets on a phone and accepts `e`, `+` and `-` in several browsers. `inputMode` asks
+for a numeric keypad and STOPS nothing — a desktop keyboard or a paste still delivers
+letters — so digits-only is a filter the component owns, and a test says so.
+
+**A Cancel button beside Confirm**, so there is a stated way out rather than only the
+dialog's `×` and Escape.
+
+### What it found
+
+**The `Modal`'s own close button measured 20px**, and KF9's tap-target assertion could not
+see it and still cannot: that test measures what is on screen, and no dialog is open while
+it runs. Given a 44px target under a coarse pointer, like the victory-point remove button
+in tier 2 — the glyph stays 20px and the target grows around it. Every control in the
+dialog now measures 44px.
 
 ### What it has to honour
 
