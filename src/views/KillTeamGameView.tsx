@@ -1,25 +1,31 @@
 /* KillTeamGameView (`/kill-team/games/:gameId`) — the battle, as played. See
- * ROADMAP.md → KF4, and KILLTEAM.md #1, #7, #9, #22, #24, #57, #58, #61, #62, #78.
+ * ROADMAP.md → KF4, KF5, KF7 and KF8, and KILLTEAM.md #1, #7, #9, #22, #24, #57, #58,
+ * #61, #62, #78.
  *
  * This is the screen the feature exists for, and the requirement it answers to is a
- * layout one: `KILLTEAM.md`'s Frontend section asks for phone-first table-side use,
- * with turning point, CP and VP **always visible**. "Always visible" is a claim about
- * SCROLLING, so the page is deliberately two regions — a scoreboard that stays put and
- * a body that moves under it.
+ * layout one: `KILLTEAM.md`'s Frontend section asks for phone-first table-side use with
+ * the scoreboard never more than one gesture away. That used to read "always visible",
+ * and KF8d replaced it — the scoreboard tucks behind the app header on the way down and
+ * returns on the first upward movement, because a browser measured the pinned chrome at
+ * 481px of a 664px viewport, 72%, leaving 183px for the battle itself.
  *
- * `position: sticky` cannot be asserted by a test: jsdom has no layout engine, and the
- * one static guard this repo has over styles (`src/styles/cssModules.test.ts`) checks
- * that a class exists, not what it does. So the claim is verified by eye, which is why
- * this slice ships a real operative list rather than a placeholder — there has to be
- * something to scroll before anyone can judge whether the scoreboard stayed.
+ * The layout claims are now ASSERTED rather than eyeballed. `jsdom` has no layout
+ * engine, so `position: sticky` cannot be checked here; `browser/layout.spec.ts` (KF9)
+ * measures it in WebKit at the iPhone 14 viewport — no two pinned regions overlapping,
+ * the chrome inside its budget, and the scoreboard leaving and returning. That suite is
+ * deliberately outside CI, so it is a thing you run rather than a thing that blocks.
  *
- * NO TABS yet. The body is two stacked sections, not two alternatives; the `Tabs`
- * primitive arrives in KF5 when the team reference gives it a second panel to hold.
+ * TWO TABS, Battle and Reference (KF5). Only one panel is in the tree at a time.
  *
- * READ-ONLY on the operatives, by design. Wounds, order, activation and the datacards
- * are KF4d and KF4e; CP and VP editing is KF4f. The one write here besides `advance`
- * and `undo` is spending a ploy, which is in because a section listing ploys used with
- * no way to use one would be empty on every new battle. */
+ * The operatives are WRITABLE: wounds, order, activation, tokens and board status, each
+ * sending an absolute value and never a delta (#7). Sections and operative rows collapse
+ * (KF8c); a collapsed row keeps the four facts `KILLTEAM.md` asks to see at a glance,
+ * because wounds and order are not text here — they ARE their controls.
+ *
+ * Known gaps, recorded in ROADMAP F13: an operative write sends no `version`, so a
+ * conflict on wounds, order, status, tokens or actions is never detected; the undo
+ * control names neither the actor nor the event, which #70 requires; and a 409 shows a
+ * toast rather than the comparison #78 asks the screen to owe. */
 
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode, RefObject } from 'react'

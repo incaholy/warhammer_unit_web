@@ -1,11 +1,18 @@
-/* The battle screen's frame. Two regions: a scoreboard that stays put and a body that
-   scrolls under it (KILLTEAM.md's Frontend section -- turning point, CP and VP always
-   visible, phone-first for table-side use).
+/* The battle screen's frame.
 
-   `.scoreboard` is the SECOND sticky element in the app. `ui/Header.module.css` is the
-   first, at `z-index: 50`, and it is two rows tall -- so this sits below it with a
-   lower z-index, and the vertical cost of both is the thing the slice is meant to let
-   someone judge by looking. A test cannot: jsdom has no layout engine. */
+   ONE sticky region, not two (KF8a): the scoreboard, the advance controls and the
+   tablist travel together as `.chrome`. Three separately-pinned elements each at
+   `top: 0` did not stack -- they claimed the same strip and `z-index` decided which was
+   visible, so Advance, Undo and the tabs were fully occluded for three slices. `.chrome`
+   pins at the app header's MEASURED height, published as `--app-header-h`.
+
+   On the way down it tucks by exactly the scoreboard's own height (KF8d), so the
+   scoreboard slides behind the app header and the controls rise into its place. This
+   replaced `KILLTEAM.md`'s earlier "always visible", which stopped being affordable once
+   three bands had to pin at once.
+
+   None of that is assertable here -- jsdom lays nothing out -- but it is no longer
+   eyeballed either: `browser/layout.spec.ts` (KF9) measures it in WebKit. */
 
 .view {
   max-width: var(--content-max);
