@@ -1,4 +1,4 @@
-/* The `/login` screen: a Log In / Sign Up segmented toggle over a single form.
+/* The `/login` screen: an Existing account / New account toggle over a single form.
  * Login collects email + password; Sign Up adds name + confirm. Errors run
  * through `messageForError`, shown inline. See SPEC.md → "AuthView". */
 
@@ -14,8 +14,14 @@ import styles from './AuthView.module.css'
 type Mode = 'login' | 'signup'
 
 const MODE_OPTIONS = [
-  { label: 'Log In', value: 'login' as const },
-  { label: 'Sign Up', value: 'signup' as const },
+  // The toggle names the STATE you are in; the submit button names the ACTION you take.
+  // Both used to say the verb, so the screen carried two controls called "Log In" -- and
+  // then two called "Sign Up" after switching, since the submit label follows the mode.
+  // Nothing was broken (the toggle announces `aria-pressed`), but "click Log In" was
+  // ambiguous to voice control and to anyone scanning by label. Naming the choice also
+  // tells a first-time visitor what the choice IS, which the verbs assumed they knew.
+  { label: 'Existing account', value: 'login' as const },
+  { label: 'New account', value: 'signup' as const },
 ]
 
 export function AuthView() {
@@ -90,7 +96,7 @@ export function AuthView() {
 
         <SegmentedToggle
           className={styles.toggle}
-          aria-label="Log In or Sign Up"
+          aria-label="Existing or new account"
           options={MODE_OPTIONS}
           value={mode}
           onChange={switchMode}

@@ -65,10 +65,11 @@ function submitLogin() {
   fireEvent.click(submit)
 }
 
-/** The Log In / Sign Up mode toggle (scoped so its labels don't collide with
- *  the submit button, which shares the mode's text). */
+/** The mode toggle. Still scoped, but no longer because the names collide: since the
+ *  toggle took the STATE's name rather than the ACTION's, "Existing account" and
+ *  "Log In" are different controls with different names (F13 tier 2). */
 function toggle() {
-  return within(screen.getByRole('group', { name: 'Log In or Sign Up' }))
+  return within(screen.getByRole('group', { name: 'Existing or new account' }))
 }
 
 describe('AuthView', () => {
@@ -86,7 +87,7 @@ describe('AuthView', () => {
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Confirm Password')).not.toBeInTheDocument()
-    expect(toggle().getByRole('button', { name: 'Log In' })).toHaveAttribute(
+    expect(toggle().getByRole('button', { name: 'Existing account' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -94,11 +95,11 @@ describe('AuthView', () => {
 
   it('switches to Sign Up via the toggle, revealing name + confirm fields', () => {
     renderView()
-    fireEvent.click(toggle().getByRole('button', { name: 'Sign Up' }))
+    fireEvent.click(toggle().getByRole('button', { name: 'New account' }))
 
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
     expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument()
-    expect(toggle().getByRole('button', { name: 'Sign Up' })).toHaveAttribute(
+    expect(toggle().getByRole('button', { name: 'New account' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -132,9 +133,7 @@ describe('AuthView', () => {
     fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'wrong' },
     })
-    const submit = screen
-      .getAllByRole('button', { name: 'Log In' })
-      .find((b) => b.getAttribute('type') === 'submit')!
+    const submit = screen.getByRole('button', { name: 'Log In' })
     fireEvent.click(submit)
 
     await waitFor(() =>
@@ -160,14 +159,12 @@ describe('AuthView', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     renderView()
-    fireEvent.click(toggle().getByRole('button', { name: 'Sign Up' }))
+    fireEvent.click(toggle().getByRole('button', { name: 'New account' }))
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Kesh' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bad' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'x' } })
     fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'x' } })
-    const submit = screen
-      .getAllByRole('button', { name: 'Sign Up' })
-      .find((b) => b.getAttribute('type') === 'submit')!
+    const submit = screen.getByRole('button', { name: 'Sign Up' })
     fireEvent.click(submit)
 
     // both field messages appear at once — no round-trip per field
@@ -201,9 +198,7 @@ describe('AuthView', () => {
       target: { value: 'secret' },
     })
 
-    const submit = screen
-      .getAllByRole('button', { name: 'Log In' })
-      .find((b) => b.getAttribute('type') === 'submit')!
+    const submit = screen.getByRole('button', { name: 'Log In' })
     fireEvent.click(submit)
 
     // While pending: the button flips to its pending label and is disabled,
