@@ -17,7 +17,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { useCreateGame } from '../api/killTeamGamesQueries'
-import { useRosters } from '../api/killTeamQueries'
+import { useRoster, useRosters } from '../api/killTeamQueries'
 import { messageForError } from '../lib/errors'
 import { Button, Field, Modal, Select } from '../ui'
 import styles from './NewGameModal.module.css'
@@ -37,6 +37,22 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
   const [error, setError] = useState<string | null>(null)
 
   const rosters = rostersQuery.data?.items ?? []
+
+  // Whether the chosen roster has anyone in it. `KTRoster_ListRead` does NOT carry an
+  // operative count -- only the detail read has `operatives` -- so this is a second
+  // request, and it is why the check lives on SELECTION rather than on open: `useRoster`
+  // is already `enabled: Boolean(rosterId)`, so nothing is fetched until a roster is
+  // picked, and nothing at all if the player cancels.
+  //
+  // A battle used to be startable from an empty roster: verified end to end, advanced
+  // through four turning points and finished, reading "No operatives in this battle"
+  // (ROADMAP F13). This app otherwise informs and never refuses (#1, #51, #57), so
+  // BLOCKING here is a deliberate exception rather than the house style: a roster with
+  // nobody in it produces a battle with nothing to track, and the modal already promises
+  // that "the roster is copied into the battle".
+  const chosen = useRoster(rosterId)
+  const checkingRoster = Boolean(rosterId) && chosen.isPending
+  const chosenIsEmpty = chosen.isSuccess && chosen.data.operatives.length === 0
 
   // The roster row already carries `kill_team_name`, so the label says which team the
   // battle will be played with -- the thing that cannot be changed afterwards.
@@ -70,6 +86,10 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
       setError('Choose a roster.')
       return
     }
+
+    // The button is disabled in both cases; this is the second lock, for a submit that
+    // arrives by Enter before the check has landed.
+    if (checkingRoster || chosenIsEmpty) return
 
     const trimmed = opponentName.trim()
 
@@ -150,6 +170,13 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
             for now.
           </p>
 
+          {chosenIsEmpty && (
+            <p role="alert" className={styles.blocked}>
+              {chosen.data.name} has no operatives yet, so there would be nothing to
+              track. Add some to the roster first.
+            </p>
+          )}
+
           {error && (
             <span role="alert" className={styles.error}>
               {error}
@@ -160,7 +187,10 @@ export function NewGameModal({ open, onClose }: NewGameModalProps) {
             <Button type="button" variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createGame.isPending}>
+            <Button
+              type="submit"
+              disabled={createGame.isPending || checkingRoster || chosenIsEmpty}
+            >
               {createGame.isPending ? 'Starting…' : 'Start Battle'}
             </Button>
           </div>

@@ -8,6 +8,7 @@ import {
   jsonResponse,
   makeKTGame,
   makeKTGameListRow,
+  makeKTRoster,
   makeKTRosterListRow,
   page,
 } from '../test/fixtures'
@@ -60,6 +61,13 @@ function stubFetch(
     }
     if (u.includes('/me/kill-team/games')) {
       return jsonResponse(page<KTGame_ListRead>(games, { total: games.length }))
+    }
+    // The DETAIL read, which the modal makes once a roster is chosen: a battle cannot
+    // be started from a roster with no operatives (F13 tier 3), and the list row carries
+    // no operative count. It must come before the list check, since the list path is a
+    // prefix of this one.
+    if (u.includes(`/me/kill-team/rosters/${ROSTER.id}`)) {
+      return jsonResponse(makeKTRoster({ id: ROSTER.id, name: ROSTER.name }))
     }
     if (u.includes('/me/kill-team/rosters')) {
       return jsonResponse(page<KTRoster_ListRead>(rosters, { total: rosters.length }))
@@ -225,7 +233,12 @@ describe('KillTeamGamesView: starting a battle', () => {
     fireEvent.change(await within(dialog).findByLabelText('Roster'), {
       target: { value: 'ktr-1' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
+    // Enabled only once the chosen roster's detail lands: the modal will not start a
+    // battle from a roster with no operatives, and the list row cannot answer that
+    // (F13 tier 3). The wait IS the new behaviour, not test scaffolding.
+    const startBattle = within(dialog).getByRole('button', { name: 'Start Battle' })
+    await waitFor(() => expect(startBattle).toBeEnabled())
+    fireEvent.click(startBattle)
 
     await waitFor(() => {
       const post = calls(fetchMock).find((c) => c.method === 'POST')
@@ -248,7 +261,12 @@ describe('KillTeamGamesView: starting a battle', () => {
     fireEvent.change(within(dialog).getByLabelText("Opponent's name"), {
       target: { value: '  Kesh  ' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
+    // Enabled only once the chosen roster's detail lands: the modal will not start a
+    // battle from a roster with no operatives, and the list row cannot answer that
+    // (F13 tier 3). The wait IS the new behaviour, not test scaffolding.
+    const startBattle = within(dialog).getByRole('button', { name: 'Start Battle' })
+    await waitFor(() => expect(startBattle).toBeEnabled())
+    fireEvent.click(startBattle)
 
     await waitFor(() => {
       const post = calls(fetchMock).find((c) => c.method === 'POST')
@@ -262,7 +280,12 @@ describe('KillTeamGamesView: starting a battle', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ New Battle' }))
 
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
+    // Enabled only once the chosen roster's detail lands: the modal will not start a
+    // battle from a roster with no operatives, and the list row cannot answer that
+    // (F13 tier 3). The wait IS the new behaviour, not test scaffolding.
+    const startBattle = within(dialog).getByRole('button', { name: 'Start Battle' })
+    await waitFor(() => expect(startBattle).toBeEnabled())
+    fireEvent.click(startBattle)
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Choose a roster.')
     await waitFor(() => {
@@ -298,7 +321,12 @@ describe('KillTeamGamesView: starting a battle', () => {
     fireEvent.change(await within(dialog).findByLabelText('Roster'), {
       target: { value: 'ktr-1' },
     })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Start Battle' }))
+    // Enabled only once the chosen roster's detail lands: the modal will not start a
+    // battle from a roster with no operatives, and the list row cannot answer that
+    // (F13 tier 3). The wait IS the new behaviour, not test scaffolding.
+    const startBattle = within(dialog).getByRole('button', { name: 'Start Battle' })
+    await waitFor(() => expect(startBattle).toBeEnabled())
+    fireEvent.click(startBattle)
 
     // Asserted through the LOCATION, not through what is still on screen. KF4b's
     // version of this test checked that the heading was still present and therefore
