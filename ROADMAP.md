@@ -2001,6 +2001,80 @@ screen chose locally. Pick one and apply it to all three.
 
 ---
 
+## KF10. Damage in one go, not one tap at a time
+
+**Status: Planned.** Reported from use: a player should not click once per point of damage.
+
+**The measurement is what makes this worth a slice.** Counted over the real Kill Team
+catalog in the dev database on 2026-10-22:
+
+| reading | value |
+|---|---|
+| weapons rolling 4 attack dice | **952** of ~1,364 |
+| most common normal damage | **3** (564 weapons), then 4 (376), then 2 (285) |
+| most common crit damage | **4** (451), then 3 (360), then 5 (321) |
+| operative wounds | min 2, mean **9.7**, max **24** |
+
+So one ordinary shooting attack — two hits at 3 and a crit at 4 — is **10 damage, which is
+ten taps today**, and finishing a 24-wound operative is twenty-four. Damage of 1 is rare:
+36 weapons out of 1,364.
+
+**No backend change.** The write is already an absolute value (#7) and the stepper
+debounces at 400ms, so ten taps already collapse into ONE request carrying the final
+number. The cost is entirely in the thumb.
+
+### The control
+
+**A small pop-up, replacing the way damage and healing are applied today.** It carries:
+
+- two options, **Damage** and **Heal**, because the amount a player knows is the damage
+  and not the remainder — "12 − 7" done in the head at a table is where a wrong number
+  comes from;
+- an input that accepts **numbers only**;
+- a **Confirm** button.
+
+**It MUST show the result before committing**, e.g. `12 → 5`. Damage and heal differ only
+by a sign, and the one failure this design can still produce is a player typing the number
+they meant as a remainder.
+
+**Clamped on the client.** `ck_kt_game_operative_current_wounds` is
+`current_wounds >= 0 AND current_wounds <= wounds`, so 9 damage to an operative on 5 wounds
+is 0 rather than a 400, and healing past the datacard's maximum stops there. The service
+also couples zero wounds to `incapacitated` in BOTH directions, so this control is how an
+operative goes down and comes back; it MUST NOT send `status` (KF7 D).
+
+### Open, and worth settling before it is built
+
+**Does the pop-up REPLACE the `−`/`+` stepper, or sit beside it?** Replacing it makes the
+cheapest adjustment — one point — into four interactions: open, choose, type, confirm. The
+data says single-point damage is rare, so replacing is defensible; it is recorded as the
+question it is rather than assumed, because the stepper is also how a mis-tap is corrected.
+
+**`Modal` or a popover?** `Modal` is proven here and traps focus, and is heavier than this
+deserves. A popover needs focus management written from scratch. The accessible version of
+the cheap option is the work.
+
+**`inputMode="numeric"` rather than `type="number"`**, probably: a number input brings
+spinners that are poor targets on a phone, and accepts `e`, `+` and `-` in several
+browsers. Numbers-only is then a filter the component owns rather than a promise the
+platform keeps.
+
+### What it has to honour
+
+- **16px minimum on the field**, or iOS Safari auto-zooms the page when it takes focus
+  (KF8b). `platformRules.test.ts` already enforces this on `Input` and `Select`.
+- **44px targets** throughout, including the trigger — KF9's tap-target ratchet is empty
+  and MUST stay empty.
+- **Absolute values only** (#7): the body carries `current_wounds`, never a delta.
+
+### What a test can hold
+
+The arithmetic, the clamping and the body sent are ordinary jsdom work: damage of 7 from
+12 sends 5; damage of 99 sends 0; healing past the maximum sends the maximum; a heal and a
+damage of the same number move in opposite directions. The tap target is KF9's.
+
+---
+
 ## F13. What a full walk of the product found
 
 **Status: Tiers 1, 2 and 3 built; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and
