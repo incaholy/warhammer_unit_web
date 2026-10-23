@@ -237,6 +237,22 @@ caught it, because nothing in the suite had ever seen the real contract.
 come from the backend's own document, a wrong field name stops compiling. The other half is checking
 the parts types cannot express, such as which query parameter values the API actually accepts.
 
+**Measured at `50a7dc2`, and it reframes the cheapest fix as a BACKEND one.** `openapi.json`
+publishes **zero** properties with an `enum`, while **22** CHECK-constrained vocabulary fields are
+published as a bare `string`: `status`, `order`, `kind`, `phase`, `initiative`, `source`, `category`,
+across `KTGame_Read`, `KTGame_Update`, `KTGameOperative_*`, `KTGamePloy_Read` and `KTGameWeapon_Read`.
+
+That is why this branch had to read `ck_kt_game_operative_status`, `ck_kt_ploy_kind` and
+`ck_kt_game_initiative` out of Postgres by hand, and then hand-mirror them into
+`src/lib/killTeamGame.ts` as `as const` arrays — and why nothing checks those mirrors are right. It
+is also how four wrong literals shipped on this branch and type-checked: `'in progress'` for
+`in_progress`, `'on board'` for `on_board`, `'M'` for `melee`, `'strategic'` for `strategy`.
+
+**If those 22 fields were published as enums, the entire class disappears without a test.**
+`npm run gen:api` would turn each into a union, and `tsc` and zod would reject a wrong literal
+automatically. Raised as an item in the API repository's own roadmap; it is a `Literal[...]` or a
+`StrEnum` on the response models rather than anything this repo can do.
+
 Options, roughly in increasing order of cost and confidence:
 
 - **Type the stubs from the generated schema**, so a fixture that does not match the real response
@@ -253,11 +269,14 @@ spending the effort on the contract.
 **One cheap addition belongs here** (it is why §2.5 is `Partial` rather than `Holds`): nothing ties the
 API prefix the client sends to the prefix the dev proxy forwards. The resource tests assert the
 outgoing URL, so the client half is covered, but `vite.config.ts` is never read by anything, so
-editing the proxy pattern alone leaves all 156 tests green and breaks the dev server. A test that
+editing the proxy pattern alone leaves the whole suite green — 156 tests when this was written, 658 at `50a7dc2` — and breaks
+the dev server. A test that
 imports the Vite config and asserts its proxy key is a prefix of `API_PREFIX` closes that, and it is
 a good example of testing an *agreement between two files* rather than the behaviour of one.
 
-Separately, there is no coverage threshold, so a new module can ship untested without any signal.
+~~Separately, there is no coverage threshold, so a new module can ship untested without any
+signal.~~ **Closed by F8**, which added thresholds to `vite.config.ts` (statements 88, branches 82,
+functions 87, lines 90) and runs `npm run test:coverage` in CI.
 
 **Concepts:** consumer-driven contract testing; OpenAPI request and response validation; the
 distinction between mocking a module, stubbing a transport, and testing a contract.
