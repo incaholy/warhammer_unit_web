@@ -293,20 +293,41 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
     expect(await screen.findByText('No ploys spent this turning point.')).toBeInTheDocument()
   })
 
-  it('offers every ploy in the snapshot, with its cost', async () => {
+  it('offers each ploy under its own kind, with its cost (KF11)', async () => {
     stub(game)
     renderView()
-    const select = await screen.findByLabelText('Ploy')
-    expect(
-      within(select).getByRole('option', { name: 'Sudden Surge — 1 CP (strategy)' }),
-    ).toBeInTheDocument()
+
+    // Two pickers, not one list with the kind read off the end of a label after the
+    // cost. Every one of the 48 teams carries exactly four of each, so the split is
+    // even and universal.
+    const strategy = await screen.findByLabelText(/^Strategy ploy/)
+    const firefight = screen.getByLabelText(/^Firefight ploy/)
+    expect(within(strategy).getByRole('option', { name: 'Sudden Surge — 1 CP' })).toBeInTheDocument()
+    expect(within(firefight).getByRole('option', { name: 'Quick Reflexes — 1 CP' })).toBeInTheDocument()
+
+    // And neither offers the other's.
+    expect(within(strategy).queryByRole('option', { name: /Quick Reflexes/ })).toBeNull()
+    expect(within(firefight).queryByRole('option', { name: /Sudden Surge/ })).toBeNull()
+  })
+
+  it('marks the kind being played now, and refuses nothing (KF11)', async () => {
+    // The fixture is in the firefight phase. #1, #51 and #57: this app reports
+    // availability and never enforces it, so the strategy picker stays usable.
+    stub(makeKTGame({ ...game, phase: 'firefight' }))
+    renderView()
+
+    expect(await screen.findByLabelText('Firefight ploy · this phase')).toBeInTheDocument()
+    expect(screen.getByLabelText('Strategy ploy')).toBeEnabled()
   })
 
   it('POSTs the name only, because the cost comes from the snapshot', async () => {
     const seen = stub(game)
     renderView()
-    fireEvent.change(await screen.findByLabelText('Ploy'), { target: { value: 'Sudden Surge' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Spend' }))
+    fireEvent.change(await screen.findByLabelText(/^Strategy ploy/), {
+      target: { value: 'Sudden Surge' },
+    })
+    // The strategy picker's own Spend, not the firefight one's.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Spend' })[0])
     await waitFor(() => {
       const post = seen.find((c) => c.url.endsWith('/ploys'))
       // A body carrying `cp_cost` would mean a client could get it wrong, or forget.
@@ -317,8 +338,11 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
   it('cannot spend nothing', async () => {
     const seen = stub(game)
     renderView()
-    await screen.findByLabelText('Ploy')
-    expect(screen.getByRole('button', { name: 'Spend' })).toBeDisabled()
+    await screen.findByLabelText(/^Strategy ploy/)
+    // Both, since each picker owns its own button.
+    for (const button of screen.getAllByRole('button', { name: 'Spend' })) {
+      expect(button).toBeDisabled()
+    }
     expect(seen.some((c) => c.url.endsWith('/ploys'))).toBe(false)
   })
 })

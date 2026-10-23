@@ -54,12 +54,14 @@ import {
   gameStateLabel,
   initiativeLabel,
   NO_INITIATIVE,
+  PLOY_KINDS,
+  ployKindLabel,
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
   gameChoices,
 } from '../lib/killTeamGame'
-import type { InitiativeSide } from '../lib/killTeamGame'
+import type { InitiativeSide, PloyKind } from '../lib/killTeamGame'
 import { initialChromeState, nextChromeState } from '../lib/chromeScroll'
 import {
   Button,
@@ -459,7 +461,8 @@ function StrategyPloys({ game }: { game: KTGame_Read }) {
  * person — so the refusal is the server's, and the screen does not disable a control
  * on a rule it would have to duplicate. */
 function ThisTurningPoint({ game }: { game: KTGame_Read }) {
-  const [name, setName] = useState('')
+  // One chosen name PER KIND, so the two pickers do not clear each other (KF11).
+  const [chosen, setChosen] = useState<Record<PloyKind, string>>({ strategy: '', firefight: '' })
   const usePloy = useUseGamePloy(game.id)
   const update = useUpdateGame(game.id)
 
@@ -482,17 +485,25 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   const used = ploysUsedThisTurningPoint(game)
   const kinds = new Map(game.ploys.map((ploy) => [ploy.name, ploy.kind]))
 
-  const options = [
-    { value: '', label: 'Spend a ploy…' },
-    ...game.ploys.map((ploy) => ({
-      value: ploy.name,
-      label: `${ploy.name} — ${ploy.cp_cost} CP (${ploy.kind})`,
-    })),
+  // Two pickers, one per kind (KF11). Measured over the catalog: every one of the 48
+  // kill teams carries exactly FOUR strategy and FOUR firefight ploys, so the split is
+  // even and universal rather than ragged. That is the opposite of the measurement KF7
+  // group B made about team RULES -- 30 of 127 carried a group across 6 of 48 teams, so
+  // grouping there was noise and was dropped. The precedent for refusing is what makes
+  // this one credible.
+  //
+  // The kind no longer has to be read off the end of a label, after the cost.
+  const optionsFor = (kind: PloyKind) => [
+    { value: '', label: `Spend a ${kind} ploy…` },
+    ...game.ploys
+      .filter((ploy) => ploy.kind === kind)
+      .map((ploy) => ({ value: ploy.name, label: `${ploy.name} — ${ploy.cp_cost} CP` })),
   ]
 
-  const submit = () => {
+  const submit = (kind: PloyKind) => {
+    const name = chosen[kind]
     if (!name || usePloy.isPending) return
-    usePloy.mutate(name, { onSuccess: () => setName('') })
+    usePloy.mutate(name, { onSuccess: () => setChosen((c) => ({ ...c, [kind]: '' })) })
   }
 
   return (
@@ -527,17 +538,27 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
         </ul>
       )}
 
-      <div className={styles.spend}>
-        <Select
-          label="Ploy"
-          options={options}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <Button onClick={submit} disabled={!name || usePloy.isPending}>
-          {usePloy.isPending ? 'Spending…' : 'Spend'}
-        </Button>
-      </div>
+      {/* The phase is MARKED and nothing is refused. `game.phase` says which kind is
+        * being used now, and this app does bookkeeping and not rules -- #1, #51 and #57
+        * all report availability rather than enforce it, the way the equipment allowance
+        * shows "2 of 4" and blocks nothing. So a wrong-phase ploy stays spendable and
+        * simply is not the one labelled as this phase. */}
+      {PLOY_KINDS.map((kind) => (
+        <div key={kind} className={styles.spend}>
+          <Select
+            label={`${ployKindLabel(kind)}${game.phase === kind ? ' · this phase' : ''}`}
+            options={optionsFor(kind)}
+            value={chosen[kind]}
+            onChange={(e) => setChosen((c) => ({ ...c, [kind]: e.target.value }))}
+          />
+          <Button
+            onClick={() => submit(kind)}
+            disabled={!chosen[kind] || usePloy.isPending}
+          >
+            {usePloy.isPending ? 'Spending…' : 'Spend'}
+          </Button>
+        </div>
+      ))}
     </CollapsibleSection>
   )
 }

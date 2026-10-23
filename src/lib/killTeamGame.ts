@@ -101,6 +101,29 @@ export function applyWounds(
   return Math.max(0, Math.min(max, next))
 }
 
+/** The values `ck_kt_ploy_kind` allows, verbatim.
+ *
+ * Written down for the reason `GAME_STATUSES` gives: the column is CHECK'd in the
+ * backend's DDL and `openapi.json` publishes `kind` as a bare `string`, so nothing here
+ * can reject a wrong literal. This slice already shipped `'strategic'` once, in a
+ * fixture, where the allowed value is `strategy`.
+ *
+ * Ordered strategy-then-firefight because that is the order a turning point runs in
+ * (#62: `advance` goes strategy -> firefight -> the next turning point). */
+export const PLOY_KINDS = ['strategy', 'firefight'] as const
+export type PloyKind = (typeof PLOY_KINDS)[number]
+
+const PLOY_KIND_LABELS: Record<PloyKind, string> = {
+  strategy: 'Strategy ploy',
+  firefight: 'Firefight ploy',
+}
+
+/** A ploy kind as a person reads it, falling back to the raw token for the reason
+ *  `gameStatusLabel` gives. */
+export function ployKindLabel(kind: string): string {
+  return PLOY_KIND_LABELS[kind as PloyKind] ?? kind
+}
+
 /** The values `ck_kt_game_operative_status` allows, verbatim. Same argument as
  *  `GAME_STATUSES`, and `on_board` carries the same underscore trap. */
 export const OPERATIVE_STATUSES = ['reserve', 'on_board', 'incapacitated'] as const

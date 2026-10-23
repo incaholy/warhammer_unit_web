@@ -2086,6 +2086,50 @@ damage of the same number move in opposite directions. The tap target is KF9's.
 
 ---
 
+## KF11. Strategy and firefight ploys are two lists, not one
+
+**Status: BUILT.** Reported from use: separating the two kinds would add clarity.
+
+**The measurement says so, and the precedent for refusing makes it credible.** Counted over
+the catalog in the dev database on 2026-10-22: **every one of the 48 kill teams carries
+exactly four strategy and four firefight ploys** — 192 and 193, the extra being the single
+universal ploy, which belongs to no team. `ck_kt_ploy_kind` allows `strategy` or
+`firefight` and nothing else.
+
+Compare KF7 group B, which measured the same question about team RULES and came out the
+other way: 30 of 127 rules carried a group, across 6 of 48 teams, so "grouping two things
+is noise" and it was dropped. This project has already refused one grouping on the
+evidence, which is what makes taking this one more than a preference.
+
+### What changed
+
+**Two pickers in the battle tab's `This turning point`, one per kind**, each offering only
+its own ploys and carrying its own Spend. Before, one flat list of eight read
+`Sudden Surge — 1 CP (strategy)`, with the kind last, after the cost — the thing a player
+is choosing by, placed where it is read last.
+
+**The phase being played is MARKED and nothing is refused.** `game.phase` already says
+which kind is in use, so that picker's label reads `Firefight ploy · this phase`. The
+other stays fully usable: #1, #51 and #57 all report availability rather than enforce it,
+the way the equipment allowance shows "2 of 4" and blocks nothing. Disabling the
+wrong-phase picker would make the app a referee, which it has consistently refused to be.
+
+**A chosen name per kind**, so the two pickers cannot clear each other.
+
+`PLOY_KINDS` and `ployKindLabel` live in `src/lib/killTeamGame.ts` beside
+`GAME_STATUSES` and for the same reason: the column is CHECK'd in the backend's DDL,
+`openapi.json` publishes `kind` as a bare `string`, and this branch already shipped
+`'strategic'` once in a fixture where the allowed value is `strategy`.
+
+### Not done here
+
+The **Reference tab** still lists ploys in one block with the kind in the aside. The same
+argument applies and it is a separate, smaller change; it is recorded rather than folded
+in, because the battle tab is where a ploy is CHOSEN and the reference tab is where one is
+read.
+
+---
+
 ## F13. What a full walk of the product found
 
 **Status: Tiers 1, 2 and 3 built; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and
