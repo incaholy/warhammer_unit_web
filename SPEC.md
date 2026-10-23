@@ -229,7 +229,7 @@ fallback, not the primary mechanism).
 | `npm run lint` | eslint |
 | `npm test` | the Vitest suite once (`npm run test:watch` to watch) |
 | `npm run test:coverage` | the suite with coverage, against the floor CI enforces |
-| `npm run test:browser` | the WebKit layout suite at the iPhone 14 viewport (KF9); not in CI |
+| `npm run test:browser` | the WebKit suite at the iPhone 14 viewport: layout (KF9) and axe-core at WCAG 2.1 AA (A1); not in CI |
 | `npm run check:size` | the entry-chunk budget, and growth against a base branch |
 | `npm run gen:api` | regenerate `src/api/schema.d.ts` from the backend's published `openapi.json` |
 

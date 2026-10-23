@@ -1,4 +1,5 @@
-/* The layout claims jsdom cannot hold (ROADMAP KF9).
+/* The layout claims jsdom cannot hold (ROADMAP KF9). Accessibility lives next door in
+ * `a11y.spec.ts`; this file measures boxes and that one runs axe.
  *
  * The discipline that keeps this file small: EVERY assertion here names a requirement
  * from `KILLTEAM.md` or the roadmap. If it cannot, it belongs in the jsdom suite or

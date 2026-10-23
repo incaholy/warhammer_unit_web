@@ -2424,6 +2424,174 @@ tablist's bottom margin collapse out of the pinned region, so the chrome went **
 
 ---
 
+## A1. Assistive technology: what an audit of every feature found
+
+**Status: IN PROGRESS.** Step 0 is BUILT; groups A–G below are not.
+
+An audit of all 15 routes plus 4 states a route visit cannot reach, against **WCAG 2.1 A
+and AA**. Three things ran: `eslint-plugin-jsx-a11y` recommended, which was already
+enabled and already clean, so nothing a linter catches appears here; **axe-core in WebKit
+over every route populated with real rows**, committed as `browser/a11y.spec.ts`; and a
+read of the code for what neither tool can see.
+
+**axe covers roughly a third of WCAG**, which is why the second half of this entry is
+read out of the source rather than measured. Where a finding was measured, it says so.
+
+### Step 0 — the gate, with a ratchet — BUILT
+
+`browser/a11y.spec.ts`, 20 tests, no backend, not in CI. It seeds **populated** fixtures
+rather than reusing `seed.ts`: an empty table has no header cells and an empty list has no
+repeated controls, so a sweep over the empty states passes by having nothing to judge.
+
+Two rules fail today and are named in a `KNOWN` allowlist, the device KF9 used for tap
+targets. A rule not named fails the build; a rule named that has **stopped** failing also
+fails the build, via a dedicated test — so the list cannot silently regrow and a fix
+cannot leave its licence behind. Both halves were mutation-checked.
+
+### Group A — one token fails on 19 of 19 screens
+
+Every `color-contrast` failure axe reports carries the **identical ratio, 2.70**. That is
+one cause, not nineteen defects: `--faint` (`theme.css:14`, "labels, tertiary text"), used
+by `.eyebrow`, `.faction`, `.sectionCount`, `.statLabel` and `.subhead`. `--fainter` is
+worse at 1.99 and is a text token too, used as `color` in four modules.
+
+| Token | Was | Ratio | Becomes | Ratio |
+|---|---|---|---|---|
+| `--ink` | `#15140f` | 17.64 | unchanged | 17.64 |
+| `--muted` | `#6f6c63` | 5.02 | `#4d4b42` | 8.37 |
+| `--faint` | `#9c9a91` | **2.70** | `#605e55` | 6.22 |
+| `--fainter` | `#b6b4ac` | **1.99** | `#747269` | 4.62 |
+
+Ratios are against `--paper`, which is the worse of the two backgrounds. Four weights were
+KEPT and re-spaced rather than collapsed to two: darkening `--faint` alone to clear 4.5:1
+lands it at `#75736c`, within one step of the old `--muted`, which buys compliance by
+destroying the hierarchy. Re-spacing all four gives even 1.35x steps between the greys.
+The whole palette darkens as a result; that is what AA costs on a `#fafaf8` ground.
+
+A static test asserts the ratio for every text token, so this is a ratchet and not a
+one-time correction.
+
+**Not adopted: the border tokens.** `--rule` is 1.62 against the 3:1 that **WCAG 1.4.11**
+asks of a control's boundary, and it borders inputs and tags. Reaching 3:1 needs about
+`#939188`, a visibly heavier line on every input in the app. `--rule-light` (56 uses) is
+row dividers, which are decorative structure rather than a boundary required to identify a
+component, and is arguably exempt. Recorded rather than fixed because it is a different
+criterion and a larger visual change than the text ladder.
+
+### Group B — a name that hides the content it replaces
+
+`aria-label` REPLACES an element's text for name computation. Six sites, one judgement, and
+the same defect already fixed once on the wounds trigger (F13).
+
+| Site | What is never announced |
+|---|---|
+| `CollectionView.tsx:168`, `:189` | the army's points total and unit count — the two numbers the card exists to show |
+| `killTeamControls.tsx:202` | the CP or VP number, on a `generic` span where ARIA prohibits naming |
+| `KillTeamGameView.tsx:442` | what the ploy chips are, same prohibition |
+| `KillTeamGameView.tsx:1337` | the opponent's NAME, and "Final score" is false pre-finish |
+| `killTeamGameRow.tsx:422` | visible text absent from the name (WCAG 2.5.3, Label in Name) |
+
+`KillTeamRostersView.tsx:73` is the correct counter-example: the same row link with no
+`aria-label`, so its name is its content.
+
+### Group C — one navigation story, and it is strictly ordered
+
+`src/App.tsx` contains **zero `useEffect`**. There is no skip link anywhere in `src/` or
+`index.html`, and `<main>` appears in 3 of 14 views.
+
+1. `<main>` on the 11 views without one. **This also removes three accidental `banner`
+   landmarks**: a `<header>` scoped by `main`, `section` or `article` is not a banner, and
+   `InventoryView.tsx:51`, `ArmyView.tsx:108` and `:336` are each inside a plain `<div>`,
+   so those screens expose two unnamed banners today.
+2. A skip link — which now has a target.
+3. Focus a `tabIndex={-1}` main on `pathname` change — which now has somewhere to land.
+4. A `role="status"` route announcer, and `ViewFallback` (`App.tsx:38`, currently
+   `aria-hidden="true"`) says something instead of nothing.
+
+Ordered because each step needs the previous one to exist. Done separately it means three
+passes over `App.tsx` and a skip link pointing at nothing.
+
+### Group D — a live region must exist before its content
+
+One rule: mount the region empty, then write into it. `killTeamWounds.tsx:122` already does
+this and is the model.
+
+**`Toast.tsx:24` is first and matters most.** `if (!visible) return null`, with
+`ToastProvider.tsx:35` passing `visible={toast !== null}`, so the region is created in the
+same commit as its text — which NVDA, JAWS and VoiceOver do not announce. `main.tsx:17-27`
+makes the toast the only feedback channel for every mutation in the app, and no view
+renders `mutation.error` anywhere, so "Army created", "Battle deleted" and the
+stale-version conflict all arrive through a channel most screen readers skip.
+
+Then: `KillTeamCatalogView.tsx:90`, whose `{total > 0 && …}` guard creates the region with
+its first count; `CatalogView.tsx:232`, a result count that is not live at all and changes
+on every keystroke; `ArmyView.tsx:331`/`:375` and `InventoryView.tsx:103`, which are
+`role="status"` with no text — the thing `CollectionView.test.tsx:109` already explains
+announces nothing; the five 40k error branches that are not alerts
+(`CollectionView.tsx:153`, `InventoryView.tsx:75`, `UnitView.tsx:295`, `ArmyView.tsx:439`
+and `:488`) where the Kill Team half is consistent and the 40k half is a slice behind; and
+`ErrorBoundary.tsx:34`.
+
+### Group E — structure the markup does not carry
+
+`killTeamCards.tsx:108`, the shared weapons table, has no caption and no name, and renders
+once per operative — a table list reads a dozen identical "table with 5 columns".
+`UnitView.tsx:148` uses `<td>` where that sibling correctly uses `<th scope="row">`, so a
+row announces "S 4, AP -1" with no weapon attached. `UnitView.tsx:68` is a `role="table"`
+div grid with no `columnheader`. `killTeamCards.tsx:425` expresses `Composition` nesting as
+`paddingLeft` alone, where its own docstring says "indentation IS the information". And the
+heading outline is flat: datacard `h2`s sit at the same level as the screen's own sections,
+so three open cards read "Weapons, Abilities, Weapons, Abilities".
+
+### Group F — `Tabs`, and two orphaned resets
+
+`Tabs.tsx` has no `onKeyDown` and no roving `tabIndex`, so the ARIA tabs pattern is
+announced and not implemented: measured, focusing the first tab and pressing ArrowRight
+leaves focus where it was. `global.css:42` removes the outline from every `input` and
+`select` unconditionally; three modules happen to re-add it, so the next raw input has no
+focus ring and nothing would catch it. `Modal.module.css:19` removes it from the card,
+which does receive focus when a dialog has no focusable body.
+
+### Group G — focus after a control disables or unmounts itself — BLOCKED, and why
+
+~20 controls carry `disabled={mutation.isPending}` on the button just pressed, and ~9 row
+removals unmount the focused element. The mechanism is not in doubt. **The in-app
+behaviour is unverified, and the first attempt to verify it produced a false negative**:
+the stub returned a static game, so no write changed state, no button ever became
+disabled, and a probe that reported "focus is retained" had measured a transition that
+never happened.
+
+Unblocking needs a stateful fixture layer. That work is reusable — it would also let the
+axe sweep cover post-write states, which it cannot today.
+
+### Two measurement traps this audit fell into, recorded because both are generic
+
+**WebKit does not focus a `<button>` on click.** A first probe reported focus lost to
+`document.body` after six of seven interactions, including Escape from a dialog. Re-running
+the same interactions with `Enter` showed `Modal`'s focus restore working correctly every
+time: the dialog had been opened by a click, so `document.activeElement` was already
+`body` when `Modal` captured it. **A focus finding gathered by clicking in WebKit says
+nothing about keyboard users**, who are the only people focus restore is for. The same
+engine's default `Tab` visits form controls and not links, which invalidated a second
+reading.
+
+**A sweep assertion needs its floor, and a stub needs to change state.** Both traps are
+the same shape as F14's: an assertion that passes because it measured nothing.
+
+### What is already right, so a later pass does not undo it
+
+One legitimate `banner`. Three `nav` landmarks, all uniquely named, one derived from the
+active section rather than hardcoded. `aria-current="page"` on the breadcrumb. No heading
+level is skipped on any route and no route has two `h1`s. **Zero mouse-only handlers in the
+codebase** — `onMouseDown`, `onMouseOver`, `onHover`, `onDoubleClick` return no matches. 24
+`:focus-visible` rules, every one additive. `Field` and `Select` wire a `role="alert"`
+error to `aria-describedby`. `Modal` genuinely implements focus-in, Escape, a Tab trap
+re-queried on each keypress, `aria-modal`, `aria-labelledby` and `aria-describedby`. The
+Kill Team stat blocks use real `<dl>`/`<dt>`/`<dd>`, so every number arrives with its
+label. Nine of eleven skeletons carry visually-hidden "Loading…" text.
+
+---
+
 ## F14. What an audit of F13's own commits found
 
 **Status: BUILT.** An audit of `1b16095~1..HEAD` — 22 commits, 43 files, the whole of KF8c

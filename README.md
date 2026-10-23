@@ -60,7 +60,7 @@ See `.env.example`.
 | `npm run test:coverage` | the suite with coverage, against the floor CI enforces |
 | `npm run check:size` | the entry-chunk budget, and growth against a base branch |
 | `npm run gen:api` | Regenerate `src/api/schema.d.ts` from the backend's published `openapi.json`. Set `OPENAPI_REF` to target a backend branch. CI verifies it is fresh. |
-| `npm run test:browser` | The browser suite: WebKit at the iPhone 14 viewport, asserting layout rather than behaviour. Needs the dev server, which it starts if one is not already up. **Not run by CI** — see ROADMAP KF9. |
+| `npm run test:browser` | The browser suite: WebKit at the iPhone 14 viewport. Two files — `layout.spec.ts` asserts geometry (ROADMAP KF9) and `a11y.spec.ts` runs axe-core over every route at WCAG 2.1 AA (ROADMAP A1). Neither asserts behaviour. Needs the dev server, which it starts if one is not already up. **Not run by CI.** |
 
 ## Layout
 
@@ -83,7 +83,8 @@ src/
   test/      Vitest setup
 
 browser/     the Playwright suite (layout only), with playwright.config.ts and
-             tsconfig.browser.json at the repo root
+             tsconfig.browser.json at the repo root. layout.spec.ts measures boxes,
+             a11y.spec.ts runs axe-core (ROADMAP A1)
 ```
 
 Every network call goes through `src/api/client.ts`, which validates error
