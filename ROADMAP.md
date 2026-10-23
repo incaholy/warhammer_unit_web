@@ -2130,6 +2130,50 @@ read.
 
 ---
 
+## KF12. A ploy cannot be spent twice in one turning point
+
+**Status: BUILT.** Reported from use, and it OVERRULES a decision both repositories had
+recorded — which is why it is its own entry rather than a line in KF11.
+
+**What was recorded, twice and independently.** The frontend: *"the same ploy can be spent
+twice in a turning point as far as the tracker is concerned, because how many a turning
+point allows is a rule it does not count (#1)."* The backend's `use_ploy` docstring: *"How
+many ploys a turning point allows is a RULE, so it is not counted here (#1)."* And #23 is
+the exact analogue — `actions_used` faces the same problem, where limits "differ (once per
+battle, once per turning point)", and chose to record what was used and when so a screen
+can SHOW both "without the tracker knowing any rule".
+
+**Why it is overruled anyway.** A ploy spent twice is a CP error, and CP is the one number
+in a game with mechanical consequence — nothing downstream corrects it, and the player
+discovers it as a wrong total several turning points later. That is a different class from
+the equipment allowance, which #57 reports and never enforces: an allowance exceeded is
+visible on the same line that states it.
+
+**Held in the CLIENT only.** The service still accepts the write, so `ploys_used` and
+`command_points` stay directly writable and a game that needs it can be fixed by hand.
+Nothing about the API changed.
+
+### How it is expressed
+
+**Offered, not removed.** A spent ploy still appears, labelled `Quick Reflexes — 1 CP ·
+used`, and is `disabled`. That a ploy was spent is a fact about the turning point and worth
+seeing; a disabled option with no reason reads as a bug instead.
+
+**COMMAND RE-ROLL is exempt, by its `universal` flag and not by its name.** It is the only
+universal ploy in the catalog and the only repeatable one. Keying on the flag **fails
+safe**: a new universal ploy would become wrongly repeatable, which is the direction this
+app already errs in, where a renamed one would become wrongly BLOCKED — refusing a legal
+move, which is the failure that actually costs a player something.
+
+**Per turning point, not per battle.** `ploysUsedThisTurningPoint` already existed for the
+list above it, so a ploy spent in turning point 1 is choosable again in turning point 2,
+and a test says so.
+
+`SelectOption` gained an optional `disabled`, which is the smallest change that lets an
+option be shown and refused at once.
+
+---
+
 ## F13. What a full walk of the product found
 
 **Status: Tiers 1, 2 and 3 built; tier 4 blocked.** Two passes on 2026-10-22: every markdown file checked against the code, and

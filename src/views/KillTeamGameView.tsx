@@ -493,11 +493,35 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   // this one credible.
   //
   // The kind no longer has to be read off the end of a label, after the cost.
+  //
+  // A ploy already spent this turning point is OFFERED but not choosable (KF12). This is
+  // the one rule the tracker holds, and it is held deliberately rather than by drift:
+  // both repositories had recorded the opposite (#1, and `use_ploy`'s own docstring),
+  // and it is overruled here because a ploy spent twice by mistake is a CP error that
+  // nothing downstream corrects. Still only in the client -- the service accepts the
+  // write, so a game that needs it can still be fixed by hand.
+  //
+  // `universal` is the exception, not a name match. The universal list holds exactly one
+  // ploy, COMMAND RE-ROLL, which is repeatable; keying on the flag rather than the string
+  // fails SAFE, because a new universal ploy would become wrongly repeatable -- the
+  // direction this app already errs in -- where a renamed one would become wrongly
+  // blocked, which is refusing a legal move.
+  const spentThisTurningPoint = new Set(used.map((ploy) => ploy.name))
+
   const optionsFor = (kind: PloyKind) => [
     { value: '', label: `Spend a ${kind} ploy…` },
     ...game.ploys
       .filter((ploy) => ploy.kind === kind)
-      .map((ploy) => ({ value: ploy.name, label: `${ploy.name} — ${ploy.cp_cost} CP` })),
+      .map((ploy) => {
+        const spent = spentThisTurningPoint.has(ploy.name) && !ploy.universal
+        return {
+          value: ploy.name,
+          // Says WHY it cannot be chosen. A disabled option with no reason reads as a
+          // bug rather than as a turning point already spent.
+          label: `${ploy.name} — ${ploy.cp_cost} CP${spent ? ' · used' : ''}`,
+          disabled: spent,
+        }
+      }),
   ]
 
   const submit = (kind: PloyKind) => {

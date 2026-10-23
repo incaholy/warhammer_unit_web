@@ -5,6 +5,10 @@ import styles from './Select.module.css'
 export interface SelectOption {
   value: string
   label: string
+  /** Offered but not choosable. Rendered rather than removed, because the reason it
+   *  cannot be chosen is usually the thing worth seeing — a ploy already spent this
+   *  turning point is still a fact about the turning point (KF12). */
+  disabled?: boolean
 }
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
@@ -60,7 +64,7 @@ export function Select({
         {...rest}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}

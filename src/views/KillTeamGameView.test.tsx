@@ -302,12 +302,76 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
     // even and universal.
     const strategy = await screen.findByLabelText(/^Strategy ploy/)
     const firefight = screen.getByLabelText(/^Firefight ploy/)
-    expect(within(strategy).getByRole('option', { name: 'Sudden Surge — 1 CP' })).toBeInTheDocument()
-    expect(within(firefight).getByRole('option', { name: 'Quick Reflexes — 1 CP' })).toBeInTheDocument()
+    // Matched loosely on purpose: this test is about WHICH picker offers what, and the
+    // label also carries a "· used" suffix once KF12 has something to say about it.
+    expect(within(strategy).getByRole('option', { name: /^Sudden Surge/ })).toBeInTheDocument()
+    expect(within(firefight).getByRole('option', { name: /^Quick Reflexes/ })).toBeInTheDocument()
 
     // And neither offers the other's.
     expect(within(strategy).queryByRole('option', { name: /Quick Reflexes/ })).toBeNull()
     expect(within(firefight).queryByRole('option', { name: /Sudden Surge/ })).toBeNull()
+  })
+
+  it('will not let a ploy be spent twice in one turning point (KF12)', async () => {
+    // The ONE rule this tracker holds. Both repositories had recorded the opposite
+    // (#1, and `use_ploy`'s own docstring), and it is overruled deliberately because a
+    // ploy spent twice is a CP error nothing downstream corrects.
+    stub(
+      makeKTGame({
+        turning_point: 2,
+        phase: 'firefight',
+        ploys: [
+          makeKTGamePloy({ name: 'Sudden Surge', kind: 'strategy', cp_cost: 1 }),
+          makeKTGamePloy({ name: 'Quick Reflexes', kind: 'firefight', cp_cost: 1 }),
+        ],
+        ploys_used: [{ name: 'Quick Reflexes', turning_point: 2 }],
+      }),
+    )
+    renderView()
+
+    const firefight = await screen.findByLabelText(/^Firefight ploy/)
+    // Offered and labelled, not removed: that it was spent is the thing worth seeing.
+    const spent = within(firefight).getByRole('option', { name: 'Quick Reflexes — 1 CP · used' })
+    expect(spent).toBeDisabled()
+
+    // The other kind is untouched by it.
+    const strategy = screen.getByLabelText(/^Strategy ploy/)
+    expect(within(strategy).getByRole('option', { name: 'Sudden Surge — 1 CP' })).toBeEnabled()
+  })
+
+  it('exempts the universal ploy, by its flag and not its name (KF12)', async () => {
+    // COMMAND RE-ROLL is the one repeatable ploy, and the only universal one in the
+    // catalog. Keyed on `universal` because that fails SAFE: a new universal ploy would
+    // become wrongly repeatable, which is the direction this app already errs in, where
+    // a renamed one would become wrongly BLOCKED -- refusing a legal move.
+    stub(
+      makeKTGame({
+        turning_point: 2,
+        ploys: [makeKTGamePloy({ name: 'COMMAND RE-ROLL', kind: 'firefight', cp_cost: 1, universal: true })],
+        ploys_used: [{ name: 'COMMAND RE-ROLL', turning_point: 2 }],
+      }),
+    )
+    renderView()
+
+    const firefight = await screen.findByLabelText(/^Firefight ploy/)
+    const option = within(firefight).getByRole('option', { name: 'COMMAND RE-ROLL — 1 CP' })
+    expect(option).toBeEnabled()
+  })
+
+  it('frees a ploy again in the next turning point (KF12)', async () => {
+    // The limit is per TURNING POINT, so a ploy spent in turning point 1 is choosable in
+    // turning point 2. `ploysUsedThisTurningPoint` is what makes that true.
+    stub(
+      makeKTGame({
+        turning_point: 2,
+        ploys: [makeKTGamePloy({ name: 'Sudden Surge', kind: 'strategy', cp_cost: 1 })],
+        ploys_used: [{ name: 'Sudden Surge', turning_point: 1 }],
+      }),
+    )
+    renderView()
+
+    const strategy = await screen.findByLabelText(/^Strategy ploy/)
+    expect(within(strategy).getByRole('option', { name: 'Sudden Surge — 1 CP' })).toBeEnabled()
   })
 
   it('marks the kind being played now, and refuses nothing (KF11)', async () => {
