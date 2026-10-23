@@ -565,6 +565,11 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
                 {name}
                 {count > 1 && <span className={styles.ployCount}> ×{count}</span>}
               </span>
+              {/* The BARE token, deliberately not `ployKindLabel`. That helper answers
+                * "Strategy ploy", which is right for a picker's label and redundant in a
+                * 10px uppercase chip on every row of a list of ploys -- "STRATEGY PLOY",
+                * eight times. An unknown kind still shows itself, which is the property
+                * the helper's fallback exists for. */}
               <span className={styles.ployKind}>{kinds.get(name) ?? 'ploy'}</span>
             </li>
           ))}

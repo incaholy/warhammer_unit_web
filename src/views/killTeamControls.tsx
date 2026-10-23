@@ -124,15 +124,21 @@ export function ChipEditor({
 /** A number with two large buttons, written ABSOLUTELY and debounced.
  *
  * Not `QuantityInput`, this repo's one debounced quantity FIELD. That control is a typed
- * number input built for "how many do I own" and it has no maximum; a battle wants one
- * tap per point with the card's own bound respected, and these numbers are read far more
- * often than they are typed. What it borrows is the two behaviours that control exists
- * for: a debounce, so five taps are one request carrying the final value (#7), and a
- * reset on rejection, so a refused edit never sits on screen looking saved.
+ * number input built for "how many do I own"; a scoreboard wants one tap per point, and
+ * these numbers are read far more often than they are typed. What it borrows is the two
+ * behaviours that control exists for: a debounce, so five taps are one request carrying
+ * the final value (#7), and a reset on rejection, so a refused edit never sits on screen
+ * looking saved.
  *
- * The bounds come from DATA, not from rules. An operative's `wounds` is on its own
- * snapshot; CP and every VP value are non-negative in the service AND in a CHECK
- * constraint. So disabling at a bound mirrors a refusal rather than applying a rule (#1). */
+ * It had an optional `max`, which was the UPPER bound and the `8/12` denominator both.
+ * KF10 took the one caller that passed it -- wounds, now a dialog -- and nothing left is
+ * bounded above: CP and every VP value are capped by nothing but `INT32_MAX`. An
+ * un-passable prop is an untestable one, so it is gone; the three survivors are CP, the
+ * VP source and the opponent's VP.
+ *
+ * `min` stays and comes from DATA, not from rules: CP and every VP value are non-negative
+ * in the service AND in a CHECK constraint, so disabling at zero mirrors a refusal rather
+ * than applying a rule (#1). */
 export interface StepperProps {
   /** Accessible name for the value, e.g. "Command points". */
   label: string
@@ -142,8 +148,6 @@ export interface StepperProps {
   upLabel: string
   value: number
   min?: number
-  /** When given, both the upper bound AND the denominator: `8/12`. */
-  max?: number
   /** Absolute next value. A REJECTED promise resets the display to `value`. */
   onCommit: (next: number) => Promise<unknown> | void
   debounceMs?: number
@@ -155,7 +159,6 @@ export function Stepper({
   upLabel,
   value,
   min = 0,
-  max,
   onCommit,
   debounceMs = COMMIT_DEBOUNCE_MS,
 }: StepperProps) {
@@ -197,12 +200,10 @@ export function Stepper({
       </Button>
       <span className={styles.value} aria-label={label}>
         {draft}
-        {max === undefined ? '' : `/${max}`}
       </span>
       <Button
         variant="secondary"
         aria-label={upLabel}
-        disabled={max !== undefined && draft >= max}
         onClick={() => commit(draft + 1)}
       >
         +

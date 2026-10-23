@@ -108,7 +108,6 @@ export function CollectionView() {
     return { armies: armiesQuery.data?.total ?? armies.length, units, points }
   }, [armies, armiesQuery.data])
 
-
   return (
     <main className={styles.page}>
       <header className={styles.head}>

@@ -20,8 +20,6 @@
   padding: 0 32px 80px;
 }
 
-/* ---- The scoreboard ---- */
-
 /* ---- The one sticky region (KF8a) ----
    Everything a player must keep seeing travels together: three separate sticky elements
    each pinned at `top: 0` overlapped instead of stacking. `top` is the app header's

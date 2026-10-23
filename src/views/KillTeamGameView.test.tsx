@@ -396,13 +396,25 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
   })
 
   it('marks the kind being played now, and refuses nothing (KF11)', async () => {
-    // The fixture is in the firefight phase. #1, #51 and #57: this app reports
-    // availability and never enforces it, so the strategy picker stays usable.
+    // `makeKTGame`'s default phase is already 'firefight'; it is restated because this
+    // test is ABOUT the phase, and a default that moved would otherwise take the
+    // assertion's meaning with it rather than failing it.
+    // #1, #51 and #57: this app reports availability and never enforces it, so the
+    // out-of-phase picker stays usable.
     stub(makeKTGame({ ...game, phase: 'firefight' }))
     renderView()
 
     expect(await screen.findByLabelText('Firefight ploy · this phase')).toBeInTheDocument()
-    expect(screen.getByLabelText('Strategy ploy')).toBeEnabled()
+
+    // The OPTION, not the select. The view never passes `disabled` to `Select`, so
+    // asserting the control is enabled could only fail an implementation nobody would
+    // write -- KF12 refuses by disabling individual options, and every other refusal on
+    // this screen disables a button. The claim worth holding is that an out-of-phase ploy
+    // is still choosable.
+    const strategy = screen.getByLabelText('Strategy ploy')
+    expect(
+      within(strategy).getByRole('option', { name: 'Sudden Surge — 1 CP' }),
+    ).toBeEnabled()
   })
 
   it('still offers a ploy whose kind this app does not know', async () => {

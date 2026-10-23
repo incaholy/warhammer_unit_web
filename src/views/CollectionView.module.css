@@ -50,14 +50,11 @@
   padding: 20px 4px;
   border-bottom: 1px solid var(--rule-light);
   text-align: left;
-  background: transparent;
-  border-left: none;
-  border-right: none;
-  border-top: none;
-  cursor: pointer;
   transition: background 0.15s ease;
   /* An anchor since F13 tier 3, so it can be opened in a new tab and its address
-     copied. Both rules are the anchor's: colour and underline. */
+     copied. The two rules below are the anchor's: colour and underline. A `<button>`'s UA
+     background, borders and `cursor` were reset here as well; an anchor brings none of
+     them, so those five declarations were doing nothing. */
   color: inherit;
   text-decoration: none;
 }
@@ -135,7 +132,6 @@
   border: 1px solid var(--rule);
   background: var(--panel);
   text-align: left;
-  cursor: pointer;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;

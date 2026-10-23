@@ -221,27 +221,38 @@ test.describe('pinned regions are not see-through', () => {
     await openBattle(page)
     await scrollDown(page)
 
-    const seeThrough = await page.evaluate(() =>
+    const pinned = await page.evaluate(() =>
       Array.from(document.querySelectorAll<HTMLElement>('*'))
         .filter((el) => ['sticky', 'fixed'].includes(getComputedStyle(el).position))
         .filter((el) => {
           const r = el.getBoundingClientRect()
           return r.height > 0 && r.width > 0
         })
-        .filter((el) => {
+        .map((el) => {
           const cs = getComputedStyle(el)
           const alpha = Number((cs.backgroundColor.match(/[\d.]+\)$/) ?? ['1)'])[0].slice(0, -1))
           const opaque = !cs.backgroundColor.startsWith('rgba') || alpha === 1
           const blurs = cs.backdropFilter !== 'none' && cs.backdropFilter !== ''
           const painted = cs.backgroundImage !== 'none'
-          return !(opaque || blurs || painted)
-        })
-        .map((el) => {
           const cls = (el.className || '').toString().split(/\s+/)[0] || el.tagName.toLowerCase()
-          return `${el.tagName.toLowerCase()}.${cls} has ${getComputedStyle(el).backgroundColor} and no backdrop-filter`
+          return {
+            what: `${el.tagName.toLowerCase()}.${cls}`,
+            treated: opaque || blurs || painted,
+            how: `${cs.backgroundColor}, backdrop-filter: ${cs.backdropFilter || 'none'}`,
+          }
         }),
     )
-    expect(seeThrough).toEqual([])
+
+    // The FLOOR first. `expect([]).toEqual([])` passes when the filter found nothing to
+    // judge -- if `.chrome` stopped being sticky, or the battle failed to render at all,
+    // the assertion below would go quiet instead of failing. The sibling test above
+    // guards itself the same way, and so do the two static sweeps in `src/styles`.
+    expect(
+      pinned.length,
+      'expected the app header and the battle chrome to be pinning',
+    ).toBeGreaterThanOrEqual(2)
+
+    expect(pinned.filter((p) => !p.treated).map((p) => `${p.what} has ${p.how}`)).toEqual([])
   })
 })
 
@@ -252,23 +263,37 @@ test.describe('touch targets', () => {
     // desktop rendering and pass or fail for the wrong reason.
     await openBattle(page)
 
-    const short = await page.evaluate(() =>
-      Array.from(document.querySelectorAll<HTMLElement>('button'))
+    const { measured, short } = await page.evaluate(() => {
+      const boxes = Array.from(document.querySelectorAll<HTMLElement>('button'))
         .map((el) => ({ el, r: el.getBoundingClientRect() }))
-        .filter(({ r }) => r.height > 0 && r.height < 44)
-        // Identified by the CSS-module class rather than by the label, so eight
-        // operative rows collapse to one entry instead of eight that change with the
-        // fixture.
-        .map(({ el }) => (el.className || '').toString().split(/\s+/)[0].replace(/_[a-z0-9]{5}_\d+/g, ''))
-        .filter((c, i, all) => all.indexOf(c) === i)
-        .sort(),
-    )
+        .filter(({ r }) => r.height > 0)
+      return {
+        measured: boxes.length,
+        short: boxes
+          .filter(({ r }) => r.height < 44)
+          // Identified by the CSS-module class rather than by the label, so eight
+          // operative rows collapse to one entry instead of eight that change with the
+          // fixture.
+          .map(({ el }) =>
+            (el.className || '').toString().split(/\s+/)[0].replace(/_[a-z0-9]{5}_\d+/g, ''),
+          )
+          .filter((c, i, all) => all.indexOf(c) === i)
+          .sort(),
+      }
+    })
 
-    // A RATCHET, not a pass. These two bypass the `Button` primitive, which is why
-    // KF8b's static test cannot see them -- it checks the five primitives' stylesheets,
-    // and a bespoke button in a view is invisible to it. Listed so they are visible and
-    // can only shrink: fixing one fails this until the name is removed, and a NEW short
-    // button fails it immediately. See ROADMAP KF9.
+    // The FLOOR, and this one has a live failure mode rather than a theoretical one.
+    // `openBattle` waits for the Advance button `{ state: 'attached' }` on purpose,
+    // because "a chrome pinned wrongly COVERS this button" -- so in exactly the layout
+    // break this file exists to catch, every button could measure zero height and the
+    // ratchet below would pass by measuring nothing. Eight operative rows carry a
+    // disclosure, a wounds trigger and an Activate each.
+    expect(measured, 'expected the battle screen to render its buttons').toBeGreaterThanOrEqual(10)
+
+    // A RATCHET, not a pass. It is currently EMPTY: the two bespoke buttons that used to
+    // be listed here -- which bypass the `Button` primitive, and so are invisible to
+    // KF8b's static stylesheet test -- were both fixed in F13 tier 3. Any name appearing
+    // here is a regression, and a new short button fails this immediately.
     expect(short).toEqual([])
   })
 })
