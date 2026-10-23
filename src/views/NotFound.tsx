@@ -23,11 +23,13 @@ export function NotFound({ what }: NotFoundProps) {
   const { pathname } = useLocation()
   const back = returnTo(pathname)
 
+  // `alert` on the SECTION, not on the `h1`. An explicit role REPLACES the implicit one,
+  // so `role="alert"` on the heading left these four screens with no `h1` in the
+  // accessibility tree and no document outline at all. The announcement is what this view
+  // adds -- the old behaviour said nothing -- and a region can carry it.
   return (
-    <section className={styles.view}>
-      {/* `alert`, because this replaces a render the player expected. The old
-        * behaviour said nothing at all, which is the failure being fixed. */}
-      <h1 role="alert" className={styles.title}>
+    <section role="alert" className={styles.view}>
+      <h1 className={styles.title}>
         {what ? `Could not find that ${what}` : 'Could not find the page'}
       </h1>
       <p className={styles.body}>

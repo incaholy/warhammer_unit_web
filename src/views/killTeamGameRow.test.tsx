@@ -64,6 +64,14 @@ function renderRow(
 
 const WHO = 'Ravener Prime at position 1'
 
+/** The wounds trigger. Matched on the PREFIX of its accessible name: the name carries the
+ *  value ("Wounds for X: 8 of 12") so a screen-reader user hears the number the sighted
+ *  user reads, and matching the whole string would make every test here restate its own
+ *  fixture's wounds. One test below asserts the value is in there. */
+function woundsTrigger(who = WHO) {
+  return screen.getByLabelText(new RegExp(`^Wounds for ${who}:`))
+}
+
 /** A row is collapsed by default (KF8c), and a closed one does not render its tokens or
  *  its datacard at all -- so a test that addresses either opens the row first.
  *
@@ -79,12 +87,71 @@ function expandRow(who = WHO) {
 describe('OperativeRow: wounds (KF10)', () => {
   /** Opens the wounds dialog and fills it in. */
   async function applyWounds(mode: 'Damage' | 'Heal', amount: string) {
-    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    fireEvent.click(woundsTrigger())
     const dialog = await screen.findByRole('dialog')
     fireEvent.click(within(dialog).getByRole('button', { name: mode }))
     fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: amount } })
     return dialog
   }
+
+  it('carries the value in the trigger name, not only in its text', () => {
+    stub()
+    renderRow({ current_wounds: 8, wounds: 12 })
+    // `aria-label` REPLACES the element's content, so "Wounds for X" alone announced the
+    // control and hid the one fact it exists to carry. SPEC: "on this screen wounds and
+    // order ARE their controls."
+    expect(screen.getByLabelText(`Wounds for ${WHO}: 8 of 12`)).toBeInTheDocument()
+  })
+
+  it('refuses to reopen while a write is unacknowledged', async () => {
+    let release: (res: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'PATCH') {
+          return new Promise<Response>((resolve) => {
+            release = resolve
+          })
+        }
+        return Promise.resolve(jsonResponse(makeKTGame()))
+      }),
+    )
+    renderRow({ current_wounds: 12, wounds: 12 })
+    const dialog = await applyWounds('Damage', '3')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    // `current` is SERVER state, refreshed only once the write is acknowledged and the
+    // GET returns. A second dialog opened in that window would subtract from 12 again
+    // and send a value that skips this hit entirely -- 12 damage 3 then 4 sending 8
+    // rather than 5. The sibling `ChipEditor` in this row has always guarded this.
+    await waitFor(() => expect(woundsTrigger()).toBeDisabled())
+
+    release(jsonResponse(makeKTGameOperative()))
+    await waitFor(() => expect(woundsTrigger()).toBeEnabled())
+  })
+
+  it('hands a refused write to the mutation rather than dropping it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'PATCH') {
+          return jsonResponse({ detail: 'Refused', code: 'validation_error' }, { status: 400 })
+        }
+        return jsonResponse(makeKTGame())
+      }),
+    )
+    renderRow({ current_wounds: 12, wounds: 12 })
+    const dialog = await applyWounds('Damage', '3')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    // The row keeps the server's value, because nothing here is optimistic. The REAL
+    // assertion is the one vitest makes for us: `onCommit` is a mutation's `mutate`, so
+    // the refusal lands in `onError`. Passing `mutateAsync` instead returns a promise
+    // that this component drops, which vitest reports as an unhandled rejection and
+    // fails the file for -- see the prop's own doc on `WoundsControlProps.onCommit`.
+    await waitFor(() => expect(woundsTrigger()).toBeEnabled())
+    expect(woundsTrigger()).toHaveTextContent('12/12')
+  })
 
   it('sends the ABSOLUTE value, never a delta', async () => {
     const seen = stub()
@@ -162,7 +229,7 @@ describe('OperativeRow: wounds (KF10)', () => {
   it('refuses to confirm nothing', async () => {
     stub()
     renderRow({ current_wounds: 8, wounds: 12 })
-    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    fireEvent.click(woundsTrigger())
     const dialog = await screen.findByRole('dialog')
 
     // Nothing typed yet, so there is no write to make.
@@ -200,7 +267,7 @@ describe('OperativeRow: wounds (KF10)', () => {
     const dialog = await applyWounds('Damage', '7')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
-    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    fireEvent.click(woundsTrigger())
     const reopened = await screen.findByRole('dialog')
     expect((within(reopened).getByLabelText('Amount') as HTMLInputElement).value).toBe('')
     expect(within(reopened).getByRole('button', { name: 'Damage' })).toHaveAttribute(
@@ -347,7 +414,7 @@ describe('OperativeRow: collapsing (KF8c)', () => {
     // screen: wounds and order ARE their controls, so a collapsed row cannot hide them
     // without breaking the requirement collapsing was meant to serve.
     expect(screen.getByText('Ravener Prime')).toBeInTheDocument()
-    expect(screen.getByLabelText(`Wounds for ${WHO}`)).toBeInTheDocument()
+    expect(woundsTrigger()).toBeInTheDocument()
     expect(screen.getByLabelText(`Order for ${WHO}`)).toBeInTheDocument()
     expect(screen.getByText('Not activated')).toBeInTheDocument()
     expect(screen.getByLabelText(`Activate ${WHO}`)).toBeInTheDocument()
@@ -468,7 +535,7 @@ describe('OperativeRow: where `version` is not sent', () => {
 
     // Three different writes on one row, so the claim is about the row and not about
     // one control. Wounds goes through KF10's dialog now.
-    fireEvent.click(screen.getByLabelText(`Wounds for ${WHO}`))
+    fireEvent.click(woundsTrigger())
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Amount'), { target: { value: '1' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))

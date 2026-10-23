@@ -135,9 +135,10 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
           who={who}
           current={operative.current_wounds}
           max={operative.wounds}
-          onCommit={(current_wounds) =>
-            update.mutateAsync({ rowId: operative.id, body: { current_wounds } })
-          }
+          pending={update.isPending}
+          onCommit={(current_wounds) => {
+            update.mutate({ rowId: operative.id, body: { current_wounds } })
+          }}
         />
 
         <SegmentedToggle

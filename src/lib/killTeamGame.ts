@@ -118,10 +118,34 @@ const PLOY_KIND_LABELS: Record<PloyKind, string> = {
   firefight: 'Firefight ploy',
 }
 
-/** A ploy kind as a person reads it, falling back to the raw token for the reason
- *  `gameStatusLabel` gives. */
+/** A ploy kind as a person reads it.
+ *
+ * An unknown kind falls back to `"<token> ploy"` rather than to the bare token, which
+ * keeps the property `gameStatusLabel` wants -- the raw value stays visible, so unknown
+ * data looks unknown -- while still reading as English in the two places that pluralise
+ * it. The bare token gave the group heading `"strategics"`, which reads as a rendering
+ * bug rather than as a ploy this app has not been taught. */
 export function ployKindLabel(kind: string): string {
-  return PLOY_KIND_LABELS[kind as PloyKind] ?? kind
+  return PLOY_KIND_LABELS[kind as PloyKind] ?? `${kind} ploy`
+}
+
+/** Which kinds to show a group for: the two known kinds in turning-point order, then any
+ *  OTHER kind present in the data, in the order the backend sent it.
+ *
+ * The trailing group is the whole point. `PLOY_KINDS` is written from a CHECK constraint
+ * that `openapi.json` publishes as a bare `string` (see above), so a kind this app does
+ * not know is a live possibility -- and grouping by a fixed list alone made such a ploy
+ * render NOWHERE and be spendable in NEITHER picker, which is strictly worse than the one
+ * flat list KF11 replaced. Hiding a ploy is a CP error a player cannot even see to
+ * correct; showing it under its raw token is merely ugly.
+ *
+ * Known kinds are returned even when empty, because a caller that wants to drop empties
+ * can, and `PloysByKind` does. */
+export function ployKindsPresent(ploys: readonly { kind: string }[]): string[] {
+  const extra = ploys
+    .map((ploy) => ploy.kind)
+    .filter((kind) => !PLOY_KINDS.includes(kind as PloyKind))
+  return [...PLOY_KINDS, ...new Set(extra)]
 }
 
 /** The values `ck_kt_game_operative_status` allows, verbatim. Same argument as

@@ -405,6 +405,27 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
     expect(screen.getByLabelText('Strategy ploy')).toBeEnabled()
   })
 
+  it('still offers a ploy whose kind this app does not know', async () => {
+    // Splitting the one flat picker into two (KF11) made an unexpected `kind` render
+    // NOWHERE and be spendable in NEITHER list -- strictly worse than the list it
+    // replaced, and invisible to the player rather than merely wrong. `kind` is a bare
+    // `string` in `openapi.json` (backend ROADMAP R17) and this slice already shipped
+    // 'strategic' once, so the leftover group is a live path, not a hypothetical.
+    stub(
+      makeKTGame({
+        ...game,
+        ploys: [makeKTGamePloy({ name: 'Unscraped Ploy', kind: 'strategic', cp_cost: 2 })],
+      }),
+    )
+    renderView()
+
+    // Its own picker, labelled with the raw token because that is all this app knows.
+    const leftover = await screen.findByLabelText('strategic ploy')
+    expect(
+      within(leftover).getByRole('option', { name: 'Unscraped Ploy — 2 CP' }),
+    ).toBeEnabled()
+  })
+
   it('POSTs the name only, because the cost comes from the snapshot', async () => {
     const seen = stub(game)
     renderView()
@@ -1462,6 +1483,23 @@ describe('KillTeamGameView: the reference collapses per entry', () => {
 
     expect(entryFor('Sudden Surge').open).toBe(true)
     expect(entryFor('Second Wind').open).toBe(false)
+  })
+
+  it('still lists a ploy whose kind this app does not know', async () => {
+    // Same defect as the pickers, in the other half of the split: `PloysByKind` grouped
+    // by `PLOY_KINDS` alone, so an unexpected `kind` printed under no heading at all.
+    // The group is headed by the raw token, which is ugly and visible -- the two
+    // properties the alternative lacked.
+    stub(
+      makeKTGame({
+        ...game,
+        ploys: [makeKTGamePloy({ name: 'Unscraped Ploy', kind: 'strategic', cp_cost: 2 })],
+      }),
+    )
+    await openReference()
+
+    expect(screen.getByText('strategic ploys')).toBeInTheDocument()
+    expect(entryFor('Unscraped Ploy')).toBeTruthy()
   })
 
   it('keeps a ploy\'s cost on the line, with the kind in its heading (KF11)', async () => {

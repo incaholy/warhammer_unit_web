@@ -26,7 +26,7 @@
 
 import type { KTEquipment_Read, KTSelectionRule_Read } from '../api/types'
 import { Fragment } from 'react'
-import { PLOY_KINDS, ployKindLabel } from '../lib/killTeamGame'
+import { ployKindLabel, ployKindsPresent } from '../lib/killTeamGame'
 import styles from './killTeamCards.module.css'
 
 /* ---- What the shared pieces actually read ----
@@ -254,12 +254,13 @@ export function Ploys({ ploys, showKind = true }: { ploys: PloyEntry[]; showKind
  *  30 of 127 carried a group across 6 of 48 teams and grouping was dropped as noise.
  *
  *  A kind with nothing in it prints no heading, so the one team whose scrape is
- *  incomplete does not get an empty section. */
+ *  incomplete does not get an empty section. A kind this app does NOT know still prints,
+ *  in a trailing group headed by the token the backend sent -- see `ployKindsPresent`. */
 export function PloysByKind({ ploys }: { ploys: PloyEntry[] }) {
   if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
     <>
-      {PLOY_KINDS.map((kind) => {
+      {ployKindsPresent(ploys).map((kind) => {
         const forKind = ploys.filter((ploy) => ploy.kind === kind)
         if (forKind.length === 0) return null
         return (

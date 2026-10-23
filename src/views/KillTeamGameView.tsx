@@ -54,15 +54,15 @@ import {
   gameStateLabel,
   initiativeLabel,
   NO_INITIATIVE,
-  PLOY_KINDS,
   ployKindLabel,
+  ployKindsPresent,
   tallyByName,
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
   gameChoices,
 } from '../lib/killTeamGame'
-import type { InitiativeSide, PloyKind } from '../lib/killTeamGame'
+import type { InitiativeSide } from '../lib/killTeamGame'
 import { initialChromeState, nextChromeState } from '../lib/chromeScroll'
 import {
   Button,
@@ -462,8 +462,10 @@ function StrategyPloys({ game }: { game: KTGame_Read }) {
  * person — so the refusal is the server's, and the screen does not disable a control
  * on a rule it would have to duplicate. */
 function ThisTurningPoint({ game }: { game: KTGame_Read }) {
-  // One chosen name PER KIND, so the two pickers do not clear each other (KF11).
-  const [chosen, setChosen] = useState<Record<PloyKind, string>>({ strategy: '', firefight: '' })
+  // One chosen name PER KIND, so the pickers do not clear each other (KF11). Keyed by the
+  // raw string rather than by `PloyKind`: an unknown kind gets a picker too, and a missing
+  // key reads as `undefined`, which `?? ''` covers.
+  const [chosen, setChosen] = useState<Record<string, string>>({ strategy: '', firefight: '' })
   const usePloy = useUseGamePloy(game.id)
   const update = useUpdateGame(game.id)
 
@@ -509,7 +511,7 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
   // blocked, which is refusing a legal move.
   const spentThisTurningPoint = new Set(used.map((ploy) => ploy.name))
 
-  const optionsFor = (kind: PloyKind) => [
+  const optionsFor = (kind: string) => [
     { value: '', label: `Spend a ${kind} ploy…` },
     ...game.ploys
       .filter((ploy) => ploy.kind === kind)
@@ -525,7 +527,7 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
       }),
   ]
 
-  const submit = (kind: PloyKind) => {
+  const submit = (kind: string) => {
     const name = chosen[kind]
     if (!name || usePloy.isPending) return
     usePloy.mutate(name, { onSuccess: () => setChosen((c) => ({ ...c, [kind]: '' })) })
@@ -574,12 +576,12 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
         * all report availability rather than enforce it, the way the equipment allowance
         * shows "2 of 4" and blocks nothing. So a wrong-phase ploy stays spendable and
         * simply is not the one labelled as this phase. */}
-      {PLOY_KINDS.map((kind) => (
+      {ployKindsPresent(game.ploys).map((kind) => (
         <div key={kind} className={styles.spend}>
           <Select
             label={`${ployKindLabel(kind)}${game.phase === kind ? ' · this phase' : ''}`}
             options={optionsFor(kind)}
-            value={chosen[kind]}
+            value={chosen[kind] ?? ''}
             onChange={(e) => setChosen((c) => ({ ...c, [kind]: e.target.value }))}
           />
           <Button

@@ -74,6 +74,14 @@ describe('App routing', () => {
     // Team catalog is at `/kill-team`.
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not find the page')
 
+    // AND it is still a heading. `role="alert"` sat on the `h1` itself, and an explicit
+    // role REPLACES the implicit one -- so every not-found screen announced itself and
+    // then had no `h1` in the accessibility tree and no document outline. The role
+    // belongs on the region, which can carry it without costing the heading.
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Could not find the page' }),
+    ).toBeInTheDocument()
+
     // And it offers the section the path was in, not the top of the app. Addressed by
     // the arrow, because the app header carries a "Kill Team" nav link too.
     expect(screen.getByRole('link', { name: '← Kill Team' })).toHaveAttribute('href', '/kill-team')

@@ -34,10 +34,17 @@ export interface WoundsControlProps {
   current: number
   /** The datacard's maximum, which is also the constraint's upper bound. */
   max: number
-  onCommit: (currentWounds: number) => void | Promise<unknown>
+  /** Fire-and-forget. The caller passes a mutation's `mutate`, NOT `mutateAsync`: a
+   *  refused write has to reach the mutation's own `onError`, and a rejected promise
+   *  returned to this component would be dropped on the floor. */
+  onCommit: (currentWounds: number) => void
+  /** A write for this operative is unacknowledged. The dialog refuses to open, because
+   *  `current` is server state: reopening before the refetch lands would compute the
+   *  damage from the PRE-write value and send a result that skips the first hit. */
+  pending?: boolean
 }
 
-export function WoundsControl({ who, current, max, onCommit }: WoundsControlProps) {
+export function WoundsControl({ who, current, max, onCommit, pending }: WoundsControlProps) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>('damage')
   const [amount, setAmount] = useState('')
@@ -58,7 +65,7 @@ export function WoundsControl({ who, current, max, onCommit }: WoundsControlProp
 
   const confirm = () => {
     if (!changes) return
-    void onCommit(next)
+    onCommit(next)
     setOpen(false)
   }
 
@@ -66,8 +73,12 @@ export function WoundsControl({ who, current, max, onCommit }: WoundsControlProp
     <>
       <Button
         variant="secondary"
-        aria-label={`Wounds for ${who}`}
+        // The value is IN the name, not only in the content: `aria-label` replaces what
+        // a screen reader would read, so "Wounds for X" alone would announce the control
+        // and hide the one fact it exists to carry (#50, SPEC "wounds ARE their control").
+        aria-label={`Wounds for ${who}: ${current} of ${max}`}
         onClick={openDialog}
+        disabled={pending}
       >
         {current}/{max}
       </Button>

@@ -9,6 +9,8 @@ import {
   hasActivated,
   initiativeLabel,
   LAST_TURNING_POINT,
+  ployKindLabel,
+  ployKindsPresent,
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
@@ -337,5 +339,55 @@ describe('tallyByName', () => {
 
   it('answers an empty list with an empty list', () => {
     expect(tallyByName([])).toEqual([])
+  })
+})
+
+describe('ployKindsPresent', () => {
+  it('answers the two known kinds in turning-point order', () => {
+    // Strategy before firefight, because that is the order `advance` runs a turning
+    // point in (#62).
+    expect(ployKindsPresent([{ kind: 'firefight' }, { kind: 'strategy' }])).toEqual([
+      'strategy',
+      'firefight',
+    ])
+  })
+
+  it('keeps the known kinds even when nothing carries them', () => {
+    // The caller decides whether to drop an empty group; the battle screen wants both
+    // pickers whatever the data holds, and `PloysByKind` drops the empties itself.
+    expect(ployKindsPresent([])).toEqual(['strategy', 'firefight'])
+  })
+
+  it('appends a kind this app does not know, rather than dropping it', () => {
+    // The defect this exists for: grouping by `PLOY_KINDS` alone rendered such a ploy
+    // NOWHERE and offered it in NEITHER picker. `openapi.json` publishes `kind` as a
+    // bare `string` (backend ROADMAP R17), and this slice already shipped 'strategic'
+    // once where the allowed value is 'strategy'.
+    expect(ployKindsPresent([{ kind: 'strategic' }])).toEqual([
+      'strategy',
+      'firefight',
+      'strategic',
+    ])
+  })
+
+  it('lists an unknown kind once however many ploys carry it', () => {
+    expect(ployKindsPresent([{ kind: 'strategic' }, { kind: 'strategic' }])).toEqual([
+      'strategy',
+      'firefight',
+      'strategic',
+    ])
+  })
+})
+
+describe('ployKindLabel', () => {
+  it('names the two known kinds as a person reads them', () => {
+    expect(ployKindLabel('strategy')).toBe('Strategy ploy')
+    expect(ployKindLabel('firefight')).toBe('Firefight ploy')
+  })
+
+  it('keeps an unknown token visible, inside something that reads as English', () => {
+    // Both callers pluralise this, so the bare token gave the heading 'strategics' --
+    // which reads as a rendering bug rather than as data this app has not been taught.
+    expect(ployKindLabel('strategic')).toBe('strategic ploy')
   })
 })
