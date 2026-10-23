@@ -10,9 +10,22 @@
   --panel: #ffffff;       /* inputs, raised cards */
   --ink: #15140f;         /* primary text, strong borders, primary buttons */
   --ink-hover: #36332b;   /* primary button hover */
-  --muted: #6f6c63;       /* secondary text, meta lines */
-  --faint: #9c9a91;       /* labels, tertiary text */
-  --fainter: #b6b4ac;     /* numerals, separators */
+  /* The three grey text weights, re-spaced for WCAG 2.1 AA (A1 group A). Ratios are
+   * against `--paper`, the worse of the two backgrounds -- white gives slightly more.
+   * `--faint` was #9c9a91 at 2.70 and `--fainter` #b6b4ac at 1.99, both failing the 4.5
+   * AA asks of body text, on all 19 screens axe scans. Every failure it reported carried
+   * the SAME ratio, which is what identified one token rather than nineteen defects.
+   *
+   * Four weights were kept and re-spaced rather than collapsed to two. Darkening
+   * `--faint` alone to clear 4.5 lands it at #75736c, one step from the old `--muted`:
+   * that buys compliance by flattening the hierarchy it exists to express. Re-spacing all
+   * four gives even 1.35x steps between the greys, at the cost of a darker palette
+   * overall -- which is what AA costs on a #fafaf8 ground.
+   *
+   * `src/styles/contrast.test.ts` holds these numbers, so a drift back fails a test. */
+  --muted: #4d4b42;       /* secondary text, meta lines        -- 8.37 on paper */
+  --faint: #605e55;       /* labels, tertiary text             -- 6.22 on paper */
+  --fainter: #747269;     /* numerals, de-emphasised figures   -- 4.62 on paper */
   --rule: #c9c7bf;        /* medium borders (inputs, tags) */
   --rule-light: #e4e2db;  /* light dividers (row separators) */
   --danger: #b23a2e;      /* auth / validation error text, destructive actions */

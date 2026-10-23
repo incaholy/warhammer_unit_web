@@ -2426,7 +2426,7 @@ tablist's bottom margin collapse out of the pinned region, so the chrome went **
 
 ## A1. Assistive technology: what an audit of every feature found
 
-**Status: IN PROGRESS.** Step 0 is BUILT; groups A–G below are not.
+**Status: IN PROGRESS.** Step 0 and group A are BUILT; groups B–G are not.
 
 An audit of all 15 routes plus 4 states a route visit cannot reach, against **WCAG 2.1 A
 and AA**. Three things ran: `eslint-plugin-jsx-a11y` recommended, which was already
@@ -2448,7 +2448,7 @@ targets. A rule not named fails the build; a rule named that has **stopped** fai
 fails the build, via a dedicated test — so the list cannot silently regrow and a fix
 cannot leave its licence behind. Both halves were mutation-checked.
 
-### Group A — one token fails on 19 of 19 screens
+### Group A — one token fails on 19 of 19 screens — BUILT
 
 Every `color-contrast` failure axe reports carries the **identical ratio, 2.70**. That is
 one cause, not nineteen defects: `--faint` (`theme.css:14`, "labels, tertiary text"), used
@@ -2468,8 +2468,35 @@ lands it at `#75736c`, within one step of the old `--muted`, which buys complian
 destroying the hierarchy. Re-spacing all four gives even 1.35x steps between the greys.
 The whole palette darkens as a result; that is what AA costs on a `#fafaf8` ground.
 
-A static test asserts the ratio for every text token, so this is a ratchet and not a
-one-time correction.
+`src/styles/contrast.test.ts` holds the palette in the suite CI runs: 14 tests computing
+the WCAG ratio for every text token against both grounds, the inverted `--paper`-on-fill
+pairing including both hover states, and a guard that each step of the ladder is at least
+1.2x the next — because passing AA by moving every grey to nearly one value would satisfy
+the ratios and destroy what the tokens are for. Mutation-checked three ways: the old
+`--faint` fails two assertions, collapsing `--fainter` onto `--faint` fails the hierarchy
+guard at 1.02x, and a parser that matches nothing fails all 14 rather than passing
+vacuously.
+
+**Two screens still failed `color-contrast` after the palette was fixed, and NEITHER was a
+palette defect.** Both were found only because the sweep runs in a browser; the static test
+had already declared the palette clean, and it was right to.
+
+- **Under a `backdrop-filter`, axe samples rather than computes.** The app bar sets
+  `blur(8px)` over a translucent ground, and a blur averages the active nav pill's ink into
+  its paper text — reported as 3.02 against an element whose computed colours are
+  `rgb(21,20,15)` on `rgb(250,250,248)`: **17.64:1, opaque, no ancestor opacity, no
+  animation**, all read off the element. The bar is excluded from the sweep, because axe
+  excludes per element and not per rule, and the coverage is taken back by a test that does
+  the arithmetic from computed styles where a blur cannot interfere. It fails if the pill
+  ever becomes translucent.
+- **axe judges the page behind an open dialog as if it were content.** The overlay is
+  `rgba(20,20,15,0.42)`, so every control behind it blends through that dim: the wounds
+  trigger reads 1.58 with the dialog open and 4.62 with it closed. The dialog tests scan
+  the dialog. The real defect is that the background is not `inert` — group C adds that,
+  and once it does those elements leave the tree and the narrowing becomes unnecessary.
+
+The first of those is a limitation to remember rather than a defect to fix: **a contrast
+number measured through a blur is not a contrast number.**
 
 **Not adopted: the border tokens.** `--rule` is 1.62 against the 3:1 that **WCAG 1.4.11**
 asks of a control's boundary, and it borders inputs and tags. Reaching 3:1 needs about
