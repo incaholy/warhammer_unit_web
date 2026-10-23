@@ -308,14 +308,23 @@ describe('KillTeamView', () => {
         .getAllByRole('listitem')
         .map((li) => li.querySelector('summary')?.textContent ?? '')
 
-      // Firefight first, because that is the printed order (#25). A view grouping by
-      // kind would put the strategy ploy first and fail here.
-      expect(names[0]).toContain('Lurking Horror')
-      expect(names[0]).toContain('firefight · 2 CP')
-      expect(names[1]).toContain('Predatory Instincts')
-      expect(names[1]).toContain('strategy · 1 CP')
-      // And the costs differ, so a hardcoded cost fails.
-      expect(names[0]).not.toContain('1 CP')
+      // GROUPED by kind since KF11, strategy first, which is the order a turning point
+      // runs in. This assertion previously locked in PRINTED order (#25) specifically so
+      // that "a view grouping by kind would put the strategy ploy first and fail here" --
+      // the fixture prints firefight first for that reason. The guard did its job: this
+      // change could not happen quietly, and the decision is recorded in KF11.
+      expect(names[0]).toContain('Predatory Instincts')
+      expect(names[1]).toContain('Lurking Horror')
+
+      // The kind has left the LINE, because a heading above the group already says it.
+      // The cost stays, since that is what differs between rows.
+      expect(names[0]).toContain('1 CP')
+      expect(names[0]).not.toContain('strategy ·')
+      expect(names[1]).toContain('2 CP')
+
+      // The headings are what carries the kind now.
+      expect(within(ploys as HTMLElement).getByText('Strategy ploys')).toBeInTheDocument()
+      expect(within(ploys as HTMLElement).getByText('Firefight ploys')).toBeInTheDocument()
     })
     it('shows the universal ploys separately from the team\'s own', async () => {
       // One row per team, plus the rows no team owns (#48) — "its own, plus these".

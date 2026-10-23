@@ -76,7 +76,7 @@ import {
   Tag,
   type Tab,
 } from '../ui'
-import { Block as RefBlock, Entries, Ploys, Rules } from './killTeamCards'
+import { Block as RefBlock, Entries, Ploys, PloysByKind, Rules } from './killTeamCards'
 import { ChipEditor, Stepper } from './killTeamControls'
 import { OperativeRow } from './killTeamGameRow'
 import styles from './KillTeamGameView.module.css'
@@ -1197,7 +1197,10 @@ function GameReference({ game }: { game: KTGame_Read }) {
       </RefBlock>
 
       <RefBlock title="Ploys">
-        <Ploys ploys={teamPloys} />
+        {/* Grouped by kind, matching the battle tab's two pickers (KF11). The universal
+          * list below stays flat: it holds one ploy, and a heading over a single row
+          * says less than the row does. */}
+        <PloysByKind ploys={teamPloys} />
         {universalPloys.length > 0 && (
           <>
             <p className={styles.subhead}>Universal — every team may use these</p>

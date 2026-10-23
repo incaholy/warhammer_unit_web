@@ -25,6 +25,8 @@
  * mid-activation to check a weapon rule. */
 
 import type { KTEquipment_Read, KTSelectionRule_Read } from '../api/types'
+import { Fragment } from 'react'
+import { PLOY_KINDS, ployKindLabel } from '../lib/killTeamGame'
 import styles from './killTeamCards.module.css'
 
 /* ---- What the shared pieces actually read ----
@@ -225,7 +227,7 @@ export function Rules({ rules }: { rules: RuleEntry[] }) {
   )
 }
 
-export function Ploys({ ploys }: { ploys: PloyEntry[] }) {
+export function Ploys({ ploys, showKind = true }: { ploys: PloyEntry[]; showKind?: boolean }) {
   if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
   return (
     <ul className={styles.entries}>
@@ -233,11 +235,41 @@ export function Ploys({ ploys }: { ploys: PloyEntry[] }) {
         <Disclosure
           key={`${ploy.name}-${index}`}
           name={ploy.name}
-          aside={`${ploy.kind} · ${ploy.cp_cost} CP`}
+          // The kind is dropped when the list is already grouped by it: repeating it on
+          // every row would say the subhead again, once per ploy.
+          aside={showKind ? `${ploy.kind} · ${ploy.cp_cost} CP` : `${ploy.cp_cost} CP`}
           text={ploy.description}
         />
       ))}
     </ul>
+  )
+}
+
+/** The same ploys, split into the two kinds (KF11).
+ *
+ *  Shared by the battle screen's Reference tab and the team page, which had the same flat
+ *  list and the same reason to stop having one: every one of the 48 kill teams carries
+ *  exactly four strategy and four firefight ploys, so the split is even and universal
+ *  rather than ragged — the opposite of what KF7 group B measured about team RULES, where
+ *  30 of 127 carried a group across 6 of 48 teams and grouping was dropped as noise.
+ *
+ *  A kind with nothing in it prints no heading, so the one team whose scrape is
+ *  incomplete does not get an empty section. */
+export function PloysByKind({ ploys }: { ploys: PloyEntry[] }) {
+  if (ploys.length === 0) return <p className={styles.quiet}>None printed.</p>
+  return (
+    <>
+      {PLOY_KINDS.map((kind) => {
+        const forKind = ploys.filter((ploy) => ploy.kind === kind)
+        if (forKind.length === 0) return null
+        return (
+          <Fragment key={kind}>
+            <p className={styles.subhead}>{ployKindLabel(kind)}s</p>
+            <Ploys ploys={forKind} showKind={false} />
+          </Fragment>
+        )
+      })}
+    </>
   )
 }
 
@@ -344,7 +376,7 @@ export function Reference({
       </Block>
 
       <Block title="Ploys">
-        <Ploys ploys={ploys} />
+        <PloysByKind ploys={ploys} />
         {universalPloys && universalPloys.length > 0 && (
           <>
             <p className={styles.subhead}>Universal — every team may use these</p>

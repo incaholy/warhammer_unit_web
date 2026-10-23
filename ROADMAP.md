@@ -2121,12 +2121,23 @@ wrong-phase picker would make the app a referee, which it has consistently refus
 `openapi.json` publishes `kind` as a bare `string`, and this branch already shipped
 `'strategic'` once in a fixture where the allowed value is `strategy`.
 
-### Not done here
+### The reference lists match
 
-The **Reference tab** still lists ploys in one block with the kind in the aside. The same
-argument applies and it is a separate, smaller change; it is recorded rather than folded
-in, because the battle tab is where a ploy is CHOSEN and the reference tab is where one is
-read.
+Done after the battle tab, and in BOTH places that had the flat list: the battle screen's
+Reference tab and the team page, which shared the shape and the reason to stop having it.
+`PloysByKind` lives with `Ploys` in `killTeamCards.tsx`, so the two cannot drift.
+
+**The kind left the line when it became a heading.** A row read `strategy · 1 CP` under a
+heading that already said Strategy, which is the subhead repeated once per ploy. The cost
+stays, since that is what differs between rows. The universal list stays flat: it holds
+one ploy, and a heading over a single row says less than the row does.
+
+**A test existed specifically to stop this.** `KillTeamView.test.tsx` asserted PRINTED
+order (#25) with the comment *"A view grouping by kind would put the strategy ploy first
+and fail here"*, and the fixture prints the firefight ploy first for that reason. It did
+its job — the change could not happen quietly — and the assertion is now inverted on
+purpose, with the old intent left beside it so the next reader knows it was a decision and
+not a drift.
 
 ---
 

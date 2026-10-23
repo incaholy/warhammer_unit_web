@@ -1464,11 +1464,16 @@ describe('KillTeamGameView: the reference collapses per entry', () => {
     expect(entryFor('Second Wind').open).toBe(false)
   })
 
-  it('keeps a ploy\'s kind and cost on the line, so it is scannable closed', async () => {
+  it('keeps a ploy\'s cost on the line, with the kind in its heading (KF11)', async () => {
     stub(game)
     await openReference()
+
+    // The reference tab groups by kind like the battle tab's two pickers, so the kind
+    // is a heading over the group rather than a word repeated on every row.
+    expect(screen.getByText('Strategy ploys')).toBeInTheDocument()
     const summary = entryFor('Sudden Surge').querySelector('summary')
-    expect(summary?.textContent).toContain('strategy · 1 CP')
+    expect(summary?.textContent).toContain('1 CP')
+    expect(summary?.textContent).not.toContain('strategy ·')
   })
 })
 
