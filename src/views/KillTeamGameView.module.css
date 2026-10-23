@@ -1,6 +1,6 @@
 /* The battle screen's frame.
 
-   ONE sticky region, not two (KF8a): the scoreboard, the advance controls and the
+   ONE sticky region, not four (KF8a): the scoreboard, the advance controls and the
    tablist travel together as `.chrome`. Three separately-pinned elements each at
    `top: 0` did not stack -- they claimed the same strip and `z-index` decided which was
    visible, so Advance, Undo and the tabs were fully occluded for three slices. `.chrome`

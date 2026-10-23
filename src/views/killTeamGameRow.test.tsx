@@ -1,7 +1,8 @@
-/* Row tests. Real timers rather than fake ones: the wounds commit is debounced at
- * 400ms and `waitFor` allows 1000ms, so the debounce elapses naturally — and fake
- * timers plus react-query's own scheduling is a deadlock this suite has no reason to
- * take on. */
+/* Row tests. Real timers rather than fake ones: the `ChipEditor` and `Stepper` commits
+ * are debounced at 400ms and `waitFor` allows 1000ms, so the debounce elapses naturally
+ * — and fake timers plus react-query's own scheduling is a deadlock this suite has no
+ * reason to take on. Wounds stopped being debounced at KF10: a dialog has a Confirm
+ * button, so there is no stream of taps to coalesce. */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'

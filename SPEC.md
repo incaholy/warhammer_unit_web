@@ -127,8 +127,8 @@ single source of truth for `src/styles/theme.css`.
   *Collection*).
 - **Sticky translucent header** (`rgba(250,250,248,.88)` + `backdrop-filter:
   blur`) with a bottom ink rule.
-- **Segmented toggles** — bordered button pairs (List/Grid, Log In/Sign Up,
-  Owned only/All units) where the active side inverts to ink-on-paper.
+- **Segmented toggles** — bordered button pairs (List/Grid, Existing account/New
+  account, Owned only/All units) where the active side inverts to ink-on-paper.
 - **Toast**: fixed bottom-center, ink pill, mono text, slide-up animation.
 - **Modal**: dim overlay (`rgba(20,20,15,.42)`) + centered paper card with fade/lift.
 - Animations: `toastIn`, `overlayIn`, `cardIn` keyframes (carry over verbatim).
@@ -174,9 +174,10 @@ warhammer_web/
       setup.ts            # jest-dom matchers
       fixtures.ts         # typed builders + the ApiBody union that gates them
     ui/                 # design-system primitives, barrel-exported from index.ts
-                        # Button, Input, Select, Field, Tabs, Modal, Tag, Toast,
-                        # QuantityInput, SegmentedToggle, Header, Breadcrumbs
-      Button.tsx  Input.tsx  Select.tsx  Field.tsx  Tag.tsx  Tabs.tsx
+                        # Button, LinkButton, Input, Select, Field, Tabs, Modal, Tag,
+                        # Toast, QuantityInput, SegmentedToggle, Header, Breadcrumbs
+      Button.tsx  LinkButton.tsx   # one stylesheet, two elements: a <button> and an <a>
+      Input.tsx  Select.tsx  Field.tsx  Tag.tsx  Tabs.tsx
       QuantityInput.tsx   SegmentedToggle.tsx
       Modal.tsx   Toast.tsx  Header.tsx  Breadcrumbs.tsx  Eyebrow.tsx  EmptyState.tsx
       ErrorBoundary.tsx   # render-error fallback instead of a blank screen
@@ -187,6 +188,7 @@ warhammer_web/
       format.ts           # points, counts, date labels
       killTeamGame.ts     # the battle's derived labels and allowed values
       chromeScroll.ts     # when the scoreboard gets out of the way (KF8d)
+      notFound.ts         # which section a not-found path belongs to (F13 tier 3)
     views/
       AuthView.tsx        # /login  (login + signup tabs)
       CollectionView.tsx  # /army-list  (armies list/grid)
@@ -204,6 +206,8 @@ warhammer_web/
       KillTeamGameView.tsx     # /kill-team/games/:gameId — the battle, as played
       killTeamGameRow.tsx      # one operative's row, with its datacard
       killTeamControls.tsx     # the stepper and chip editor the battle screen shares
+      killTeamWounds.tsx       # the damage-or-heal dialog on a row (KF10)
+      NotFound.tsx             # `*`, and any 404 from the API (F13 tier 3)
       NewGameModal.tsx         # the start-a-battle overlay
       killTeamCards.tsx        # datacard pieces shared by the team and roster screens
       NewArmyModal.tsx         # the create-army overlay
@@ -223,6 +227,10 @@ fallback, not the primary mechanism).
 | `npm run build` | `tsc -b` typecheck + `vite build` → `dist/` |
 | `npm run preview` | serve the production build locally |
 | `npm run lint` | eslint |
+| `npm test` | the Vitest suite once (`npm run test:watch` to watch) |
+| `npm run test:coverage` | the suite with coverage, against the floor CI enforces |
+| `npm run test:browser` | the WebKit layout suite at the iPhone 14 viewport (KF9); not in CI |
+| `npm run check:size` | the entry-chunk budget, and growth against a base branch |
 | `npm run gen:api` | regenerate `src/api/schema.d.ts` from the backend's published `openapi.json` |
 
 **Prerequisite:** the backend must be running and its catalog **seeded**, or the
@@ -347,12 +355,21 @@ crumb bar, and are rooted at the SECTION — `/` is a chooser and carries none.
 | `/kill-team/rosters/:rosterId` | `KillTeamRosterView` | `GET`/`PATCH`/`DELETE /me/kill-team/rosters/{id}`, the three `/operatives` routes, `GET /kill-team/operatives` |
 | `/kill-team/games` | `KillTeamGamesView` | `GET`/`POST /me/kill-team/games` |
 | `/kill-team/games/:gameId` | `KillTeamGameView` | `GET`/`PATCH`/`DELETE /me/kill-team/games/{id}`, and the nested operative, equipment, ploy, advance and undo operations |
+| `*` | `NotFound` | none |
 
 Plus the **pre-section redirects**, kept so bookmarks from before the two sections
 survive: `/inventory`, `/catalog`, `/armies/*` and `/units/*` each resolve to their
 `/army-list` equivalent, built from the current pathname so a route parameter and the
-query string both carry across. `*` falls through to `/` — there is no "not found" screen, which
-ROADMAP F13 records as a defect rather than a design.
+query string both carry across.
+
+`*` renders `NotFound`, which states what was not found and offers a link back to the
+SECTION the path was in — `/kill-team` for a `/kill-team/...` path, `/army-list` for an
+`/army-list/...` one, `/` otherwise. The same view serves a 404 from the API, so a
+deleted battle, roster or army reads the same as a mistyped address. It MUST carry the
+`alert` role on its region rather than on its heading: an explicit role replaces the
+implicit one, and a heading that is an alert is not a heading. Until F13 tier 3 this
+path fell through to `/`, so a stale or shared-but-deleted link became the home page
+with nothing to say it had not worked.
 
 **Header** — sticky; the wordmark returns to the section chooser at `/`. **Two
 rows**: the top switches SECTION (Army List / Kill Team), the second shows that
@@ -361,8 +378,9 @@ Team catalog is public and the bar renders for visitors. Present on every route
 but `/login`.
 
 ### AuthView (`/login`)
-Login/Sign-Up segmented tabs. Login = email + password; Sign Up = name + email +
-password + confirm. Inline error region bound to `ApiError.message`/`field`
+**Existing account / New account** segmented tabs — named for what the player has
+rather than for the action, which F13 tier 2 chose over "Log In / Sign Up". Existing
+account = email + password; new account = name + email + password + confirm. Inline error region bound to `ApiError.message`/`field`
 (bad credentials → 401, duplicate email/username → 409). On success, store token
 and navigate Home.
 
@@ -499,8 +517,9 @@ A **`Select` of the player's rosters** labelled `"Audit Roster — Angel of Deat
 an optional opponent's name. It states two things while they are still choices: the
 roster is **copied** into the battle, so changing it later does not reach the game
 (#22), and naming an opponent **does not invite them** — both sides are tracked by one
-person until KF6. A battle may currently be started from a roster with **no
-operatives**; ROADMAP F13 records that as a gap rather than a design.
+person until KF6. A roster with **no operatives** MUST NOT be offered: F13 tier 3 blocks
+it in `NewGameModal` rather than warning, because the copy is a snapshot, so an empty
+battle cannot be repaired by filling the roster afterwards.
 
 ### KillTeamGameView (`/kill-team/games/:gameId`)
 The screen the Kill Team half exists for, and the one with a layout requirement rather
@@ -515,8 +534,12 @@ only when opened: **field an operative** (#18), **take equipment** (#17) and
 **transform** (#19).
 
 **Two tabs.** *Battle* holds the sections a player touches; *Reference* holds the team's
-rules, its ploys with their CP costs split into team and universal, and the equipment
-taken. Only one panel is in the tree at a time.
+rules, its ploys and the equipment taken. Only one panel is in the tree at a time.
+
+Ploys are split twice over: into team and universal, and since KF11 by **kind** —
+strategy first, then firefight, which is the order a turning point runs in. A kind this
+app does not know prints in a trailing group headed by the token the backend sent, rather
+than not printing at all.
 
 **One sticky region, not four.** The scoreboard, the advance controls and the tablist
 travel together, pinned at the app header's **measured** height — `position: sticky`

@@ -35,9 +35,9 @@ has been verified end-to-end against the live backend.
 ## Status at a glance
 
 **Built.** The full SPEC roadmap (steps 1–12) is complete plus post-roadmap
-hardening (toasts, error boundary, code-splitting, CI). **627 tests in 56 files
-pass** — measured at `1b16095` on 2026-10-22; it was 335 when this paragraph was
-written, and the undated form is what let it rot — lint
+hardening (toasts, error boundary, code-splitting, CI). **669 tests in 59 files
+pass** — measured at `3468b81` on 2026-10-22; it was 335 when this paragraph was
+written and 627 three days later, and the undated form is what let it rot — lint
 + build clean, and the frontend↔backend contract is verified against a running,
 seeded backend (~1,331 units). Remaining work is deploy-time config and a few
 deferred niceties (see below).
@@ -114,7 +114,7 @@ deferred niceties (see below).
 - [x] **Error boundary** — render-error fallback instead of a blank screen.
 - [x] **Route-level code splitting** — `React.lazy` per view.
 - [x] **Tests** — Vitest + React Testing Library (client, roles, all views, auth,
-  routing, toasts, error boundary) — **627 tests in 56 files** at `1b16095`,
+  routing, toasts, error boundary) — **669 tests in 59 files** at `3468b81`,
   plus a WebKit browser suite (`npm run test:browser`, ROADMAP KF9) that is
   deliberately outside CI.
 - [x] **CI** — GitHub Actions: `npm ci`, a generated-types freshness gate, lint,

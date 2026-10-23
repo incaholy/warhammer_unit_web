@@ -2,10 +2,11 @@
  * See ROADMAP.md → KF4, and KILLTEAM.md #1, #7, #21.
  *
  * `ChipEditor` is the free-text list -- an operative's TOKENS and a game's MARKERS.
- * `Stepper` is the number -- an operative's WOUNDS, the game's CP, the opponent's VP and
- * the value of each VP source. Four uses of one control, which is why it lives here
- * rather than being copied: the two it replaced had already drifted apart on whether the
- * commit was debounced.
+ * `Stepper` is the number -- the game's CP, the opponent's VP and the value of each VP
+ * source. THREE uses of one control, which is why it lives here rather than being copied:
+ * the two it replaced had already drifted apart on whether the commit was debounced. It
+ * was four until KF10 moved an operative's WOUNDS to a dialog, which is also what took
+ * the control's `max`.
  *
  * Shared rather than copied for the reason `killTeamCards.tsx` gives about the weapon
  * table: two copies of one control drift, and here they would drift in behaviour rather

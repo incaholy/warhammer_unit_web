@@ -5,7 +5,7 @@ The web frontend for **Muster**, which covers two games in two sections.
 catalog, keep an inventory of the models you own, and assemble armies with live
 points totals and validation. **Kill Team** (`/kill-team`) is a Kill Team 2024
 tracker — a catalog, rosters, and a battle screen — and is being built now; see
-`KF1`–`KF9` in [`ROADMAP.md`](ROADMAP.md). Neither section's routes or views leak
+the `KF` entries in [`ROADMAP.md`](ROADMAP.md). Neither section's routes or views leak
 into the other. It's a single-page app that talks to the
 `warhammer_unit` backend API.
 

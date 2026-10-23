@@ -8,8 +8,8 @@
  *
  * Every write sends an ABSOLUTE value, never a delta (#7) — `current_wounds: 7`, not
  * `-2`, and the whole `tokens` array, not an addition. That is what makes a duplicate
- * delivery of a request harmless, and it is why the wounds control can be tapped
- * quickly without arithmetic drifting.
+ * delivery of a request harmless. It is also why the wounds dialog can send the result
+ * of its own arithmetic without reading anything back first.
  *
  * **`version` is deliberately NOT sent from this module**, which is the one place KF4
  * departs from `conventions.md`'s advice to send the version you read. The reason is a
@@ -127,7 +127,8 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
       </div>
 
       <div className={styles.controls}>
-        {/* Wounds: the shared stepper. Absolute (#7), and the write never carries
+        {/* Wounds: a dialog taking one amount (KF10), not a stepper taking one tap per
+          * point. Absolute (#7), and the write never carries
           * `status` -- the service couples zero wounds to `incapacitated` in BOTH
           * directions, and its own comment says a caller who had to remember would
           * eventually not. */}
@@ -183,7 +184,7 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
             {incapacitated ? (
               // Read-only, because the service couples zero wounds to `incapacitated` in
               // BOTH directions and its own comment warns that automating one half is
-              // worse than automating neither. The wounds stepper is how this state is
+              // worse than automating neither. The wounds DIALOG is how this state is
               // entered and left, so the copy says so rather than offering a control the
               // server would overrule.
               <span className={styles.fieldDerived}>

@@ -1624,8 +1624,10 @@ behaviour, not a geometry fact, which is why KF8 states it as a static CSS rule 
 
 ## KF9. A deliberately tiny browser suite
 
-**Status: BUILT, and deliberately NOT in CI.** `npm run test:browser` — 7 tests from 4 assertions,
-one spec file, one viewport. Run it while working on layout; nothing gates on it.
+**Status: BUILT, and deliberately NOT in CI.** `npm run test:browser` — **10 tests in one
+spec file**, one viewport, counted by `playwright test --list` at `3468b81`. It was 7 when
+this entry was written; KF8d added the three scroll tests. Run it while working on layout;
+nothing gates on it.
 
 **It paid for itself on the first run**, which is the only evidence that matters for a decision
 this entry spent its length hedging:
@@ -2416,9 +2418,71 @@ tablist's bottom margin collapse out of the pinned region, so the chrome went **
   branch is "70 commits ahead and 0 behind" when it is **53 ahead and 3 behind**, lists shipped work
   as remaining, contradicts itself about a `frontend/` monorepo that never existed, and calls three
   query-key factories "a single factory".
-- **F4, contract testing**, is the open slice and the largest. 627 tests that stub `fetch` can be
+- **F4, contract testing**, is the open slice and the largest. 669 tests that stub `fetch` can be
   green against a contract the backend does not honour — the class KF9 closed for layout, and the
   one that produced four invented literals on this branch.
+
+---
+
+## F14. What an audit of F13's own commits found
+
+**Status: BUILT.** An audit of `1b16095~1..HEAD` — 22 commits, 43 files, the whole of KF8c
+through F13 tier 3 plus KF10–KF12 — looking for defects, dead code and stale prose in work
+this branch had just finished. It found five defects, four of them in code written in the
+same session as the audit.
+
+**What was CLEAN, measured rather than assumed:** zero orphaned CSS rules across all 36
+`*.module.css` files; zero of 15 declared design tokens unreferenced; zero dependencies
+added; no unused export beyond the `*Props` interfaces the house convention exports
+anyway. `notFound.ts` and `chromeScroll.ts` were mutation-checked after the fact, having
+been written without it — six assertions, all of which bite.
+
+### The five defects
+
+| Defect | Why it survived its own slice |
+|---|---|
+| A refused wounds write was dropped, not handled | `void onCommit(next)` against a `mutateAsync` that rejects. `vitest` exits 1 on the restored defect, so a gate existed — nothing had exercised the path, because deleting `stubRefusing` moved refusal coverage to the CP stepper |
+| A second wounds dialog computed from the PRE-write value | `current` is server state. 12 wounds, 3 damage then 4, sent 8 rather than 5 |
+| `role="alert"` on `NotFound`'s `h1` | An explicit role REPLACES the implicit one, so four screens had no heading in the accessibility tree |
+| The wounds trigger's name hid its value | `aria-label` replaces content, so a screen reader never read the `8/12` |
+| A ploy of an unknown `kind` vanished entirely | KF11's split iterated `PLOY_KINDS`; the flat list it replaced showed everything |
+
+**The last one is the one to learn from.** KF11 and KF12 both made the ploy list stricter,
+and strictness against a vocabulary this app cannot validate loses data silently.
+`openapi.json` publishes `kind` as a bare `string` (backend ROADMAP R17), and this very
+slice shipped `'strategic'` once in a fixture where the allowed value is `strategy`. The
+fix is `ployKindsPresent`, which groups by what the backend actually sent and puts the
+leftovers last. **Hiding a ploy is a CP error the player cannot see to correct; showing it
+under an unfamiliar heading is merely ugly.**
+
+### Three assertions that could pass by measuring nothing
+
+`expect(x).toEqual([])` is vacuous when the filter matched nothing, and two of the three
+had a live route to that state — a `.chrome` that stops being sticky, and `openBattle`'s
+deliberate `{ state: 'attached' }` wait, which exists *because* a mispinned chrome covers
+the button it waits for. Each now asserts what it measured before judging it, and each
+floor was mutation-checked against a vacuous measurement. The third asserted a `<select>`
+was enabled, which the view never disables; it now asserts the out-of-phase OPTION.
+
+**The habit this adds:** a sweep assertion states its own floor. KF9 had the pattern
+already at `layout.spec.ts:120`, and it was not applied to the three assertions written
+after it.
+
+### What the prose had drifted into
+
+Four documents stated the OPPOSITE of the code: `SPEC.md` said there is no not-found
+screen and that an empty roster may start a battle — both fixed in tier 3, both still
+denied in the spec. Two counts were undated and wrong (`619 jsdom tests` twice in
+`layout.spec.ts`, against 669; KF9's own `7 tests`, against 10). `killTeamControls.tsx`
+claimed "four uses of one control" after KF10 took one away, and its `Stepper` JSDoc still
+argued for "one tap per point with the card's own bound respected" — the premise KF10
+refuted with the catalog measurement, beside a `max` prop no caller had passed since.
+
+**The pattern across all of it: a slice updated the documents it was ABOUT and left the
+ones that merely mentioned the thing it changed.** `chromeScroll.ts` reached `SPEC.md`'s
+file tree at KF8d; `notFound.ts`, `NotFound.tsx`, `killTeamWounds.tsx` and
+`LinkButton.tsx` did not, three slices later. No test can hold this, which is why it is
+written down as a habit rather than added to `cssModules.test.ts`.
 
 ---
 

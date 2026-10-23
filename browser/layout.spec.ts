@@ -4,7 +4,7 @@
  * from `KILLTEAM.md` or the roadmap. If it cannot, it belongs in the jsdom suite or
  * nowhere. Every browser suite starts as "just a few layout checks"; that rule is the
  * only thing stopping this one becoming a slow second suite re-testing behaviour the
- * 619 jsdom tests already cover better.
+ * jsdom suite already covers better -- 669 tests in 59 files at `3468b81`.
  *
  * It measures boxes. It never asserts on copy, never signs in, and takes no screenshots —
  * appearance stays a human's job, and visual regression is a different, far larger
@@ -107,7 +107,8 @@ test.describe('the battle screen, after scrolling', () => {
     // KF8a: four sticky elements were each pinned at `top: 0`, and `position: sticky`
     // does not stack -- so three of them claimed the same strip and `z-index` decided
     // which was visible. Advance, Undo and the tablist were entirely occluded for three
-    // slices before a phone preview found it. Nothing in 619 jsdom tests can see this.
+    // slices before a phone preview found it. Nothing in the jsdom suite can see this,
+    // at any size: it has no layout engine.
     await openBattle(page)
     // Down, then back up. Since KF8d the scoreboard deliberately slides behind the app
     // header on the way DOWN, so measuring there would report the intended design as a

@@ -28,8 +28,9 @@ const MODES = [
 ]
 
 export interface WoundsControlProps {
-  /** "<name> at position N" — every control in a row is named by it, because two rows
-   *  can hold the same datacard (#50). */
+  /** "<name> at position N" — because two rows can hold the same datacard (#50). It
+   *  names the TRIGGER and the dialog's title; the dialog's own controls need no
+   *  qualifier, because only one dialog is open at a time. */
   who: string
   current: number
   /** The datacard's maximum, which is also the constraint's upper bound. */
