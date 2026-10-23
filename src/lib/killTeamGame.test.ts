@@ -12,6 +12,7 @@ import {
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
+  tallyByName,
 } from './killTeamGame'
 
 describe('totalVictoryPoints', () => {
@@ -306,5 +307,35 @@ describe('gameChoices', () => {
 
   it('is empty for a battle that has recorded none', () => {
     expect(gameChoices({ choices: {} })).toEqual([])
+  })
+})
+
+describe('tallyByName', () => {
+  it('collapses repeats into one row with a count, in first-seen order', () => {
+    expect(
+      tallyByName([{ name: 'COMMAND RE-ROLL' }, { name: 'Sudden Surge' }, { name: 'COMMAND RE-ROLL' }]),
+    ).toEqual([
+      { name: 'COMMAND RE-ROLL', count: 2 },
+      { name: 'Sudden Surge', count: 1 },
+    ])
+  })
+
+  it('keeps the count rather than deduplicating it away', () => {
+    // The count IS the record: three re-rolls is three CP, and this list is where a
+    // player checks what the turning point cost them.
+    expect(tallyByName(Array(3).fill({ name: 'COMMAND RE-ROLL' }))).toEqual([
+      { name: 'COMMAND RE-ROLL', count: 3 },
+    ])
+  })
+
+  it('leaves a list with no repeats alone', () => {
+    expect(tallyByName([{ name: 'A' }, { name: 'B' }])).toEqual([
+      { name: 'A', count: 1 },
+      { name: 'B', count: 1 },
+    ])
+  })
+
+  it('answers an empty list with an empty list', () => {
+    expect(tallyByName([])).toEqual([])
   })
 })

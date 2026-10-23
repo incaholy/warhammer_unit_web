@@ -285,6 +285,27 @@ export function usageEntries(raw: { [key: string]: unknown }[]): UsageEntry[] {
   return out
 }
 
+/** One row per distinct name, with how many times it appears, in first-seen order.
+ *
+ * Since KF12 a ploy cannot be spent twice in a turning point, so the only thing that can
+ * repeat is COMMAND RE-ROLL — the one repeatable ploy — plus anything written directly
+ * into `ploys_used`, which stays writable for a custom game. Listing it three times made
+ * the section read as three different ploys at a glance; a count says the same thing in
+ * one row.
+ *
+ * The count is kept rather than deduplicated away, because it IS the record: three
+ * re-rolls is three CP, and this list is where a player checks what the turning point
+ * cost them. */
+export function tallyByName<T extends { name: string }>(entries: T[]): { name: string; count: number }[] {
+  const rows: { name: string; count: number }[] = []
+  for (const entry of entries) {
+    const existing = rows.find((row) => row.name === entry.name)
+    if (existing) existing.count += 1
+    else rows.push({ name: entry.name, count: 1 })
+  }
+  return rows
+}
+
 /** The ploys spent in the turning point being played, newest last.
  *
  * What the screen can honestly say. After the strategy phase a player has chosen their

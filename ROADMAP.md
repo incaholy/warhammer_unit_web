@@ -2172,6 +2172,20 @@ and a test says so.
 `SelectOption` gained an optional `disabled`, which is the smallest change that lets an
 option be shown and refused at once.
 
+### The list above it counts rather than repeats
+
+Reported in the same breath: a ploy already in the used list should not be added again.
+Since this slice only COMMAND RE-ROLL can repeat, and three of its rows read as three
+different ploys at a glance.
+
+**The count is kept rather than deduplicated away, because the count IS the record.**
+Three re-rolls is three CP, and that list is where a player checks what the turning point
+cost them — dropping the repeat silently would lose the only place the spend is visible.
+So one row per name, with `×3` beside it, quieter than the name itself.
+
+`tallyByName` is in `src/lib/` with the other derivations, generic over `{ name: string }`
+so `actions_used` can use it when the same question is asked there.
+
 ---
 
 ## F13. What a full walk of the product found

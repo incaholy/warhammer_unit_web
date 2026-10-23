@@ -56,6 +56,7 @@ import {
   NO_INITIATIVE,
   PLOY_KINDS,
   ployKindLabel,
+  tallyByName,
   ploysUsedThisTurningPoint,
   strategyPloysThisTurningPoint,
   totalVictoryPoints,
@@ -550,13 +551,19 @@ function ThisTurningPoint({ game }: { game: KTGame_Read }) {
         <p className={styles.quiet}>No ploys spent this turning point.</p>
       ) : (
         <ul className={styles.ploys}>
-          {used.map((ploy, index) => (
-            // Keyed by name AND index: the same ploy can be spent twice in a turning
-            // point as far as the tracker is concerned, because how many a turning
-            // point allows is a rule it does not count (#1).
-            <li key={`${ploy.name}-${index}`} className={styles.ploy}>
-              <span className={styles.ployName}>{ploy.name}</span>
-              <span className={styles.ployKind}>{kinds.get(ploy.name) ?? 'ploy'}</span>
+          {/* One row per ploy, with a count rather than a repeat. Since KF12 the only
+            * thing that can appear twice is COMMAND RE-ROLL -- the one repeatable ploy --
+            * and three of its rows read as three different ploys at a glance. The count
+            * is kept rather than deduplicated away because it IS the record: three
+            * re-rolls is three CP, and this list is where a player checks what the
+            * turning point cost them. */}
+          {tallyByName(used).map(({ name, count }) => (
+            <li key={name} className={styles.ploy}>
+              <span className={styles.ployName}>
+                {name}
+                {count > 1 && <span className={styles.ployCount}> ×{count}</span>}
+              </span>
+              <span className={styles.ployKind}>{kinds.get(name) ?? 'ploy'}</span>
             </li>
           ))}
         </ul>

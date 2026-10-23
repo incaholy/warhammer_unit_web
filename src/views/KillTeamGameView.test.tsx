@@ -287,6 +287,27 @@ describe('KillTeamGameView: the ploys spent this turning point', () => {
     expect(within(section as HTMLElement).getByText('firefight')).toBeInTheDocument()
   })
 
+  it('counts a repeatable ploy instead of listing it again (KF12)', async () => {
+    stub(
+      makeKTGame({
+        turning_point: 2,
+        ploys: [makeKTGamePloy({ name: 'COMMAND RE-ROLL', kind: 'firefight', universal: true })],
+        ploys_used: [
+          { name: 'COMMAND RE-ROLL', turning_point: 2 },
+          { name: 'COMMAND RE-ROLL', turning_point: 2 },
+          { name: 'COMMAND RE-ROLL', turning_point: 2 },
+        ],
+      }),
+    )
+    renderView()
+
+    const section = (await screen.findByText('This turning point')).closest('section')!
+    // One row, not three. Three rows read as three different ploys at a glance.
+    expect(within(section).getAllByText('COMMAND RE-ROLL')).toHaveLength(1)
+    // And the count survives, because three re-rolls is three CP.
+    expect(within(section).getByText('×3')).toBeInTheDocument()
+  })
+
   it('says so plainly when none have been spent', async () => {
     stub(makeKTGame({ turning_point: 2, ploys_used: [] }))
     renderView()

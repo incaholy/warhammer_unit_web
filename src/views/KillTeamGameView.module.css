@@ -228,6 +228,14 @@
   font-size: 17px;
 }
 
+/* How many times, when more than once. Quieter than the name: the ploy is the thing
+   being read, and the count is a qualifier on it. */
+.ployCount {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .ployKind {
   font-family: var(--font-mono);
   font-size: 10px;
