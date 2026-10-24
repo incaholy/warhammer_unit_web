@@ -172,6 +172,19 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
         * queryable. */}
       {open && (
         <div id={detailsId} className={styles.details}>
+          {/* The printed stats, at the FIRST fold rather than behind the datacard.
+            *
+            * APL is the action budget, and an activation IS spending it -- so the number
+            * a player needs most during an activation was two gestures deep: open the
+            * row, then open the datacard. Move and Save are read during the same
+            * activation. One gesture is the right price for all three.
+            *
+            * `wounds` appearing here as well as in the strip above is NOT a duplicate.
+            * The strip reads `8/12`, which is live state; this reads the card as
+            * PRINTED. A reference sheet and a status sheet at once, which is what a
+            * printed datacard beside a handful of dice tokens does on the table. */}
+          <StatLine operative={operative} />
+
           {/* Board status (KF7 D). In the folded half rather than the always-visible
             * strip: it is not one of the four `KILLTEAM.md` asks to see at a glance, and
             * that strip already wraps to two lines at 390px (KF8c).
@@ -255,10 +268,10 @@ function Datacard({
       </summary>
 
       <div className={styles.cardBody}>
-        {/* The stats the card was PRINTED with, beside the row's live wounds above --
-          * a reference sheet and a status sheet at once, which is what a printed
-          * datacard plus a handful of dice tokens does on the table. */}
-        <StatLine operative={operative} />
+        {/* The stat line used to lead this block. It moved up one level, to the row's
+          * first fold, so APL costs one gesture rather than two. What is left here is
+          * the part a player consults between activations rather than during one:
+          * keywords, the weapon profiles and the abilities. */}
         <Keywords keywords={operative.keywords} />
 
         <Block title="Weapons">

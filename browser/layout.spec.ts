@@ -203,6 +203,91 @@ test.describe('the activation count is readable without scrolling', () => {
   })
 })
 
+test.describe('an operative shows its printed stats at the first fold', () => {
+  /** The stat block inside ONE row. Scoped to the row on purpose: the scoreboard is
+   *  also a `dl` of `dt`/`dd` pairs, so an unscoped locator would match the chrome. */
+  const statsOf = (page: Page, who: string) =>
+    page.locator(`li[aria-label="${who}"] dl`).filter({ has: page.getByText('APL', { exact: true }) })
+
+  test('they are not in the tree at all until the row is opened', async ({ page }) => {
+    await openBattle(page)
+    const stats = statsOf(page, 'Operative 1 at position 1')
+
+    // `toHaveCount(0)` is the LOAD-BEARING assertion. Rows render `{open && ...}`, so a
+    // closed row's body does not exist -- which is stronger than "present but off
+    // screen", and it is what makes the second test's single click meaningful.
+    await expect(stats).toHaveCount(0)
+
+    // The viewport form as well, for the record. On its own this would pass VACUOUSLY:
+    // a locator matching nothing is trivially not in the viewport, so it cannot tell an
+    // absent element from a hidden one. It is the count above that carries the claim.
+    await expect(stats).not.toBeInViewport()
+  })
+
+  test('ONE gesture reveals them, fully in view and not covered', async ({ page }) => {
+    await openBattle(page)
+    const who = 'Operative 1 at position 1'
+    const row = page.locator(`li[aria-label="${who}"]`)
+
+    await row.scrollIntoViewIfNeeded()
+
+    // Exactly one click -- the row's own disclosure. No second click on `Datacard`,
+    // which is the entire point: APL is the action budget and an activation is
+    // spending it, so two gestures was the wrong price. THIS is the claim of the
+    // change, and `toHaveCount` is what proves it.
+    await row.getByRole('button', { expanded: false }).first().click()
+
+    const stats = statsOf(page, who)
+    await expect(stats).toHaveCount(1)
+
+    // Then scroll to them, and only then judge the viewport. Expanding grows the row
+    // DOWNWARD, and the first row's head already sits at y=597 of 664 -- so asserting
+    // before this scroll measures the fold budget, which is a separate known defect,
+    // and not whether this block fits or is obstructed.
+    //
+    // NOT `scrollIntoViewIfNeeded`. That lands the block flush with the viewport top,
+    // which on this screen is UNDER the pinned chrome -- measured, it puts Advance and
+    // Undo on top of all four stats. The browser's scroll knows nothing about a sticky
+    // overlay. A reader keeps scrolling until they can see it, so the test does too,
+    // clearing the chrome by its measured bottom edge. (A `scroll-margin-top` on the
+    // row would make the browser do this itself; recorded, not done here.)
+    const chromeBottom = Math.max(...(await pinnedBoxes(page)).map((b) => b.bottom))
+    await stats.evaluate((el, clear) => {
+      const top = el.getBoundingClientRect().top
+      window.scrollBy(0, top - clear - 8)
+    }, chromeBottom)
+    await page.waitForTimeout(450)
+
+    // What `ratio: 1` earns after an explicit scroll: a block TALLER than the viewport
+    // can never be fully in it, and neither can one the browser refuses to reach. It is
+    // not tautological, it is narrowed.
+    await expect(stats).toBeInViewport({ ratio: 1 })
+
+    // And `toBeInViewport` does not answer whether something is painted OVER it. KF8a
+    // was exactly that failure: in view, and invisible. A hit test at the centre of
+    // each stat is what the browser itself uses to decide where a tap lands.
+    const covered = await page.evaluate((rowSel) => {
+      const dl = document.querySelector(`${rowSel} dl`)
+      if (!dl) return ['no stat block found']
+      return Array.from(dl.querySelectorAll('div'))
+        .map((cell) => {
+          const r = cell.getBoundingClientRect()
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+          const label = cell.querySelector('dt')?.textContent ?? '?'
+          return hit && !cell.contains(hit) && !hit.contains(cell)
+            ? `${label} is covered by .${(hit as HTMLElement).className.toString().split(/\s+/)[0]}`
+            : ''
+        })
+        .filter(Boolean)
+    }, `li[aria-label="${who}"]`)
+    expect(covered, 'a stat the chrome paints over is in view and still unreadable').toEqual([])
+
+    // The numbers a player actually came for.
+    await expect(stats).toContainText('APL')
+    await expect(stats).toContainText('Save')
+  })
+})
+
 test.describe('the scoreboard gets out of the way', () => {
   test('hides on the way down and comes back on the way up', async ({ page }) => {
     // KF8d. This replaces `KILLTEAM.md`'s "always visible", and it is the assertion that

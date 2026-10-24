@@ -567,8 +567,18 @@ the setup-ish ones are folded.
 
 **An operative's row** collapses to what `KILLTEAM.md` asks to see at a glance — name,
 wounds, order, activated — with the controls for all four staying live, because on this
-screen wounds and order ARE their controls. Tokens and the datacard fold away. Rows are
-named by **position as well as datacard**, since two rows can hold the same card (#50).
+screen wounds and order ARE their controls. Rows are named by **position as well as
+datacard**, since two rows can hold the same card (#50).
+
+**The row folds twice, and the split is by when a player reads a thing.** The FIRST fold
+carries what is read DURING an activation: the printed stat line — APL, Move, Save,
+Wounds — then board status and tokens. APL is the action budget and an activation is
+spending it, so it MUST cost one gesture. The SECOND fold, behind `Datacard`, carries
+what is read BETWEEN activations: keywords, the weapon profiles and the abilities.
+
+The printed `Wounds` appearing beside the strip's live `8/12` is not a duplicate. One is
+the card as printed and one is the state now — a reference sheet and a status sheet at
+once, which is what a printed datacard beside a handful of dice tokens does on a table.
 
 **Writes are absolute values, never deltas** (#7): the whole token array, the whole
 actions list, the wound total. `advance` moves phase → turning point → finished and is

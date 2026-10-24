@@ -580,19 +580,32 @@ describe('OperativeRow: the datacard', () => {
     expect(card().open).toBe(true)
   })
 
-  it('reads the printed stats from the game\'s own snapshot', () => {
+  it('reads the printed stats from the game\'s own snapshot, at the FIRST fold', () => {
+    stub()
+    renderRow({ apl: 2, move: 6, save: 4, wounds: 12 })
+    expandRow()
+    // NO datacard click. The stats arrive with the first expansion, because APL is the
+    // action budget and an activation is spending it -- two gestures was the wrong
+    // price. #22, #24: these were copied when the battle started, so they come from the
+    // game's own snapshot and never from the catalog.
+    expect(screen.getByText('APL')).toBeInTheDocument()
+    expect(screen.getByText('6"')).toBeInTheDocument()
+    expect(screen.getByText('4+')).toBeInTheDocument()
+  })
+
+  it('does not leave a second copy inside the datacard', () => {
     stub()
     renderRow({ apl: 2, move: 6, save: 4, wounds: 12 })
     expandRow()
     fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
 
-    // #22, #24: these were copied when the battle started. The row above shows the
-    // LIVE wounds; this shows the wounds the card was printed with -- a reference
-    // sheet and a status sheet at once.
-    const body = card()
-    expect(within(body).getByText('APL')).toBeInTheDocument()
-    expect(within(body).getByText('6"')).toBeInTheDocument()
-    expect(within(body).getByText('4+')).toBeInTheDocument()
+    // A MOVE, not a copy. Two stat blocks open at once would be the same four numbers
+    // twice, and would make `getByText('APL')` ambiguous for every test after this one.
+    // What the card keeps is the part consulted BETWEEN activations: keywords, weapons
+    // and abilities.
+    expect(within(card()).queryByText('APL')).toBeNull()
+    expect(screen.getAllByText('APL')).toHaveLength(1)
+    expect(within(card()).getByText(/RAVENER/)).toBeInTheDocument()
   })
 
   it('renders a melee weapon as melee, not as a 0" range', () => {
