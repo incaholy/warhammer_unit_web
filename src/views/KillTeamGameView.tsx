@@ -52,6 +52,7 @@ import {
   advanceFinishes,
   advanceLabel,
   gameStateLabel,
+  hasActivated,
   initiativeLabel,
   NO_INITIATIVE,
   ployKindLabel,
@@ -315,13 +316,30 @@ function CollapsibleSection({
   )
 }
 
-/** Turning point, phase, initiative, CP and both scores — the five things a player
+/** Turning point, phase, activations, initiative, CP and both scores — what a player
  *  looks at between actions, and the reason the region is sticky.
  *
  *  Everything here is read from the one game query. No second request, and no catalog
  *  request ever (#22, #24), so the numbers are never waiting on anything. */
 function Scoreboard({ game }: { game: KTGame_Read }) {
   const yours = totalVictoryPoints(game.victory_points)
+
+  // How far through the turning point the player is, as one fact.
+  //
+  // It is the most-consulted thing in a turn and the only one that was not on the
+  // screen: "who is left to activate" could previously be answered only by scrolling
+  // the list and counting `NOT ACTIVATED` labels by eye -- and MEASURED at the iPhone 14
+  // viewport, no operative row is above the fold at all, so that scroll is mandatory.
+  //
+  // The denominator excludes `incapacitated`. An operative that is out cannot activate,
+  // so counting it makes the pair never reach parity: six of eight, with two dead, reads
+  // as "two still to go" at a table, which is the opposite of true. `reserve` IS counted
+  // -- whether a reserve can act is a mission rule, and this app reports rather than
+  // enforces (#1).
+  const eligible = game.operatives.filter((row) => row.status !== 'incapacitated')
+  const activated = eligible.filter((row) =>
+    hasActivated(row.activated_in_turning_point, game.turning_point),
+  ).length
 
   return (
     <header className={styles.scoreboard}>
@@ -349,6 +367,28 @@ function Scoreboard({ game }: { game: KTGame_Read }) {
       </div>
 
       <dl className={styles.stats}>
+        {/* FIRST, because it is consulted more often than any other fact here: a player
+          * checks "whose turn, how far through" between every action, where CP is
+          * checked when weighing a ploy and VP mostly at a turning point boundary.
+          *
+          * ACTIVATIONS, not "Activated". A row already renders `Activated` /
+          * `Not activated` as its own state, and a second element with that exact text
+          * both collides in a controls list and breaks the test guarding #61, which
+          * counts those labels. A count noun for a count is the better name anyway.
+          *
+          * No `aria-label`, unlike VP. "1 of 2" beside the term is already a definition
+          * pair that reads correctly; VP needs one only because its two numbers and a
+          * dash would otherwise be announced as a single figure. */}
+        <div className={styles.stat}>
+          <dt>Activations</dt>
+          <dd className={styles.statNumber}>
+            {activated}
+            <span className={styles.scoreDash} aria-hidden="true">
+              /
+            </span>
+            {eligible.length}
+          </dd>
+        </div>
         <div className={styles.stat}>
           <dt>Initiative</dt>
           {/* `null` is "not yet rolled" (#62), never the opponent. */}

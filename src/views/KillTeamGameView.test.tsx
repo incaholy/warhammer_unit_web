@@ -475,6 +475,52 @@ describe('KillTeamGameView: the operative list', () => {
     ],
   })
 
+  /** The `<dd>` paired with a scoreboard term. The value is split across text nodes --
+   *  "1", a decorative separator, "2" -- so `getByText` cannot match it whole. */
+  function statFor(term: string) {
+    return screen.getByText(term).parentElement?.querySelector('dd')?.textContent
+  }
+
+  it('counts activations for THIS turning point in the chrome', async () => {
+    stub(game)
+    renderView()
+    await screen.findByText('Activations')
+
+    // The fixture is at turning point 2. `a` activated in 2 and counts; `b` activated in
+    // TURNING POINT 1 and does not, which is the whole reason `hasActivated` compares
+    // rather than tests for null.
+    expect(statFor('Activations')).toBe('1/2')
+  })
+
+  it('leaves an incapacitated operative out of the denominator', async () => {
+    stub(game)
+    renderView()
+    await screen.findByText('Activations')
+
+    // Three operatives, one incapacitated, so the denominator is 2 and not 3. An
+    // operative that is out cannot activate: counting it would mean the pair never
+    // reaches parity, and "1 of 3" with one dead reads as two still to go.
+    // A floor: three operative rows really did render, so the denominator of 2 is an
+    // exclusion and not an empty list. Operative rows are the list items carrying a
+    // `who` name -- plain `listitem` also matches the ploy and action lists.
+    const rows = screen.getAllByRole('listitem').filter((el) => el.getAttribute('aria-label'))
+    expect(rows).toHaveLength(3)
+    expect(statFor('Activations')).toBe('1/2')
+  })
+
+  it('reads the separator as a pair, not as a single figure', async () => {
+    stub(game)
+    renderView()
+    await screen.findByText('Activations')
+
+    // The slash is `aria-hidden`, as the VP dash is: it is punctuation between two
+    // numbers, and a screen reader announcing "one slash two" helps nobody. The term
+    // ACTIVATED carries the meaning, which is why this `dd` needs no `aria-label`.
+    const dd = screen.getByText('Activations').parentElement?.querySelector('dd')
+    expect(dd?.querySelector('[aria-hidden="true"]')?.textContent).toBe('/')
+    expect(dd?.getAttribute('aria-label')).toBeNull()
+  })
+
   it('shows wounds left against the wounds it started with', async () => {
     stub(game)
     renderView()

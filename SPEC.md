@@ -541,6 +541,16 @@ strategy first, then firefight, which is the order a turning point runs in. A ki
 app does not know prints in a trailing group headed by the token the backend sent, rather
 than not printing at all.
 
+**The scoreboard reports five facts**, in order of how often a player consults them:
+**activations** (`1/2` — how far through the turning point), the stage, initiative, CP
+and both scores. Activations is derived in the client from the rows already in
+`KTGame_Read`, so it costs no request. Its denominator MUST exclude `incapacitated`: an
+operative that is out cannot activate, and counting it means the pair never reaches
+parity. `reserve` IS counted, because whether a reserve may act is a mission rule and
+this app reports rather than enforces (#1). The term is **ACTIVATIONS**, not
+"Activated" — a row already renders `Activated` / `Not activated` as its own state, and
+two elements with the same text collide.
+
 **One sticky region, not four.** The scoreboard, the advance controls and the tablist
 travel together, pinned at the app header's **measured** height — `position: sticky`
 does not stack, so three elements each pinned at `top: 0` claimed the same strip and

@@ -161,6 +161,48 @@ test.describe('the battle screen, after scrolling', () => {
   })
 })
 
+test.describe('the activation count is readable without scrolling', () => {
+  test('ACTIVATIONS is fully in the viewport at rest', async ({ page }) => {
+    // `ratio: 1` -- FULLY inside the viewport, not merely intersecting it. Intersecting
+    // is the wrong bar for a fact meant to be read in a glance: a term whose label is on
+    // screen and whose number is clipped has failed at exactly the thing it exists for.
+    //
+    // This is the fact's whole justification. MEASURED at this viewport, the first
+    // operative row's name sits at y=597 of 664 and its controls at y=654-709, so "how
+    // many have activated" previously required a scroll and a count by eye. Putting the
+    // pair in the pinned chrome answers it at rest; this asserts that it really is at
+    // rest, rather than having been pushed below the fold by the chrome above it.
+    await openBattle(page)
+
+    const stat = page
+      .locator('dl > div')
+      .filter({ has: page.getByText('Activations', { exact: true }) })
+
+    // A floor first, for the reason ROADMAP F14 gives: `toBeInViewport` on a locator
+    // that matches nothing reports a timeout rather than a clear failure, and a filter
+    // that silently matched zero elements would make the assertion below vacuous.
+    await expect(stat).toHaveCount(1)
+    await expect(stat).toBeInViewport({ ratio: 1 })
+  })
+
+  test('it travels with the chrome rather than scrolling away', async ({ page }) => {
+    // It lives in the scoreboard, which KF8d deliberately tucks on the way DOWN -- so
+    // the claim is not "always visible", it is "visible whenever the scoreboard is".
+    // Scrolling back up must bring it fully back; a fact that returns half-clipped is
+    // worse than one that returns not at all, because it reads as a layout fault.
+    await openBattle(page)
+    await scrollDown(page)
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(400)
+
+    const stat = page
+      .locator('dl > div')
+      .filter({ has: page.getByText('Activations', { exact: true }) })
+    await expect(stat).toHaveCount(1)
+    await expect(stat).toBeInViewport({ ratio: 1 })
+  })
+})
+
 test.describe('the scoreboard gets out of the way', () => {
   test('hides on the way down and comes back on the way up', async ({ page }) => {
     // KF8d. This replaces `KILLTEAM.md`'s "always visible", and it is the assertion that
