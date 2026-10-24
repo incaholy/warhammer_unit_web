@@ -2424,6 +2424,82 @@ tablist's bottom margin collapse out of the pinned region, so the chrome went **
 
 ---
 
+## A2. Injured: a stat that changes with wounds, without changing the card
+
+**Status: BUILT.** An operative with **fewer than half** its printed wounds is injured.
+While injured its Move is 2" shorter and every weapon's Hit is one worse. 5 of 12 is
+injured; 6 of 12 is not.
+
+### Derived, never stored
+
+`current_wounds` is persisted and `wounds` is frozen at snapshot time — it is in
+`KTGameOperative_Read` and **not** in `KTGameOperative_Update`, whose writable set is
+exactly `version, current_wounds, order, status, tokens, actions_used` with
+`additionalProperties: false`. So both inputs survive, one cannot drift, and recomputing
+gives the same answer after a reload, on a second device, and after an `undo`.
+
+**Storing the modified numbers would be worse than redundant.** `undo` reverts the newest
+standing event, so a stored modifier would be a second thing to revert — and the two could
+disagree. Derive it and `undo` is correct for free. The same argument covers KF6's second
+player, who computes from the same snapshot rather than receiving a value that may have
+drifted.
+
+This is the house pattern, not a new one: `hasActivated`, the activations count,
+`totalVictoryPoints`, and the backend's own coupling of zero wounds to `incapacitated`
+are all derived from stored state.
+
+### Why the catalog cannot be reached
+
+`StatLine` and `Weapons` live in `killTeamCards.tsx`, which the kill team catalog and the
+roster screen also render. **Those components were not edited.** The battle row builds an
+adjusted COPY of the operative and hands it down, so a datacard rendered anywhere else
+reads the printed values it always did.
+
+A test asserts the row does not mutate the operative it was given, because a mutation
+would carry the injury out through a shared cache entry and into every other screen.
+
+### What it does NOT do
+
+- It does not use **transform** (#19). Transform swaps the row to a different datacard and
+  re-snapshots; this operative's card is unchanged and only its current effect differs.
+- It does not write anything. No endpoint, no field, no `make openapi`, no `gen:api`.
+- It does not touch Save, APL or the printed Wounds — only Move and Hit.
+
+### The rule is in one place, because this app cannot verify it
+
+`INJURED_MOVE_PENALTY`, `INJURED_HIT_PENALTY` and `WORST_HIT` sit together in
+`killTeamGame.ts`. The datasheets carry printed stats, not injury rules, so this is a rule
+the app encodes and cannot check against its own data. It should be easy to find and
+change. Two bounds are the app's own judgement rather than the rule's: Move never goes
+negative, and a Hit never worsens past 6+ because a d6 cannot roll a 7.
+
+**This is the first time the app applies a rule rather than reporting a fact**, against
+#1, #51 and #57. Recorded as a deliberate exception: the condition is derived from a
+number the player entered, it is labelled where it applies, and the printed card is one
+gesture away in the roster and the catalog.
+
+### Verified against the real stack
+
+Not fixtures. A real browser, the real API and the real database, driven through the UI:
+
+| Step | Result |
+|---|---|
+| Fresh battle from the roster | not injured, Move 6", Hit 3+ |
+| 9 damage, to 6 of 15 | **injured**, Move 4", Hit 4+ |
+| Full page reload | **still injured**, Move 4", Hit 4+ |
+| A NEW battle from the SAME roster | not injured, Move 6", Hit 3+ |
+| Healed to 8 of 15 | **clear**, Move 6", Hit 3+ |
+
+The fourth row is the catalog guarantee, measured rather than argued: the roster was never
+written to, so a second battle snapshots the printed profile.
+
+**The Chrome extension the goal named was not connected**, and I cannot install or connect
+it. The run above drives a real browser against the real stack instead, which is stronger
+than the fixture suite for the reload and new-battle claims and performs the same user
+actions. Worth re-running through the extension once it is connected.
+
+---
+
 ## A1. Assistive technology: what an audit of every feature found
 
 **Status: IN PROGRESS.** Step 0 and group A are BUILT; groups B–G are not.

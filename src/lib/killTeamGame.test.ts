@@ -9,6 +9,9 @@ import {
   hasActivated,
   initiativeLabel,
   LAST_TURNING_POINT,
+  injuredHit,
+  injuredMove,
+  isInjured,
   ployKindLabel,
   ployKindsPresent,
   ploysUsedThisTurningPoint,
@@ -389,5 +392,41 @@ describe('ployKindLabel', () => {
     // Both callers pluralise this, so the bare token gave the heading 'strategics' --
     // which reads as a rendering bug rather than as data this app has not been taught.
     expect(ployKindLabel('strategic')).toBe('strategic ploy')
+  })
+})
+
+describe('injured (A2)', () => {
+  it('is STRICTLY fewer than half the printed wounds', () => {
+    // The boundary is the whole rule, so it is asserted from both sides. Exactly half
+    // is NOT injured: 6 of 12 is fine, 5 of 12 is not.
+    expect(isInjured(6, 12)).toBe(false)
+    expect(isInjured(5, 12)).toBe(true)
+  })
+
+  it('handles an odd maximum, where half is not a whole number', () => {
+    // 7 wounds: half is 3.5, so 4 is above it and 3 is below. An implementation that
+    // rounded first would disagree here and nowhere else, which is why this exists.
+    expect(isInjured(4, 7)).toBe(false)
+    expect(isInjured(3, 7)).toBe(true)
+  })
+
+  it('treats a full and an empty operative as the obvious cases', () => {
+    expect(isInjured(12, 12)).toBe(false)
+    expect(isInjured(0, 12)).toBe(true)
+  })
+
+  it('takes 2 inches off Move and never goes negative', () => {
+    expect(injuredMove(7)).toBe(5)
+    expect(injuredMove(6)).toBe(4)
+    // A 1" operative cannot move -1".
+    expect(injuredMove(1)).toBe(0)
+    expect(injuredMove(0)).toBe(0)
+  })
+
+  it('worsens Hit by one and never past what a d6 can roll', () => {
+    expect(injuredHit(3)).toBe(4)
+    expect(injuredHit(5)).toBe(6)
+    // A 7+ can never succeed, so it is not a number worth printing.
+    expect(injuredHit(6)).toBe(6)
   })
 })

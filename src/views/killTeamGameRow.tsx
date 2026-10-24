@@ -39,6 +39,9 @@ import type { KTGame_Read, KTGameOperative_Read } from '../api/types'
 import {
   actionsUsed,
   hasActivated,
+  injuredHit,
+  injuredMove,
+  isInjured,
   operativeStatusLabel,
   SETTABLE_OPERATIVE_STATUSES,
 } from '../lib/killTeamGame'
@@ -101,6 +104,27 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
   const activated = hasActivated(operative.activated_in_turning_point, game.turning_point)
   const incapacitated = operative.status === 'incapacitated'
 
+  // Injured (A2). DERIVED from `current_wounds` against the printed `wounds`, so it
+  // survives a reload and an `undo` without anything being written, and it clears the
+  // moment the operative is healed back above half.
+  //
+  // An adjusted COPY, built here. The stat line and the weapons table come from
+  // `killTeamCards.tsx`, which the kill team catalog and the roster screen also render
+  // -- so changing those components would change what the catalog shows. Handing them
+  // different NUMBERS instead leaves them untouched: the catalog keeps reading the
+  // printed profile because nothing about it was edited.
+  const injured = isInjured(operative.current_wounds, operative.wounds)
+  const shown = injured
+    ? {
+        ...operative,
+        move: injuredMove(operative.move),
+        weapons: operative.weapons.map((weapon) => ({
+          ...weapon,
+          hit: injuredHit(weapon.hit),
+        })),
+      }
+    : operative
+
   return (
     <li className={`${styles.row} ${incapacitated ? styles.rowOut : ''}`} aria-label={who}>
       <div className={styles.head}>
@@ -121,6 +145,11 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
         </button>
         {/* Spelled out rather than a tick: a glyph alone has no accessible name, and
           * "has it gone yet?" is the most-read fact on this screen. */}
+        {/* Beside the activation state, because it IS a state and a player needs it
+          * without opening anything: an injured operative moves and shoots differently
+          * for the rest of the battle unless it is healed. Shown rather than left to be
+          * inferred from the wound count, which is the arithmetic this exists to spare. */}
+        {injured && <span className={styles.injured}>Injured</span>}
         <span className={activated ? styles.activated : styles.notActivated}>
           {activated ? 'Activated' : 'Not activated'}
         </span>
@@ -183,7 +212,7 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
             * The strip reads `8/12`, which is live state; this reads the card as
             * PRINTED. A reference sheet and a status sheet at once, which is what a
             * printed datacard beside a handful of dice tokens does on the table. */}
-          <StatLine operative={operative} />
+          <StatLine operative={shown} />
 
           {/* Board status (KF7 D). In the folded half rather than the always-visible
             * strip: it is not one of the four `KILLTEAM.md` asks to see at a glance, and
@@ -226,7 +255,7 @@ export function OperativeRow({ game, operative, index, tokenSuggestions }: Opera
             onChange={(tokens) => update.mutate({ rowId: operative.id, body: { tokens } })}
           />
 
-          <Datacard game={game} operative={operative} who={who} update={update} />
+          <Datacard game={game} operative={shown} who={who} update={update} />
         </div>
       )}
     </li>

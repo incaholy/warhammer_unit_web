@@ -5,7 +5,7 @@
  * button, so there is no stream of taps to coalesce. */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { OperativeRow } from './killTeamGameRow'
@@ -84,6 +84,69 @@ function expandRow(who = WHO) {
   const row = screen.getByRole('listitem', { name: who })
   fireEvent.click(within(row).getByRole('button', { expanded: false }))
 }
+
+describe('OperativeRow: injured (A2)', () => {
+  /** A row with a known Move and a known weapon Hit, so both halves are falsifiable. */
+  const card = { move: 7, wounds: 12, weapons: [makeKTGameWeapon({ name: 'Talons', hit: 3 })] }
+
+  it('leaves the printed profile alone above half wounds', () => {
+    stub()
+    renderRow({ ...card, current_wounds: 6 })
+    expandRow()
+    expect(screen.queryByText('Injured')).toBeNull()
+    expect(screen.getByText('7"')).toBeInTheDocument()
+  })
+
+  it('shortens Move and worsens Hit below half wounds', () => {
+    stub()
+    renderRow({ ...card, current_wounds: 5 })
+    expandRow()
+
+    // The state, where a player can see it without opening anything.
+    expect(screen.getByText('Injured')).toBeInTheDocument()
+    // 7" - 2".
+    expect(screen.getByText('5"')).toBeInTheDocument()
+    expect(screen.queryByText('7"')).toBeNull()
+
+    // 3+ worsens to 4+, in the weapons table behind the datacard.
+    fireEvent.click(screen.getByLabelText(`Datacard for ${WHO}`))
+    const row = screen.getByRole('row', { name: /Talons/ })
+    expect(within(row).getByText('4+')).toBeInTheDocument()
+    expect(within(row).queryByText('3+')).toBeNull()
+  })
+
+  it('reverts when the operative is healed back above half', () => {
+    // The point of DERIVING rather than storing: there is nothing to unwind. The state
+    // is a pure function of `current_wounds` against the printed `wounds`, so the SAME
+    // operative at 5 and at 6 renders injured and not-injured with nothing in between
+    // and nothing to reset -- which is also why it survives a reload and an `undo`.
+    stub()
+    renderRow({ ...card, current_wounds: 5 })
+    expandRow()
+    expect(screen.getByText('Injured')).toBeInTheDocument()
+
+    cleanup()
+    renderRow({ ...card, current_wounds: 6 })
+    expandRow()
+    expect(screen.queryByText('Injured')).toBeNull()
+    expect(screen.getByText('7"')).toBeInTheDocument()
+  })
+
+  it('does not MUTATE the operative it was given', () => {
+    // The guarantee that the catalog cannot be reached. The adjusted profile is a COPY
+    // built for display; `killTeamCards.tsx` -- which the kill team catalog and the
+    // roster screen also render -- is handed different numbers and is not itself
+    // changed. If this ever mutated the source, a shared cache entry would carry the
+    // injury out of the battle and into every other screen.
+    stub()
+    const source = makeKTGameOperative({ id: 'ktgo-1', name: 'Ravener Prime', ...card, current_wounds: 5 })
+    renderRow(source)
+    expandRow()
+    expect(screen.getByText('Injured')).toBeInTheDocument()
+    expect(source.move).toBe(7)
+    expect(source.weapons[0].hit).toBe(3)
+  })
+})
 
 describe('OperativeRow: wounds (KF10)', () => {
   /** Opens the wounds dialog and fills it in. */

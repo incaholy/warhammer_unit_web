@@ -101,6 +101,50 @@ export function applyWounds(
   return Math.max(0, Math.min(max, next))
 }
 
+/* ---- Injured (A2) ----
+ *
+ * An operative with fewer than half its printed wounds is INJURED, and while injured its
+ * Move is 2" shorter and every weapon's Hit is one worse.
+ *
+ * DERIVED, never stored, and that is the whole design. `current_wounds` is persisted and
+ * `wounds` is frozen at snapshot time -- it is in `KTGameOperative_Read` and not in
+ * `KTGameOperative_Update` -- so recomputing from them gives the same answer after a
+ * reload, on a second device, and after an `undo`. Storing the modified numbers instead
+ * would mean `undo` had to revert two things that could disagree.
+ *
+ * It is also why nothing here touches the catalog. These functions take numbers and
+ * return numbers; the battle row builds an adjusted COPY for display and the shared
+ * `killTeamCards.tsx` components are not changed at all, so a datacard rendered anywhere
+ * else is reading the same printed values it always did.
+ *
+ * The threshold is STRICTLY fewer than half, not half-or-fewer: 5 of 12 is injured and
+ * 6 of 12 is not. The numbers below are the rule as specified, in one place, because a
+ * rule this app cannot verify from its own data should be easy to find and change. */
+
+/** Inches taken off Move while injured. */
+export const INJURED_MOVE_PENALTY = 2
+
+/** How much worse a weapon's Hit gets while injured. */
+export const INJURED_HIT_PENALTY = 1
+
+/** A d6 cannot roll a 7, so a Hit never worsens past this. */
+export const WORST_HIT = 6
+
+/** Fewer than half the printed wounds. */
+export function isInjured(currentWounds: number, wounds: number): boolean {
+  return currentWounds < wounds / 2
+}
+
+/** Move while injured, never negative. */
+export function injuredMove(move: number): number {
+  return Math.max(0, move - INJURED_MOVE_PENALTY)
+}
+
+/** Hit while injured, never past what a d6 can roll. */
+export function injuredHit(hit: number): number {
+  return Math.min(WORST_HIT, hit + INJURED_HIT_PENALTY)
+}
+
 /** The values `ck_kt_ploy_kind` allows, verbatim.
  *
  * Written down for the reason `GAME_STATUSES` gives: the column is CHECK'd in the

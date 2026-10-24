@@ -576,6 +576,14 @@ Wounds — then board status and tokens. APL is the action budget and an activat
 spending it, so it MUST cost one gesture. The SECOND fold, behind `Datacard`, carries
 what is read BETWEEN activations: keywords, the weapon profiles and the abilities.
 
+**Injured** (ROADMAP A2). An operative with **fewer than half** its printed wounds shows an
+`INJURED` marker in its row head, and its first fold reads a Move 2" shorter and every
+weapon's Hit one worse. It is DERIVED from `current_wounds` against the printed `wounds`,
+so it MUST NOT be stored: it survives a reload and an `undo` because both inputs do, and
+it clears the moment the operative is healed back above half. The battle row hands the
+shared card components an adjusted COPY, so the catalog and the roster keep printing the
+original profile.
+
 The printed `Wounds` appearing beside the strip's live `8/12` is not a duplicate. One is
 the card as printed and one is the state now — a reference sheet and a status sheet at
 once, which is what a printed datacard beside a handful of dice tokens does on a table.

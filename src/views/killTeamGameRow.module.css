@@ -143,6 +143,21 @@
   color: var(--faint);
 }
 
+/* Injured (A2). A boxed word rather than a colour, for the reason the activation state
+   is spelled out rather than ticked: the row already carries three mono state labels and
+   a fourth that signalled only by hue would be the one piece of state a reader could not
+   name. `--ink` on `--paper` at 17.64:1, so it reads at arm's length. */
+.injured {
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
 .notActivated {
   font-size: 12px;
   color: var(--ink);
