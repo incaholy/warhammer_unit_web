@@ -341,3 +341,52 @@ describe('afterGameWrite: how wide a ROW write invalidates', () => {
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: killTeamGameKeys.allGames })
   })
 })
+
+describe('a row write stays pending until the refetch lands', () => {
+  it('does not settle when the PATCH answers but the GET is still in flight', async () => {
+    // The defect: `onSuccess` was a BLOCK body calling `invalidateQueries` and returning
+    // `undefined`, so TanStack resolved the mutation the instant the PATCH did. Every
+    // caller guarding on `isPending` was guarding the request rather than the round trip,
+    // which is why the wounds dialog could reopen on a pre-write value and send a total
+    // computed from it. `invalidateQueries` resolves when the refetch settles.
+    const gameId = 'ktg-1'
+    let releaseGet: (res: Response) => void = () => {}
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'PATCH') {
+          return Promise.resolve(jsonResponse(makeKTGameOperative()))
+        }
+        // The game read, held open.
+        return new Promise<Response>((resolve) => {
+          releaseGet = resolve
+        })
+      }),
+    )
+
+    const queryClient = freshClient()
+    // An ACTIVE observer, so `invalidateQueries` has something to refetch and therefore
+    // something to await. Without one it resolves immediately and the test would pass
+    // against the defect.
+    const read = renderHook(() => useGame(gameId), { wrapper: wrapper(queryClient) })
+    releaseGet(jsonResponse(makeKTGame()))
+    await waitFor(() => expect(read.result.current.isSuccess).toBe(true))
+
+    const { result } = renderHook(() => useUpdateGameOperative(gameId), {
+      wrapper: wrapper(queryClient),
+    })
+    result.current.mutate({ rowId: 'ktgo-1', body: { current_wounds: 9 } })
+
+    await waitFor(() => expect(result.current.isPending).toBe(true))
+    // The PATCH has answered by now; the refetch has not. The guard must still hold.
+    await new Promise((r) => setTimeout(r, 60))
+    expect(
+      result.current.isPending,
+      'the write must not settle while the refetch it triggered is in flight',
+    ).toBe(true)
+
+    releaseGet(jsonResponse(makeKTGame()))
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+  })
+})

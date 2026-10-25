@@ -55,6 +55,12 @@ export function WoundsControl({ who, current, max, onCommit, pending }: WoundsCo
   // owner: a dialog that remembered "7 damage" from the last operative would be one
   // Confirm away from applying it to this one.
   const openDialog = () => {
+    // Guarded here rather than by `disabled`, and that is the whole point. A `disabled`
+    // button cannot receive focus -- `Modal`'s own focusable set says so, `button:not([disabled])`
+    // -- so disabling this one while the write was in flight made the dialog's focus
+    // restoration a no-op and dropped focus to `<body>` on every Confirm. `aria-disabled`
+    // announces the same thing and stays focusable.
+    if (pending) return
     setMode('damage')
     setAmount('')
     setOpen(true)
@@ -79,7 +85,7 @@ export function WoundsControl({ who, current, max, onCommit, pending }: WoundsCo
         // and hide the one fact it exists to carry (#50, SPEC "wounds ARE their control").
         aria-label={`Wounds for ${who}: ${current} of ${max}`}
         onClick={openDialog}
-        disabled={pending}
+        aria-disabled={pending || undefined}
       >
         {current}/{max}
       </Button>

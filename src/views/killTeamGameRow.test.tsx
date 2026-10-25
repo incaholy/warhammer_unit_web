@@ -188,10 +188,77 @@ describe('OperativeRow: wounds (KF10)', () => {
     // GET returns. A second dialog opened in that window would subtract from 12 again
     // and send a value that skips this hit entirely -- 12 damage 3 then 4 sending 8
     // rather than 5. The sibling `ChipEditor` in this row has always guarded this.
-    await waitFor(() => expect(woundsTrigger()).toBeDisabled())
+    //
+    // `aria-disabled`, NOT `disabled`. A disabled button cannot take focus, which made
+    // the dialog's focus restoration a no-op; this element has to stay focusable while
+    // it is unavailable. The guard that actually refuses the reopen is in `openDialog`.
+    await waitFor(() => expect(woundsTrigger()).toHaveAttribute('aria-disabled', 'true'))
+    expect(woundsTrigger(), 'it must stay focusable for the dialog to return focus to it')
+      .toBeEnabled()
 
     release(jsonResponse(makeKTGameOperative()))
-    await waitFor(() => expect(woundsTrigger()).toBeEnabled())
+    await waitFor(() => expect(woundsTrigger()).not.toHaveAttribute('aria-disabled'))
+  })
+
+  it('refuses to reopen while unavailable, without being unfocusable', async () => {
+    // The guard moved from the `disabled` attribute into the handler, so it needs its
+    // own test: clicking an `aria-disabled` trigger must still open nothing.
+    let release: (res: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'PATCH') {
+          return new Promise<Response>((resolve) => {
+            release = resolve
+          })
+        }
+        return Promise.resolve(jsonResponse(makeKTGame()))
+      }),
+    )
+    renderRow({ current_wounds: 12, wounds: 12 })
+    const dialog = await applyWounds('Damage', '3')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(woundsTrigger()).toHaveAttribute('aria-disabled', 'true'))
+
+    fireEvent.click(woundsTrigger())
+    expect(screen.queryByRole('dialog'), 'a second dialog must not open').toBeNull()
+
+    release(jsonResponse(makeKTGameOperative()))
+  })
+
+  it('returns focus to the trigger after a write, not to the body', async () => {
+    // The defect this replaces: `disabled={pending}` was applied in the same commit that
+    // unmounted the dialog, so `Modal`'s cleanup called `.focus()` on a button that had
+    // just become unfocusable -- a no-op -- and focus fell to `<body>` on every Confirm.
+    // `Modal.tsx` encodes the rule it tripped over in its own selector: `button:not([disabled])`.
+    let release: (res: Response) => void = () => {}
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? 'GET') === 'PATCH') {
+          return new Promise<Response>((resolve) => {
+            release = resolve
+          })
+        }
+        return Promise.resolve(jsonResponse(makeKTGame()))
+      }),
+    )
+    renderRow({ current_wounds: 12, wounds: 12 })
+
+    const trigger = woundsTrigger()
+    trigger.focus()
+    expect(document.activeElement, 'the probe must start from the trigger').toBe(trigger)
+
+    const dialog = await applyWounds('Damage', '3')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    // Still mid-write: the trigger is `aria-disabled`, and focus is on it anyway.
+    expect(woundsTrigger()).toHaveAttribute('aria-disabled', 'true')
+    expect(document.activeElement).toBe(woundsTrigger())
+    expect(document.activeElement, 'focus must not fall to the body').not.toBe(document.body)
+
+    release(jsonResponse(makeKTGameOperative()))
   })
 
   it('hands a refused write to the mutation rather than dropping it', async () => {

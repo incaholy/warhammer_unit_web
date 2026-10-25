@@ -26,10 +26,14 @@
   outline-offset: 2px;
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* `aria-disabled` is for a control that must stay FOCUSABLE while it is unavailable --
+   a dialog cannot restore focus to a `disabled` element. The handler guards instead. */
 
 /* ---- sizes ---- */
 .md {
@@ -49,7 +53,7 @@
   border-color: var(--ink);
 }
 
-.primary:hover:not(:disabled) {
+.primary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--ink-hover);
   border-color: var(--ink-hover);
 }
@@ -59,7 +63,7 @@
   color: var(--ink);
 }
 
-.secondary:hover:not(:disabled) {
+.secondary:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--ink);
   color: var(--paper);
 }
@@ -68,7 +72,7 @@
   color: var(--muted);
 }
 
-.ghost:hover:not(:disabled) {
+.ghost:hover:not(:disabled):not([aria-disabled='true']) {
   color: var(--ink);
 }
 
@@ -81,7 +85,7 @@
   color: var(--danger);
 }
 
-.dangerOutline:hover:not(:disabled) {
+.dangerOutline:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--danger);
   color: var(--paper);
 }
@@ -94,7 +98,7 @@
   border-color: var(--danger);
 }
 
-.danger:hover:not(:disabled) {
+.danger:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--danger-hover);
   border-color: var(--danger-hover);
 }

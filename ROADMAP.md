@@ -2422,6 +2422,36 @@ tablist's bottom margin collapse out of the pinned region, so the chrome went **
   green against a contract the backend does not honour — the class KF9 closed for layout, and the
   one that produced four invented literals on this branch.
 
+### F14's wounds fix was incomplete, and this entry said otherwise
+
+An independent review of the pushed range found both halves, in code this entry listed as
+BUILT. They interact, so they were fixed together.
+
+**The `pending` guard released at the wrong moment.** `afterGameWrite`'s `onSuccess` was a
+block body calling `invalidateQueries` and returning `undefined`, so TanStack resolved the
+mutation when the PATCH answered rather than when the refetch landed. Every caller guarding
+on `isPending` was guarding the request, not the round trip — so the stale-read window this
+entry claimed to close was narrower and still open. Measured: the guard released after 19 ms
+with the refetch still in flight, and a second application sent `current_wounds: 4` where 1
+was correct. The fix returns the promise.
+
+**And the guard itself dropped focus.** `disabled={pending}` was applied in the same commit
+that unmounts the dialog, so `Modal`'s cleanup called `.focus()` on a button that had just
+become unfocusable — a no-op — and focus fell to `<body>` on **every Confirm**, the battle
+screen's most-used action. `Modal.tsx:21` already encodes the rule it tripped over:
+`button:not([disabled])`. The trigger now carries `aria-disabled` and guards in its handler,
+so it stays focusable while unavailable.
+
+**The two fixes pull against each other**, which is why neither could land alone: returning
+the promise lengthens `isPending` and widens the focus gap, and removing `disabled` to close
+the focus gap widens the stale-read window.
+
+**This session had already measured the focus case and got it wrong.** A keyboard probe
+reported focus retained after Confirm — against a stub that resolved the PATCH instantly, so
+`isPending` flipped true and false within a tick and the trigger was never disabled when the
+restore ran. Two of that probe's three results were discarded for exactly that reason; the
+third was not. The instrument could not produce the state being tested for.
+
 ---
 
 ## A2. Injured: a stat that changes with wounds, without changing the card
@@ -2702,8 +2732,9 @@ through F13 tier 3 plus KF10–KF12 — looking for defects, dead code and stale
 this branch had just finished. It found five defects, four of them in code written in the
 same session as the audit.
 
-**What was CLEAN, measured rather than assumed:** zero orphaned CSS rules across all 36
-`*.module.css` files; zero of 15 declared design tokens unreferenced; zero dependencies
+**What was CLEAN, measured rather than assumed:** zero orphaned CSS rules across all 34
+`*.module.css` files (this entry said 36, which was never the count — 32 at `1b16095`, the
+audit's own base, and 34 when the entry was written; the zero-orphans result stands); zero of 15 declared design tokens unreferenced; zero dependencies
 added; no unused export beyond the `*Props` interfaces the house convention exports
 anyway. `notFound.ts` and `chromeScroll.ts` were mutation-checked after the fact, having
 been written without it — six assertions, all of which bite.
@@ -2713,7 +2744,7 @@ been written without it — six assertions, all of which bite.
 | Defect | Why it survived its own slice |
 |---|---|
 | A refused wounds write was dropped, not handled | `void onCommit(next)` against a `mutateAsync` that rejects. `vitest` exits 1 on the restored defect, so a gate existed — nothing had exercised the path, because deleting `stubRefusing` moved refusal coverage to the CP stepper |
-| A second wounds dialog computed from the PRE-write value | `current` is server state. 12 wounds, 3 damage then 4, sent 8 rather than 5 |
+| A second wounds dialog computed from the PRE-write value | `current` is server state. 12 wounds, 3 damage then 4, sent 8 rather than 5. **The fix was incomplete — see below** |
 | `role="alert"` on `NotFound`'s `h1` | An explicit role REPLACES the implicit one, so four screens had no heading in the accessibility tree |
 | The wounds trigger's name hid its value | `aria-label` replaces content, so a screen reader never read the `8/12` |
 | A ploy of an unknown `kind` vanished entirely | KF11's split iterated `PLOY_KINDS`; the flat list it replaced showed everything |

@@ -138,9 +138,14 @@ function afterGameRead(qc: QueryClient, gameId: UUID) {
 
 function afterGameWrite(qc: QueryClient, gameId: UUID, breadth: readonly unknown[]) {
   return {
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: breadth })
-    },
+    // RETURNED, not called and dropped. A block body here answered `undefined`, so
+    // TanStack resolved the mutation the moment the PATCH did and `isPending` went false
+    // while the refetch was still in flight. Every caller that guards on `isPending` was
+    // therefore guarding the request, not the round trip -- which left the wounds dialog
+    // able to reopen on a PRE-write `current` and send a total computed from it.
+    // `invalidateQueries` resolves when the refetch settles, which is the event that
+    // actually matters.
+    onSuccess: () => qc.invalidateQueries({ queryKey: breadth }),
     onError: (err: Error) => {
       if (isStaleVersion(err)) qc.invalidateQueries({ queryKey: killTeamGameKeys.game(gameId) })
     },
