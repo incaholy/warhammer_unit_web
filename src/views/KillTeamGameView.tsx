@@ -376,12 +376,18 @@ function Scoreboard({ game }: { game: KTGame_Read }) {
           * both collides in a controls list and breaks the test guarding #61, which
           * counts those labels. A count noun for a count is the better name anyway.
           *
-          * No `aria-label`, unlike VP. "1 of 2" beside the term is already a definition
-          * pair that reads correctly; VP needs one only because its two numbers and a
-          * dash would otherwise be announced as a single figure. */}
+          * It carries an `aria-label`, for the reason VP does. The separator is
+          * `aria-hidden`, so name computation drops it and the two text nodes CONCATENATE:
+          * one of two announced as "12", in a turning point that allows two. The first
+          * version of this reasoned the opposite -- that the term made the pair read
+          * correctly -- and shipped the bug; an independent review found it. The visible
+          * text is unchanged. */}
         <div className={styles.stat}>
           <dt>Activations</dt>
-          <dd className={styles.statNumber}>
+          <dd
+            className={styles.statNumber}
+            aria-label={`Activations, ${activated} of ${eligible.length}`}
+          >
             {activated}
             <span className={styles.scoreDash} aria-hidden="true">
               /

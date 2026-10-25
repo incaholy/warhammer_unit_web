@@ -147,11 +147,30 @@ const KNOWN: Record<string, string> = {
  * no animation. Verified by reading the computed style off the element and by walking
  * every ancestor for an alpha or an animation; there is none.
  *
- * Excluding it would silently drop the bar from every route's scan, so the contrast of its
- * one risky element is asserted from computed styles below, where a blur cannot interfere.
- * Everything else about the header stays in scope: axe excludes per ELEMENT, not per rule,
- * so this is the narrowest exclusion that works. */
-const APP_BAR = 'header'
+ * The coverage this gives up is taken back by a test below that does the arithmetic from
+ * computed styles, where a blur cannot interfere.
+ *
+ * It was `'header'` and that was a DEFECT, found by an independent review. A tag selector
+ * matches all 14 `<header>` elements in `src/`, 13 of them view page headings -- so every
+ * route was being scanned with its own header, its `h1` and its controls removed, and
+ * reporting green on markup nobody had judged. An attribute is used because the
+ * CSS-module class is content-hashed and cannot be a selector. The test immediately
+ * below is the floor that would have caught it. */
+const APP_BAR = '[data-app-bar]'
+
+/** The exclusion never removes more than one element. Checked on EVERY route.
+ *
+ * `.exclude()` silently drops whatever it matches, so a selector that is too broad makes
+ * the sweep pass by judging less -- the exact defect this replaced, where `'header'`
+ * matched all 14 in `src/`. At most one is the invariant that holds everywhere: `/login`
+ * renders no app bar at all, and several routes render no header of their own.
+ *
+ * This alone cannot tell "the app bar" from "every header", because on a one-header route
+ * both are 1. The test below does that, on a route that has two. */
+async function assertExclusionIsNarrow(testPage: Page) {
+  const excluded = await testPage.evaluate((sel) => document.querySelectorAll(sel).length, APP_BAR)
+  expect(excluded, `${APP_BAR} must never match more than the app bar`).toBeLessThanOrEqual(1)
+}
 
 /** Runs axe and renders each violation as something a person can act on. */
 async function scan(testPage: Page, context?: string) {
@@ -223,6 +242,7 @@ test.describe('axe: every route', () => {
       await seedAll(testPage)
       await testPage.goto(path)
       await settled(testPage)
+      await assertExclusionIsNarrow(testPage)
       await scan(testPage, path)
     })
   }
@@ -284,6 +304,27 @@ test.describe('axe: the ratchet itself', () => {
     }
     const fixed = Object.keys(KNOWN).filter((id) => !seen.has(id))
     expect(fixed, 'these rules now pass -- delete their lines from KNOWN').toEqual([])
+  })
+})
+
+test.describe('the axe exclusion is the app bar, not every header', () => {
+  test('a route with two headers still excludes exactly one', async ({ page: testPage }) => {
+    // The DISCRIMINATING case, and the one that would have caught the defect. On a route
+    // rendering only the app bar, "excludes the app bar" and "excludes every header" are
+    // indistinguishable -- both match 1. `/army-list` renders `CollectionView`'s own
+    // header as well, so the two answers differ there: 1 is correct, 2 is the bug.
+    await seedAll(testPage)
+    await testPage.goto('/army-list')
+    await settled(testPage)
+
+    const counts = await testPage.evaluate((sel) => ({
+      excluded: document.querySelectorAll(sel).length,
+      headers: document.querySelectorAll('header').length,
+    }), APP_BAR)
+
+    expect(counts.headers, 'this route must render a second header for the test to mean anything')
+      .toBeGreaterThanOrEqual(2)
+    expect(counts.excluded, `${APP_BAR} must match the app bar alone`).toBe(1)
   })
 })
 

@@ -508,17 +508,22 @@ describe('KillTeamGameView: the operative list', () => {
     expect(statFor('Activations')).toBe('1/2')
   })
 
-  it('reads the separator as a pair, not as a single figure', async () => {
+  it('announces the pair, because the separator is hidden from the name', async () => {
     stub(game)
     renderView()
     await screen.findByText('Activations')
 
-    // The slash is `aria-hidden`, as the VP dash is: it is punctuation between two
-    // numbers, and a screen reader announcing "one slash two" helps nobody. The term
-    // ACTIVATED carries the meaning, which is why this `dd` needs no `aria-label`.
-    const dd = screen.getByText('Activations').parentElement?.querySelector('dd')
-    expect(dd?.querySelector('[aria-hidden="true"]')?.textContent).toBe('/')
-    expect(dd?.getAttribute('aria-label')).toBeNull()
+    // THIS TEST WAS INVERTED, and an independent review found it. It asserted that the
+    // slash IS `aria-hidden` and the `aria-label` IS null -- the two conditions that
+    // together CAUSE the defect. Name computation drops the hidden subtree, so the two
+    // text nodes concatenate and "1 of 2" was announced as "12". The test could not fail
+    // while the bug existed and would have failed when it was fixed.
+    //
+    // The slash stays hidden -- "one slash two" helps nobody. What changed is that the
+    // NAME now carries the pair, so the hidden separator cannot join the numbers.
+    const dd = screen.getByLabelText('Activations, 1 of 2')
+    expect(dd.textContent).toBe('1/2')
+    expect(dd.querySelector('[aria-hidden="true"]')?.textContent).toBe('/')
   })
 
   it('shows wounds left against the wounds it started with', async () => {

@@ -102,7 +102,11 @@ export function Header({ pathname = '/', signedIn = false, onLogout }: HeaderPro
   }, [section])
 
   return (
-    <header ref={ref} className={styles.header}>
+    // `data-app-bar` exists for one consumer: `browser/a11y.spec.ts` excludes THIS bar
+    // from the axe sweep, because axe samples rather than computes beneath its
+    // `backdrop-filter`. The CSS-module class is content-hashed and the tag name matches
+    // all 14 `<header>` elements in `src/`, so neither is a usable selector.
+    <header ref={ref} data-app-bar="" className={styles.header}>
       <div className={styles.inner}>
         <Link to="/" className={styles.brand}>
           <span className={styles.wordmark}>Muster</span>
