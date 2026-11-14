@@ -30,3 +30,16 @@ dist-ssr
 
 # Coverage output
 coverage
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code's local settings
+**/.claude/settings.local.json
+
+# Scratch
+tmp/
